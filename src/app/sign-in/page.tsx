@@ -34,10 +34,9 @@ export default function SignInPage() {
       <div className="w-full max-w-sm">
         {/* Logo / wordmark */}
         <div className="text-center mb-8">
-          <h1 className="text-[#dae2ff] font-bold text-4xl tracking-tight">CHIA</h1>
-          <p className="text-[#89CFF0] text-sm font-medium mt-1 tracking-widest uppercase">
-            Marlboro Ridge
-          </p>
+          <h1 className="text-[#dae2ff] font-bold text-2xl tracking-tight">
+            Marlboro Ridge Equestrian Center
+          </h1>
         </div>
 
         {/* Card */}
