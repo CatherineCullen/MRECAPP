@@ -3072,6 +3072,7 @@ export type Database = {
         | "opened"
         | "paid"
         | "overdue"
+        | "voided"
       lesson_status:
         | "pending"
         | "scheduled"
@@ -3287,6 +3288,7 @@ export const Constants = {
         "opened",
         "paid",
         "overdue",
+        "voided",
       ],
       lesson_status: [
         "pending",

@@ -13,27 +13,31 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * we get here.
  */
 export async function sendPackageInvoice(params: {
-  billedToId: string
-  packageIds: string[]
-  eventIds?: string[]
+  billedToId:       string
+  packageIds:       string[]
+  eventIds?:        string[]
+  subscriptionIds?: string[]
 }): Promise<{
-  stripeInvoiceId?: string
-  hostedInvoiceUrl?: string | null
-  chiaInvoiceId?: string
-  packageCount?: number
-  eventCount?: number
-  error?: string
+  stripeInvoiceId?:   string
+  hostedInvoiceUrl?:  string | null
+  chiaInvoiceId?:     string
+  packageCount?:      number
+  eventCount?:        number
+  subscriptionCount?: number
+  error?:             string
 }> {
   const user = await getCurrentUser()
   if (!user?.isAdmin) return { error: 'Not authorized' }
 
   try {
     const result = await createInvoiceForUnbilled({
-      billedToId: params.billedToId,
-      packageIds: params.packageIds,
-      eventIds:   params.eventIds ?? [],
+      billedToId:      params.billedToId,
+      packageIds:      params.packageIds,
+      eventIds:        params.eventIds ?? [],
+      subscriptionIds: params.subscriptionIds ?? [],
     })
     revalidatePath('/chia/lessons-events/unbilled')
+    revalidatePath('/chia/lessons-events/renewal')
     revalidatePath(`/chia/people/${params.billedToId}`)
     revalidatePath('/chia/lessons-events')
     return result

@@ -147,6 +147,10 @@ async function handleInvoiceEvent(event: Stripe.Event) {
         ? new Date(invoice.status_transitions.paid_at * 1000).toISOString()
         : new Date().toISOString()
       update.paid_method = await resolvePaidMethod(invoice)
+      // After the invoice row itself is updated (below), cascade any linked
+      // lesson subscriptions: pending → active, pending lessons → scheduled.
+      // This is what lets a paid quarterly-renewal invoice actually make a
+      // rider's slots appear in their My Schedule view.
       break
 
     case 'invoice.payment_failed':
@@ -180,6 +184,83 @@ async function handleInvoiceEvent(event: Stripe.Event) {
       update
     )
   }
+
+  // Cross-domain cascade: if this event means the invoice is now paid,
+  // activate any lesson subscriptions tied to it.
+  if (event.type === 'invoice.paid') {
+    await activateSubscriptionsForInvoice(db, chiaInvoice.id)
+  }
+}
+
+/**
+ * When a Stripe invoice gets paid, find any LessonSubscriptions pointed at
+ * the CHIA invoice row and flip:
+ *   - subscription status: pending → active
+ *   - its pending lessons: pending → scheduled
+ *
+ * Why gate on lesson.status = 'pending': if admin manually marked a lesson
+ * as cancelled/completed somehow between invoice-send and invoice-paid, we
+ * don't want to resurrect it. Webhook is idempotent — running this twice
+ * against an already-active sub is a no-op (the WHERE clause filters out
+ * non-pending rows).
+ */
+async function activateSubscriptionsForInvoice(
+  db: ReturnType<typeof createAdminClient>,
+  chiaInvoiceId: string,
+): Promise<void> {
+  const { data: subs, error: subsErr } = await db
+    .from('lesson_subscription')
+    .select('id')
+    .eq('invoice_id', chiaInvoiceId)
+    .eq('status', 'pending')
+    .is('deleted_at', null)
+
+  if (subsErr) {
+    console.error('[stripe webhook] activate lookup failed:', subsErr.message)
+    return
+  }
+  if (!subs || subs.length === 0) return
+
+  const subIds = subs.map(s => s.id)
+
+  // Flip the subs themselves
+  const { error: subUpdateErr } = await db
+    .from('lesson_subscription')
+    .update({ status: 'active' })
+    .in('id', subIds)
+
+  if (subUpdateErr) {
+    console.error('[stripe webhook] subscription activate failed:', subUpdateErr.message)
+    return
+  }
+
+  // Find the pending lessons tied to these subs via lesson_rider
+  const { data: links } = await db
+    .from('lesson_rider')
+    .select('lesson_id, lesson:lesson(id, status)')
+    .in('subscription_id', subIds)
+    .is('deleted_at', null)
+
+  const pendingLessonIds = (links ?? [])
+    .filter(l => l.lesson?.status === 'pending')
+    .map(l => l.lesson_id)
+
+  if (pendingLessonIds.length > 0) {
+    const { error: lessonErr } = await db
+      .from('lesson')
+      .update({ status: 'scheduled' })
+      .in('id', pendingLessonIds)
+      .eq('status', 'pending') // extra safety — don't flip anything else
+
+    if (lessonErr) {
+      console.error('[stripe webhook] lesson scheduled flip failed:', lessonErr.message)
+      return
+    }
+  }
+
+  console.log(
+    `[stripe webhook] activated ${subIds.length} subscription(s), scheduled ${pendingLessonIds.length} lesson(s) for invoice ${chiaInvoiceId}`,
+  )
 }
 
 /**

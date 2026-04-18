@@ -28,16 +28,19 @@ export async function createInvoiceForUnbilled(params: {
   billedToId: string
   packageIds: string[]
   eventIds: string[]
+  subscriptionIds?: string[]
 }): Promise<{
   stripeInvoiceId: string
   hostedInvoiceUrl: string | null
   chiaInvoiceId: string
   packageCount: number
   eventCount: number
+  subscriptionCount: number
 }> {
   const { billedToId, packageIds, eventIds } = params
+  const subscriptionIds = params.subscriptionIds ?? []
 
-  if (packageIds.length === 0 && eventIds.length === 0) {
+  if (packageIds.length === 0 && eventIds.length === 0 && subscriptionIds.length === 0) {
     throw new Error('No products selected to invoice')
   }
 
@@ -177,11 +180,101 @@ export async function createInvoiceForUnbilled(params: {
     eventId: e.id,
   }))
 
-  const lineItems = [...packageLines, ...eventLines]
+  // ---------- Subscriptions (current-quarter mid-quarter signups) -----------
+  // Lives here rather than in the renewal flow because it's an ad-hoc bill for
+  // a rider who signed up mid-quarter. Same line shape as renewal's per-sub
+  // invoice, same webhook cascade on paid (pending → active).
+  let subscriptions: Array<{
+    id: string
+    billed_to_id: string
+    rider_id: string
+    lesson_day: string
+    lesson_time: string
+    subscription_price: number
+    is_prorated: boolean | null
+    prorated_price: number | null
+    instructor_id: string
+    invoice_id: string | null
+    quarter_label: string
+    instructor_label: string
+    rider_label: string
+  }> = []
+
+  if (subscriptionIds.length > 0) {
+    const { data, error } = await db
+      .from('lesson_subscription')
+      .select(`
+        id, billed_to_id, rider_id, lesson_day, lesson_time,
+        subscription_price, is_prorated, prorated_price, instructor_id, invoice_id,
+        rider:person!lesson_subscription_rider_id_fkey ( first_name, last_name, preferred_name, is_organization, organization_name ),
+        instructor:person!lesson_subscription_instructor_id_fkey ( first_name, last_name, preferred_name, is_organization, organization_name ),
+        quarter:quarter ( label )
+      `)
+      .in('id', subscriptionIds)
+      .is('deleted_at', null)
+
+    if (error) throw new Error(`Failed to load subscriptions: ${error.message}`)
+    if (!data || data.length !== subscriptionIds.length) {
+      throw new Error(`Expected ${subscriptionIds.length} subs, loaded ${data?.length ?? 0} — some deleted or missing`)
+    }
+    const wrongPerson = data.find(s => s.billed_to_id !== billedToId)
+    if (wrongPerson) throw new Error(`Subscription ${wrongPerson.id} is billed to a different person`)
+    const alreadyBilled = data.filter(s => s.invoice_id)
+    if (alreadyBilled.length > 0) {
+      throw new Error(`Refusing to re-bill subscription(s) already invoiced: ${alreadyBilled.map(s => s.id).join(', ')}`)
+    }
+
+    const nameOf = (p: { first_name: string | null; last_name: string | null; preferred_name: string | null; is_organization: boolean | null; organization_name: string | null } | null): string => {
+      if (!p) return ''
+      if (p.is_organization) return p.organization_name ?? 'Org'
+      return p.preferred_name ?? [p.first_name, p.last_name].filter(Boolean).join(' ') ?? ''
+    }
+
+    subscriptions = data.map(s => ({
+      id:                 s.id,
+      billed_to_id:       s.billed_to_id,
+      rider_id:           s.rider_id,
+      lesson_day:         s.lesson_day,
+      lesson_time:        s.lesson_time,
+      subscription_price: Number(s.subscription_price),
+      is_prorated:        s.is_prorated,
+      prorated_price:     s.prorated_price != null ? Number(s.prorated_price) : null,
+      instructor_id:      s.instructor_id,
+      invoice_id:         s.invoice_id,
+      quarter_label:      (s.quarter as { label?: string } | null)?.label ?? '',
+      instructor_label:   nameOf(s.instructor as Parameters<typeof nameOf>[0]),
+      rider_label:        nameOf(s.rider as Parameters<typeof nameOf>[0]),
+    }))
+  }
+
+  function formatTime(t: string): string {
+    const [h, m] = t.split(':').map(Number)
+    const h12 = h % 12 || 12
+    const ampm = h < 12 ? 'AM' : 'PM'
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
+  }
+  function capitalize(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1)
+  }
+
+  const subscriptionLines: LineItemInput[] = subscriptions.map(s => {
+    const price = s.is_prorated && s.prorated_price != null ? s.prorated_price : s.subscription_price
+    const slot = `${capitalize(s.lesson_day)} ${formatTime(s.lesson_time)}`
+    const prorateTag = s.is_prorated ? ' · Prorated' : ''
+    return {
+      description: `${s.quarter_label} Lessons — ${s.rider_label} (${slot} with ${s.instructor_label}${prorateTag})`,
+      unitPrice: price,
+      quantity: 1,
+      lessonSubscriptionId: s.id,
+    }
+  })
+
+  const lineItems = [...packageLines, ...eventLines, ...subscriptionLines]
 
   const descParts: string[] = []
-  if (packages.length > 0) descParts.push(`${packages.length} lesson product${packages.length === 1 ? '' : 's'}`)
-  if (events.length > 0)   descParts.push(`${events.length} event${events.length === 1 ? '' : 's'}`)
+  if (packages.length > 0)      descParts.push(`${packages.length} lesson product${packages.length === 1 ? '' : 's'}`)
+  if (events.length > 0)        descParts.push(`${events.length} event${events.length === 1 ? '' : 's'}`)
+  if (subscriptions.length > 0) descParts.push(`${subscriptions.length} subscription${subscriptions.length === 1 ? '' : 's'}`)
 
   const result = await createAndSendInvoice({
     personId: billedToId,
@@ -214,9 +307,22 @@ export async function createInvoiceForUnbilled(params: {
     }
   }
 
+  if (subscriptions.length > 0) {
+    const { error: subErr } = await db
+      .from('lesson_subscription')
+      .update({ invoice_id: result.chiaInvoiceId })
+      .in('id', subscriptions.map(s => s.id))
+    if (subErr) {
+      throw new Error(
+        `Invoice sent (Stripe: ${result.stripeInvoiceId}) but failed to backfill lesson_subscription.invoice_id: ${subErr.message}. Manual reconciliation required.`
+      )
+    }
+  }
+
   return {
     ...result,
-    packageCount: packages.length,
-    eventCount: events.length,
+    packageCount:      packages.length,
+    eventCount:        events.length,
+    subscriptionCount: subscriptions.length,
   }
 }

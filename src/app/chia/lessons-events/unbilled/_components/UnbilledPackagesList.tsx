@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { sendPackageInvoice, updatePackagePrice, updateEventPrice, skipBilling, unskipBilling } from '../actions'
 
-export type UnbilledItemKind = 'package' | 'event'
+export type UnbilledItemKind = 'package' | 'event' | 'subscription'
 
 /**
  * A row in the Unbilled Products list. Two flavors:
@@ -170,9 +170,10 @@ function GroupCard({
     setSentUrl(null)
     startTransition(async () => {
       const result = await sendPackageInvoice({
-        billedToId: group.billedToId,
-        packageIds: group.items.filter((i) => i.kind === 'package').map((i) => i.id),
-        eventIds:   group.items.filter((i) => i.kind === 'event').map((i) => i.id),
+        billedToId:      group.billedToId,
+        packageIds:      group.items.filter((i) => i.kind === 'package').map((i) => i.id),
+        eventIds:        group.items.filter((i) => i.kind === 'event').map((i) => i.id),
+        subscriptionIds: group.items.filter((i) => i.kind === 'subscription').map((i) => i.id),
       })
       if (result.error) {
         setError(result.error)
@@ -283,6 +284,10 @@ function ItemRow({
     const reason = skipReason.trim()
     setError(null)
     startTransition(async () => {
+      // Subscriptions don't support skip (that's "cancel subscription"
+      // territory, not a billing-skip); UI hides the skip button for them,
+      // so this branch only ever runs with package/event.
+      if (item.kind === 'subscription') { setError('Subscriptions can\'t be skipped — cancel the subscription instead.'); return }
       const result = await skipBilling({
         source: item.kind,
         id:     item.id,
@@ -314,6 +319,12 @@ function ItemRow({
     }
     setError(null)
     startTransition(async () => {
+      // Subscription price edits happen on the Subscription detail page
+      // (pricing logic there understands prorated vs full). No inline edit here.
+      if (item.kind === 'subscription') {
+        setError('Edit subscription price on the subscription detail page.')
+        return
+      }
       const result = item.kind === 'package'
         ? await updatePackagePrice({ packageId: item.id, newPrice: parsed })
         : await updateEventPrice({ eventId: item.id, newPrice: parsed })
@@ -328,7 +339,9 @@ function ItemRow({
 
   const detailHref = item.kind === 'package'
     ? null  // no standalone package detail page; edit lives here
-    : `/chia/lessons-events/events/${item.id}`
+    : item.kind === 'subscription'
+      ? `/chia/lessons-events/subscriptions/${item.id}`
+      : `/chia/lessons-events/events/${item.id}`
 
   return (
     <div className="px-4 py-2 text-sm">
@@ -515,6 +528,7 @@ function SkippedRow({
   function handleUnskip() {
     setError(null)
     startTransition(async () => {
+      if (item.kind === 'subscription') { setError('Subscriptions can\'t be skipped.'); return }
       const result = await unskipBilling({ source: item.kind, id: item.id })
       if (result.error) { setError(result.error); return }
       onUnskipped()

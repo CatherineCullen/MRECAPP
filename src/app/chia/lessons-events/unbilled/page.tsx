@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import UnbilledPackagesList, { type UnbilledGroup, type UnbilledItem, type SkippedItem } from './_components/UnbilledPackagesList'
+import { loadLessonSent } from '../invoices/_lib/loadLessonInvoices'
+import LessonSentView from '../invoices/_components/LessonSentView'
 import { displayName } from '@/lib/displayName'
 
 /**
@@ -24,11 +26,27 @@ export default async function BillingProductsPage() {
 
   const db = createAdminClient()
 
+  // Find current active quarter so we can scope pending-subscription billing
+  // to "mid-quarter signups." Renewal handles next-quarter pending subs; this
+  // page handles everything else unbilled.
+  const today = new Date().toISOString().slice(0, 10)
+  const { data: allQuarters } = await db
+    .from('quarter')
+    .select('id, start_date, end_date, is_active')
+    .is('deleted_at', null)
+    .order('start_date')
+  const currentQuarter =
+    (allQuarters ?? []).find(q => q.is_active) ??
+    (allQuarters ?? []).find(q => q.start_date <= today && q.end_date >= today) ??
+    null
+
   const [
     { data: packages,        error: pkgErr },
     { data: events,          error: evtErr },
+    { data: pendingSubs,     error: subErr },
     { data: skippedPackages, error: skipPkgErr },
     { data: skippedEvents,   error: skipEvtErr },
+    sent,
   ] = await Promise.all([
     db
       .from('lesson_package')
@@ -52,6 +70,26 @@ export default async function BillingProductsPage() {
       .is('billing_skipped_at', null)
       .is('deleted_at', null)
       .order('scheduled_at', { ascending: true }),
+    // Pending current-quarter subscriptions (mid-quarter signups awaiting
+    // their first invoice). Next-quarter pending subs are the renewal batch
+    // and live under the Renewal tab, so they're filtered out here.
+    currentQuarter
+      ? db
+          .from('lesson_subscription')
+          .select(`
+            id, lesson_day, lesson_time, subscription_price,
+            is_prorated, prorated_price,
+            billed_to:person!lesson_subscription_billed_to_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name, stripe_customer_id ),
+            rider:person!lesson_subscription_rider_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name ),
+            instructor:person!lesson_subscription_instructor_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name ),
+            quarter:quarter ( id, label )
+          `)
+          .eq('quarter_id', currentQuarter.id)
+          .eq('status', 'pending')
+          .is('invoice_id', null)
+          .is('deleted_at', null)
+          .order('lesson_day', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
     db
       .from('lesson_package')
       .select(`
@@ -74,10 +112,12 @@ export default async function BillingProductsPage() {
       .not('billing_skipped_at', 'is', null)
       .is('deleted_at', null)
       .order('billing_skipped_at', { ascending: false }),
+    loadLessonSent('current'),
   ])
 
   if (pkgErr)     throw pkgErr
   if (evtErr)     throw evtErr
+  if (subErr)     throw subErr
   if (skipPkgErr) throw skipPkgErr
   if (skipEvtErr) throw skipEvtErr
 
@@ -135,6 +175,50 @@ export default async function BillingProductsPage() {
     g.total += item.price
   }
 
+  // Subscriptions (mid-quarter signups, pending, no invoice yet)
+  function formatTime(t: string): string {
+    const [h, m] = t.split(':').map(Number)
+    const h12 = h % 12 || 12
+    const ampm = h < 12 ? 'AM' : 'PM'
+    return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`
+  }
+  function capitalize(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1)
+  }
+  for (const s of pendingSubs ?? []) {
+    const billedTo = s.billed_to as BilledTo | null
+    if (!billedTo) continue
+    const g = ensureGroup(billedTo)
+    const rider = s.rider as {
+      first_name: string | null
+      last_name: string | null
+      preferred_name: string | null
+      is_organization: boolean | null
+      organization_name: string | null
+    } | null
+    const instructor = s.instructor as typeof rider
+    const price = s.is_prorated && s.prorated_price != null
+      ? Number(s.prorated_price)
+      : Number(s.subscription_price)
+    const slot = `${capitalize(s.lesson_day)} ${formatTime(s.lesson_time)}`
+    const qLabel = (s.quarter as { label?: string } | null)?.label ?? 'Quarter'
+    const riderLabel = rider ? displayName(rider) : '—'
+    const instructorLabel = instructor ? displayName(instructor) : '—'
+    const item: UnbilledItem = {
+      kind:         'subscription',
+      id:           s.id,
+      title:        `${qLabel} Subscription${s.is_prorated ? ' · Prorated' : ''}`,
+      subtitle:     `${riderLabel} — ${slot} with ${instructorLabel}`,
+      price,
+      dateLabel:    'Mid-quarter signup',
+      notes:        null,
+      badgeText:    null,
+      badgeColor:   null,
+    }
+    g.items.push(item)
+    g.total += price
+  }
+
   // Events
   for (const e of events ?? []) {
     const host = e.host as BilledTo | null
@@ -159,7 +243,7 @@ export default async function BillingProductsPage() {
   const groups = Array.from(groupMap.values()).sort((a, b) =>
     a.billedToName.localeCompare(b.billedToName)
   )
-  const totalItems = (packages?.length ?? 0) + (events?.length ?? 0)
+  const totalItems = (packages?.length ?? 0) + (events?.length ?? 0) + (pendingSubs?.length ?? 0)
 
   // Skipped rows — flat chronological list. Kept simple; these are out of the
   // billing flow but we want them discoverable + reversible.
@@ -213,9 +297,10 @@ export default async function BillingProductsPage() {
     <div className="p-6 max-w-5xl">
       <div className="flex items-baseline justify-between mb-4">
         <div>
-          <h2 className="text-base font-bold text-[#191c1e]">Unbilled Products</h2>
+          <h2 className="text-base font-bold text-[#191c1e]">Invoices</h2>
           <div className="text-xs text-[#444650] mt-0.5">
-            One-off lessons and events that haven&apos;t been invoiced yet.
+            Current-quarter one-off billing: extra lessons, events, and mid-quarter
+            subscription signups. Renewal-batch invoices live under the Renewal tab.
           </div>
         </div>
         {groups.length > 0 && (
@@ -229,10 +314,26 @@ export default async function BillingProductsPage() {
 
       {groups.length === 0 && skipped.length === 0 ? (
         <div className="bg-white rounded-lg p-8 text-center text-sm text-[#8c8e98]">
-          Nothing to bill. All products are either invoiced or still pending purchase.
+          Nothing to bill right now. Extra lessons, events, and new subscriptions appear here when created.
         </div>
       ) : (
         <UnbilledPackagesList groups={groups} skipped={skipped} />
+      )}
+
+      {/* Sent one-off invoices for the current quarter. Kept underneath the
+          unbilled queue so admin can see the full current-quarter billing
+          story in one place — what's queued up, what's gone out. */}
+      {sent.groups.length > 0 && (
+        <div className="mt-8 bg-white rounded-lg overflow-hidden">
+          <div className="px-6 py-3 border-b border-[#ecedf2]">
+            <h3 className="text-sm font-semibold text-[#191c1e]">Sent This Quarter</h3>
+            <p className="text-xs text-[#444650] mt-0.5">
+              One-off subscription invoices that have already been sent. Extra-lesson /
+              event invoices show on Stripe directly.
+            </p>
+          </div>
+          <LessonSentView snapshot={sent} />
+        </div>
       )}
     </div>
   )
