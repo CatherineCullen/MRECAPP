@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSort, SortableHeader, type Sortable } from '@/lib/sortableTable'
 
@@ -51,7 +51,25 @@ export type PersonRow = {
 type Props = { people: PersonRow[] }
 
 export default function PeopleTable({ people }: Props) {
-  const rows = useMemo(() => people.map(p => {
+  const [query, setQuery] = useState('')
+
+  const filteredPeople = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return people
+    return people.filter(p => {
+      const haystack = [
+        p.display_name,
+        p.preferred_note ?? '',
+        p.email ?? '',
+        p.phone ?? '',
+        ...p.roles.map(r => ROLE_LABELS[r] ?? r),
+        ...p.horse_contact.map(hc => hc.horse?.barn_name ?? ''),
+      ].join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [people, query])
+
+  const rows = useMemo(() => filteredPeople.map(p => {
     const firstRoleRank = p.roles.length
       ? Math.min(...p.roles.map(r => ROLE_RANK[r] ?? 99))
       : 99
@@ -66,12 +84,30 @@ export default function PeopleTable({ people }: Props) {
         phone:  p.phone ?? null,
       } satisfies Record<string, string | number | null>,
     }
-  }) satisfies (PersonRow & Sortable)[], [people])
+  }) satisfies (PersonRow & Sortable)[], [filteredPeople])
 
   const { sorted, sort, onSort } = useSort(rows, { key: 'name', dir: 'asc' })
 
   return (
-    <table className="w-full text-sm">
+    <div>
+      <div className="px-4 py-2 border-b border-[#e8edf4] flex items-center gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Filter by name, email, phone, role, or horse…"
+          className="flex-1 bg-white border border-[#c4c6d1] rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#002058]"
+        />
+        {query && (
+          <span className="text-[11px] text-[#444650] whitespace-nowrap">
+            {rows.length} of {people.length}
+          </span>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-4 py-10 text-center text-sm text-[#444650]">No matches.</div>
+      ) : (
+      <table className="w-full text-sm">
       <thead>
         <tr className="bg-[#f2f4f7]">
           <SortableHeader sortKey="name"   current={sort} onSort={onSort} className="uppercase tracking-wider text-[11px]">Name</SortableHeader>
@@ -132,5 +168,7 @@ export default function PeopleTable({ people }: Props) {
         ))}
       </tbody>
     </table>
+      )}
+    </div>
   )
 }

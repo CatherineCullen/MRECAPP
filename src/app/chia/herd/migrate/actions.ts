@@ -153,7 +153,6 @@ export async function commitPayload(rawJson: string): Promise<CommitResult> {
       height:          h.height ?? null,
       weight:          h.weight ?? null,
       microchip:       h.microchip ?? null,
-      stall:           h.stall ?? null,
       status:          h.status ?? 'active',
       notes:           h.notes ?? null,
       ownership_notes: h.ownership_notes ?? null,

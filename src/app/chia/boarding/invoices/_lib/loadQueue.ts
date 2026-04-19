@@ -107,7 +107,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
       id, barn_name,
       contacts:horse_contact (
         id, person_id, is_billing_contact, deleted_at,
-        person:person ( id, first_name, last_name, preferred_name, is_organization, organization_name )
+        person:person ( id, first_name, last_name, preferred_name, is_organization, organization_name, is_minor )
       )
     `)
     .eq('status', 'active')
@@ -118,6 +118,10 @@ export async function loadQueue(): Promise<QueueSnapshot> {
     .map(h => {
       const billingContacts: BillingContactOpt[] = (h.contacts ?? [])
         .filter((c: { deleted_at: string | null }) => c.deleted_at === null)
+        // Minors are never billable — they show on the horse as Owner/contact
+        // for visibility, but billing routes through their guardian. Drop
+        // them from allocation options so they can't receive invoice lines.
+        .filter((c: { person: { is_minor: boolean | null } | null }) => !c.person?.is_minor)
         .map((c: {
           id: string
           person_id: string
@@ -129,6 +133,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
             preferred_name: string | null
             is_organization: boolean | null
             organization_name: string | null
+            is_minor: boolean | null
           } | null
         }) => ({
           horseContactId: c.id,

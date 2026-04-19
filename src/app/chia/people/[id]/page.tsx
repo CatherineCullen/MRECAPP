@@ -249,8 +249,10 @@ export default async function PersonPage({
         <EntityDocumentsSection kind="person" id={id} label={`Person: ${displayName}`} />
 
         {/* Stripe sync — admin-only. Stripe customer IDs are billing
-            plumbing, not something end users should see or trigger. */}
-        {currentUser?.isAdmin && (
+            plumbing, not something end users should see or trigger.
+            Hidden for minors: CHIA never bills minors directly — billing
+            routes through the guardian by policy. */}
+        {currentUser?.isAdmin && !person.is_minor && (
           <PersonStripeSection
             personId={id}
             initialStripeCustomerId={person.stripe_customer_id ?? null}

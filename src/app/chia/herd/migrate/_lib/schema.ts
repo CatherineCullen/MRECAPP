@@ -84,7 +84,6 @@ export type HorseInput = {
   height?:          number | null   // hands
   weight?:          number | null   // lbs
   microchip?:       string | null
-  stall?:           string | null
   status?:          HorseStatus     // default 'active' on import
   notes?:           string | null
   ownership_notes?: string | null

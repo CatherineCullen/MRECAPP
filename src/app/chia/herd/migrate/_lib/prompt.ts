@@ -74,7 +74,6 @@ function shape(): string {
       "height":            null,            // number, hands (e.g. 16.2)
       "weight":            null,            // number, lbs
       "microchip":         null,
-      "stall":             null,
       "status":            "active",        // ${HORSE_STATUSES.join(' | ')} — default active
       "notes":             null,
       "ownership_notes":   null,

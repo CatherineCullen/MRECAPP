@@ -88,6 +88,18 @@ export async function syncStripeCustomer(
     return { error: 'Not authorized' }
   }
 
+  // Block minors: CHIA never bills minors directly — billing routes
+  // through the guardian. Guard here in case the UI is ever bypassed.
+  const db = createAdminClient()
+  const { data: person } = await db
+    .from('person')
+    .select('is_minor')
+    .eq('id', personId)
+    .maybeSingle()
+  if (person?.is_minor) {
+    return { error: 'Cannot create a Stripe customer for a minor. Bill the guardian instead.' }
+  }
+
   try {
     const stripeCustomerId = await ensureStripeCustomer(personId)
     revalidatePath(`/chia/people/${personId}`)
@@ -129,6 +141,17 @@ export async function createTestInvoice(params: {
   }
   if (!params.description.trim()) {
     return { error: 'Description is required' }
+  }
+
+  // Block minors: see syncStripeCustomer guard.
+  const db = createAdminClient()
+  const { data: person } = await db
+    .from('person')
+    .select('is_minor')
+    .eq('id', params.personId)
+    .maybeSingle()
+  if (person?.is_minor) {
+    return { error: 'Cannot invoice a minor directly. Bill the guardian instead.' }
   }
 
   try {
