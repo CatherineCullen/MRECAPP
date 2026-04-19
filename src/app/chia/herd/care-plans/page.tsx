@@ -1,15 +1,36 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import Link from 'next/link'
+import { ActivePlanCard, type CarePlan } from '../_components/CarePlanCard'
 
+// Herd view shows active temporary care plans across every horse, each card
+// carrying the same edit + resolve powers as the per-horse view — so admin
+// can triage without bouncing between pages.
 export default async function HerdCarePlansPage() {
   const supabase = createAdminClient()
+
+  // Auto-resolve any plan whose explicit ends_on has already passed — same
+  // semantics as the per-horse page, but applied herd-wide. This keeps the
+  // list focused on genuinely-open plans without requiring admin to tick
+  // each one off by hand.
+  const today = new Date().toISOString().slice(0, 10)
+  await supabase
+    .from('care_plan')
+    .update({
+      is_active:       false,
+      resolved_at:     new Date().toISOString(),
+      resolution_note: 'Automatically resolved — end date passed.',
+    })
+    .eq('is_active', true)
+    .not('ends_on', 'is', null)
+    .lt('ends_on', today)
+    .is('deleted_at', null)
 
   const { data: plans, error } = await supabase
     .from('care_plan')
     .select(`
-      id, content, starts_on, ends_on, source_quote,
+      id, content, starts_on, ends_on, source_quote, resolved_at, resolution_note,
       horse!care_plan_horse_id_fkey (id, barn_name),
-      person!care_plan_created_by_fkey (first_name, last_name)
+      person:person!care_plan_created_by_fkey (first_name, last_name),
+      resolved_by_person:person!care_plan_resolved_by_fkey (first_name, last_name)
     `)
     .eq('is_active', true)
     .is('resolved_at', null)
@@ -31,42 +52,30 @@ export default async function HerdCarePlansPage() {
   return (
     <div className="p-6 max-w-4xl">
       <div className="space-y-2">
-        {plans.map((plan) => {
-          const horse     = plan.horse as any
-          const addedBy   = plan.person as any
-          const startsOn  = plan.starts_on  ? new Date((plan.starts_on as string)  + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
-          const endsOn    = plan.ends_on    ? new Date((plan.ends_on   as string)   + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
+        {plans.map((row) => {
+          const horse = row.horse as unknown as { id: string; barn_name: string } | null
+          if (!horse) return null
+
+          // Reshape the row to the CarePlan type the shared card expects.
+          const plan: CarePlan = {
+            id:              row.id,
+            content:         row.content,
+            starts_on:       row.starts_on,
+            ends_on:         row.ends_on,
+            resolved_at:     row.resolved_at,
+            resolution_note: row.resolution_note,
+            source_quote:    row.source_quote,
+            person:          (row.person as unknown as { first_name: string; last_name: string } | null),
+            resolved_by_person: (row.resolved_by_person as unknown as { first_name: string; last_name: string } | null) ?? null,
+          }
 
           return (
-            <div key={plan.id} className="bg-white rounded-lg p-4 border-l-4 border-[#ffddb3]">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  {horse && (
-                    <Link
-                      href={`/chia/herd/horses/${horse.id}`}
-                      className="text-xs font-bold text-[#056380] hover:text-[#002058] uppercase tracking-wider"
-                    >
-                      {horse.barn_name}
-                    </Link>
-                  )}
-                  <div className="mt-1 text-sm text-[#191c1e] whitespace-pre-wrap">{plan.content}</div>
-                  {plan.source_quote && (
-                    <div className="mt-1 text-xs text-[#444650] italic">"{plan.source_quote}"</div>
-                  )}
-                  <div className="mt-1.5 flex items-center gap-3 flex-wrap text-[10px] text-[#444650]">
-                    {startsOn && <span>Started {startsOn}</span>}
-                    {endsOn   && <span className="text-[#7c4b00]">Ends {endsOn}</span>}
-                    {addedBy  && <span>Added by {addedBy.first_name} {addedBy.last_name}</span>}
-                  </div>
-                </div>
-                <Link
-                  href={`/chia/herd/horses/${horse?.id}`}
-                  className="shrink-0 text-xs font-semibold text-[#056380] hover:text-[#002058]"
-                >
-                  View horse →
-                </Link>
-              </div>
-            </div>
+            <ActivePlanCard
+              key={plan.id}
+              plan={plan}
+              horseId={horse.id}
+              horseLabel={{ id: horse.id, barn_name: horse.barn_name }}
+            />
           )
         })}
       </div>
