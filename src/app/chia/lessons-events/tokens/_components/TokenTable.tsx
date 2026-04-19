@@ -13,6 +13,8 @@ export type TokenRow = {
   quarter_id:          string
   quarter_label:       string
   original_lesson_date: string | null    // ISO date (from originating lesson) or null if admin-grant
+  scheduled_lesson_id:  string | null    // present when status='scheduled' (or later 'used')
+  scheduled_lesson_date: string | null   // ISO timestamp of the makeup lesson
   reason:              'rider_cancel' | 'barn_cancel' | 'admin_grant'
   grant_reason:        string | null
   official_expires_at: string            // ISO date
@@ -222,9 +224,15 @@ export default function TokenTable({ rows, quarters }: Props) {
                     </td>
                     <td className="py-1.5 px-3 text-[#444650]">{t.quarter_label}</td>
                     <td className="py-1.5 px-3 text-[#444650]">
-                      {t.original_lesson_date
-                        ? new Date(t.original_lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                        : <span className="text-[#c4c6d1]">—</span>}
+                      <Link
+                        href={`/chia/lessons-events/tokens/${t.id}`}
+                        className="hover:underline hover:text-[#002058]"
+                        title="Open token detail"
+                      >
+                        {t.original_lesson_date
+                          ? new Date(t.original_lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : <span className="text-[#c4c6d1]">details →</span>}
+                      </Link>
                     </td>
                     <td className="py-1.5 px-3">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${REASON_COLOR[t.reason]}`}>
@@ -242,6 +250,19 @@ export default function TokenTable({ rows, quarters }: Props) {
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${STATUS_COLOR[t.status]}`}>
                         {t.status}
                       </span>
+                      {t.scheduled_lesson_date && (t.status === 'scheduled' || t.status === 'used') && (
+                        <div className="mt-0.5">
+                          <Link
+                            href={`/chia/lessons-events/${t.scheduled_lesson_id}`}
+                            className="text-[10px] text-[#444650] hover:text-[#002058] hover:underline"
+                            title="Open the scheduled makeup lesson"
+                          >
+                            {new Date(t.scheduled_lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {' · '}
+                            {new Date(t.scheduled_lesson_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </Link>
+                        </div>
+                      )}
                     </td>
                     <td className="py-1.5 px-3">
                       {editing ? (

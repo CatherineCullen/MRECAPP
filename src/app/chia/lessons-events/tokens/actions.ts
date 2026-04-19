@@ -4,6 +4,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
+// Both the list view and the detail view can fire these actions. Revalidate
+// both paths so whichever the admin is on refreshes correctly.
+function revalidateTokenViews(tokenId: string) {
+  revalidatePath('/chia/lessons-events/tokens')
+  revalidatePath(`/chia/lessons-events/tokens/${tokenId}`)
+}
+
 export async function expireToken(tokenId: string): Promise<{ error?: string }> {
   const supabase = createAdminClient()
   const { error } = await supabase
@@ -17,7 +24,7 @@ export async function expireToken(tokenId: string): Promise<{ error?: string }> 
     .eq('status', 'available')   // never expire a used/scheduled token
 
   if (error) return { error: error.message }
-  revalidatePath('/chia/lessons-events/tokens')
+  revalidateTokenViews(tokenId)
   return {}
 }
 
@@ -34,7 +41,7 @@ export async function restoreToken(tokenId: string): Promise<{ error?: string }>
     .eq('status', 'expired')
 
   if (error) return { error: error.message }
-  revalidatePath('/chia/lessons-events/tokens')
+  revalidateTokenViews(tokenId)
   return {}
 }
 
@@ -49,7 +56,7 @@ export async function updateTokenNote(tokenId: string, note: string | null): Pro
     .eq('id', tokenId)
 
   if (error) return { error: error.message }
-  revalidatePath('/chia/lessons-events/tokens')
+  revalidateTokenViews(tokenId)
   return {}
 }
 

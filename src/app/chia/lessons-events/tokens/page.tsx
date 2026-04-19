@@ -14,7 +14,8 @@ export default async function TokensPage() {
       id, status, reason, grant_reason, notes, created_at, official_expires_at,
       quarter:quarter ( id, label, end_date ),
       rider:person!makeup_token_rider_id_fkey ( id, first_name, last_name, preferred_name ),
-      origin:lesson!makeup_token_original_lesson_id_fkey ( id, scheduled_at )
+      origin:lesson!makeup_token_original_lesson_id_fkey ( id, scheduled_at ),
+      scheduled_lesson:lesson!makeup_token_scheduled_lesson_id_fkey ( id, scheduled_at )
     `)
     .order('created_at', { ascending: false })
 
@@ -27,6 +28,8 @@ export default async function TokensPage() {
     quarter_id:           t.quarter?.id ?? '',
     quarter_label:        t.quarter?.label ?? '—',
     original_lesson_date: t.origin?.scheduled_at?.slice(0, 10) ?? null,
+    scheduled_lesson_id:   t.scheduled_lesson?.id ?? null,
+    scheduled_lesson_date: t.scheduled_lesson?.scheduled_at ?? null,
     reason:               t.reason as TokenRow['reason'],
     grant_reason:         t.grant_reason,
     official_expires_at:  t.official_expires_at,
