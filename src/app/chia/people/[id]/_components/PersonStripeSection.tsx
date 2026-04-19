@@ -275,6 +275,14 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
           </span>
         ) : null}
       </div>
+      <a
+        href={`/chia/invoices/${invoice.id}`}
+        target="_blank"
+        rel="noopener"
+        className="text-xs font-semibold text-[#056380] hover:text-[#002058] shrink-0"
+      >
+        Details ↗
+      </a>
       {stripeUrl && (
         <a
           href={stripeUrl}
@@ -282,7 +290,7 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
           rel="noopener noreferrer"
           className="text-xs font-semibold text-[#056380] hover:text-[#002058] shrink-0"
         >
-          View ↗
+          Stripe ↗
         </a>
       )}
     </div>

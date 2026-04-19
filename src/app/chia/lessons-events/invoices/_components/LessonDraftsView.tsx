@@ -50,6 +50,9 @@ function DraftCard({
       </div>
 
       <footer className="flex items-center gap-2 px-4 py-2 border-t border-[#e8ecf5] bg-[#fafbfd] rounded-b">
+        <a href={`/chia/invoices/${draft.id}`} target="_blank" rel="noopener" className="text-xs text-[#002058] hover:underline">
+          Details ↗
+        </a>
         {stripeUrl && (
           <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#002058] hover:underline">
             Preview in Stripe ↗

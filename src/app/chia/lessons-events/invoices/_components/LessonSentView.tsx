@@ -93,7 +93,10 @@ function InvoiceRow({ inv }: { inv: LessonSentInvoice }) {
         <span className={`font-mono font-semibold w-24 text-right ${isVoided ? 'text-[#8c8e98] line-through decoration-[#8c8e98]/40' : 'text-[#191c1e]'}`}>
           {fmt(inv.total)}
         </span>
-        <div className="w-40 flex items-center justify-end gap-2">
+        <div className="w-52 flex items-center justify-end gap-2">
+          <a href={`/chia/invoices/${inv.id}`} target="_blank" rel="noopener" className="text-[#002058] hover:underline">
+            Details ↗
+          </a>
           {stripeUrl && (
             <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="text-[#002058] hover:underline">
               Stripe ↗

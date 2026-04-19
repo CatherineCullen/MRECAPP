@@ -24,6 +24,7 @@ type Props = {
   hostId:            string
   hostName:          string
   isBilled:          boolean             // true once event.invoice_id is set
+  invoiceId:         string | null
   invoiceStatus:     string | null
   stripeInvoiceId:   string | null
   billingSkippedAt:  string | null
@@ -334,8 +335,23 @@ function ReadView({
             {p.invoiceStatus && (
               <span className="text-[#444650]">Status: <span className="font-semibold capitalize">{p.invoiceStatus}</span></span>
             )}
+            {p.invoiceId && (
+              <Link
+                href={`/chia/invoices/${p.invoiceId}`}
+                className="text-[#056380] font-semibold hover:text-[#002058] hover:underline"
+              >
+                Details ↗
+              </Link>
+            )}
             {p.stripeInvoiceId && (
-              <span className="text-[10px] text-[#8c8e98] font-mono">{p.stripeInvoiceId}</span>
+              <a
+                href={`https://dashboard.stripe.com/invoices/${p.stripeInvoiceId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] text-[#056380] font-mono hover:underline"
+              >
+                {p.stripeInvoiceId} ↗
+              </a>
             )}
           </div>
         ) : isSkipped ? (

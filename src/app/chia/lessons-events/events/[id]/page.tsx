@@ -95,6 +95,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         hostId={host?.id ?? ''}
         hostName={host ? displayName(host) : '—'}
         isBilled={Boolean(event.invoice_id)}
+        invoiceId={invoice?.id ?? null}
         invoiceStatus={invoice?.status ?? null}
         stripeInvoiceId={invoice?.stripe_invoice_id ?? null}
         billingSkippedAt={event.billing_skipped_at}

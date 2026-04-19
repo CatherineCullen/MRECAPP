@@ -97,6 +97,14 @@ function InvoiceRow({ invoice }: { invoice: SentInvoice }) {
         }`}>
           {fmt(invoice.total)}
         </span>
+        <a
+          href={`/chia/invoices/${invoice.id}`}
+          target="_blank"
+          rel="noopener"
+          className="text-xs text-[#002058] hover:underline flex-shrink-0"
+        >
+          Details ↗
+        </a>
         {stripeUrl && (
           <a
             href={stripeUrl}
