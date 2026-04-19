@@ -5,16 +5,25 @@ import ImportFlow from './ImportFlow'
 import { addVetRecord } from '../actions'
 import { createClient } from '@/lib/supabase/client'
 import SearchPicker from '@/components/SearchPicker'
+import type { CatalogEntry } from './ImportTools'
 
 type HorseOption = { id: string; barn_name: string }
 
+// CREATE_NEW is a sentinel the Review UI uses for its per-event picker:
+// "not matched to any catalog entry — create a new type from item_name".
+// Sent to the server as health_item_type_id = null.
+const CREATE_NEW = '__create_new__'
+
 type HealthEvent = {
-  catalog_match:   string | null
-  item_name:       string
-  administered_on: string
-  next_due:        string | null
-  result:          string | null
-  lot_number:      string | null
+  catalog_match:       string | null
+  item_name:           string
+  administered_on:     string
+  next_due:            string | null
+  result:              string | null
+  lot_number:          string | null
+  // Client-side: which catalog type the admin has selected. UUID = use
+  // existing; CREATE_NEW = create from item_name on save.
+  health_item_type_id: string | null
 }
 
 type CarePlan = {
@@ -80,17 +89,32 @@ function TextArea({ label, value, onChange, rows = 3 }: { label: string; value: 
 function ReviewCards({
   data,
   horses,
+  catalog,
   initialHorseId,
   onReset,
 }: {
   data:           ParsedData
   horses:         HorseOption[]
+  catalog:        CatalogEntry[]
   initialHorseId: string | null
   onReset:        () => void
 }) {
+  // On mount, pre-match each event to a catalog entry by name (case
+  // insensitive), preferring catalog_match over item_name. If neither
+  // hits, default to CREATE_NEW — the admin can flip it to an existing
+  // entry via the per-event picker.
+  const catalogByName = new Map(catalog.map(c => [c.name.toLowerCase(), c]))
+  const initialEvents: HealthEvent[] = (data.health_events ?? []).map(e => {
+    const matched =
+      (e.catalog_match && catalogByName.get(e.catalog_match.toLowerCase())) ||
+      catalogByName.get(e.item_name.toLowerCase()) ||
+      null
+    return { ...e, health_item_type_id: matched?.id ?? CREATE_NEW }
+  })
+
   const [horseId,      setHorseId]     = useState<string | null>(initialHorseId)
   const [visit,        setVisit]       = useState(data.visit)
-  const [events,       setEvents]      = useState<HealthEvent[]>(data.health_events ?? [])
+  const [events,       setEvents]      = useState<HealthEvent[]>(initialEvents)
   const [plans,        setPlans]       = useState<CarePlan[]>(data.care_plans ?? [])
   const [pdfFile,      setPdfFile]     = useState<File | null>(null)
   const [uploadError,  setUploadError] = useState<string | null>(null)
@@ -146,7 +170,12 @@ function ReviewCards({
 
         await addVetRecord(horseId, {
           visit:         { ...visit, visit_date: visit.visit_date! },
-          health_events: events,
+          health_events: events.map(e => ({
+            ...e,
+            // Server sees null = "create new from item_name"; a real UUID =
+            // "link to existing type, don't create".
+            health_item_type_id: e.health_item_type_id === CREATE_NEW ? null : e.health_item_type_id,
+          })),
           care_plans:    plans,
           document,
         })
@@ -237,23 +266,60 @@ function ReviewCards({
             <h3 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">Health Events ({events.length})</h3>
           </div>
           <div className="divide-y divide-[#f2f4f7]">
-            {events.map((ev, i) => (
-              <div key={i} className="p-4">
-                {ev.catalog_match && ev.catalog_match !== ev.item_name && (
-                  <div className="mb-2 text-xs text-[#056380]">→ matched to catalog: {ev.catalog_match}</div>
-                )}
-                <div className="grid grid-cols-3 gap-3">
-                  <Field label="Item"            value={ev.item_name       ?? ''} onChange={v => updateEvent(i, 'item_name', v)} />
-                  <Field label="Administered on" type="date" value={ev.administered_on ?? ''} onChange={v => updateEvent(i, 'administered_on', v)} />
-                  <Field label="Next due"        type="date" value={ev.next_due        ?? ''} onChange={v => updateEvent(i, 'next_due', v)} />
-                  <Field label="Result"          value={ev.result          ?? ''} onChange={v => updateEvent(i, 'result', v)} />
-                  <Field label="Lot number"      value={ev.lot_number      ?? ''} onChange={v => updateEvent(i, 'lot_number', v)} />
+            {events.map((ev, i) => {
+              const isCreating = ev.health_item_type_id === CREATE_NEW
+              const matchedEntry = !isCreating
+                ? catalog.find(c => c.id === ev.health_item_type_id)
+                : null
+              return (
+                <div key={i} className="p-4">
+                  {/* Match state badge + type picker. Always visible so admin
+                      can see at a glance whether this row will create a new
+                      catalog type or reuse an existing one, and flip it. */}
+                  <div className="mb-3 flex items-center gap-3 flex-wrap">
+                    {isCreating ? (
+                      <span className="text-[10px] font-semibold bg-[#ffddb3] text-[#7c4b00] px-2 py-0.5 rounded uppercase tracking-wider">
+                        Will create new
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold bg-[#b7f0d0] text-[#1a6b3c] px-2 py-0.5 rounded uppercase tracking-wider">
+                        Match: {matchedEntry?.name ?? '?'}
+                      </span>
+                    )}
+                    <label className="text-[10px] font-semibold text-[#444650] uppercase tracking-wider">
+                      Catalog type
+                    </label>
+                    <select
+                      value={ev.health_item_type_id ?? CREATE_NEW}
+                      onChange={e => updateEvent(i, 'health_item_type_id', e.target.value)}
+                      className="border border-[#c4c6d1] rounded px-2 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380] bg-white"
+                    >
+                      <option value={CREATE_NEW}>➕ Create new from &ldquo;{ev.item_name}&rdquo;</option>
+                      <optgroup label="Essential">
+                        {catalog.filter(c => c.is_essential).map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Other">
+                        {catalog.filter(c => !c.is_essential).map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Field label="Item"            value={ev.item_name       ?? ''} onChange={v => updateEvent(i, 'item_name', v)} />
+                    <Field label="Administered on" type="date" value={ev.administered_on ?? ''} onChange={v => updateEvent(i, 'administered_on', v)} />
+                    <Field label="Next due"        type="date" value={ev.next_due        ?? ''} onChange={v => updateEvent(i, 'next_due', v)} />
+                    <Field label="Result"          value={ev.result          ?? ''} onChange={v => updateEvent(i, 'result', v)} />
+                    <Field label="Lot number"      value={ev.lot_number      ?? ''} onChange={v => updateEvent(i, 'lot_number', v)} />
+                  </div>
+                  <button onClick={() => removeEvent(i)} className="mt-2 text-xs text-[#b00020] hover:underline">
+                    Remove
+                  </button>
                 </div>
-                <button onClick={() => removeEvent(i)} className="mt-2 text-xs text-[#b00020] hover:underline">
-                  Remove
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -310,10 +376,12 @@ function ReviewCards({
 export default function VetRecordImport({
   prompt,
   horses,
+  catalog,
   initialHorseId,
 }: {
   prompt:         { body: string; description: string | null }
   horses:         HorseOption[]
+  catalog:        CatalogEntry[]
   initialHorseId: string | null
 }) {
   return (
@@ -327,6 +395,7 @@ export default function VetRecordImport({
         <ReviewCards
           data={data as ParsedData}
           horses={horses}
+          catalog={catalog}
           initialHorseId={initialHorseId}
           onReset={onReset}
         />

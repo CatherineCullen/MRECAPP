@@ -7,6 +7,7 @@ import HorseDietSection from './_components/HorseDietSection'
 import HorseCogginsSection from './_components/HorseCogginsSection'
 import HorseContactsSection from './_components/HorseContactsSection'
 import HorseVetVisitsSection from './_components/HorseVetVisitsSection'
+import HorseHealthItemsSection, { type HorseHealthItem } from './_components/HorseHealthItemsSection'
 import HorseBoardServicesSection, { type HorseBoardLog, type BoardServiceOption } from './_components/HorseBoardServicesSection'
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
@@ -71,6 +72,7 @@ export default async function HorseRecordPage({
   const [
     { data: boardLogs },
     { data: boardServices },
+    { data: healthItemsRaw },
     currentUser,
   ] = await Promise.all([
     supabase
@@ -90,9 +92,21 @@ export default async function HorseRecordPage({
       .eq('is_active', true)
       .eq('is_recurring_monthly', false)
       .order('name'),
+    supabase
+      .from('health_program_item')
+      .select(`
+        id, last_done, next_due,
+        type:health_item_type!health_program_item_health_item_type_id_fkey (
+          id, name, is_essential, show_in_herd_dashboard
+        )
+      `)
+      .eq('horse_id', id)
+      .is('deleted_at', null),
     getCurrentUser(),
   ])
 
+  const healthItems: HorseHealthItem[] = (healthItemsRaw ?? [])
+    .filter((r: any) => r.type && !r.type.deleted_at) as HorseHealthItem[]
   const logs: HorseBoardLog[] = (boardLogs ?? []) as HorseBoardLog[]
   const serviceOptions: BoardServiceOption[] = (boardServices ?? []) as BoardServiceOption[]
   const userName = currentUser
@@ -158,6 +172,9 @@ export default async function HorseRecordPage({
 
         {/* Coggins */}
         <HorseCogginsSection coggins={activeCoggins} horseId={id} />
+
+        {/* Recurring Health Items — vaccines, dental, fecal, etc. */}
+        <HorseHealthItemsSection items={healthItems} />
 
         {/* Daily Care — Care Plans + Diet */}
         <section className="bg-white rounded-lg overflow-hidden">

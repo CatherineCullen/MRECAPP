@@ -6,6 +6,7 @@ import VetRecordImport from './VetRecordImport'
 
 type PromptData = { slug: string; label: string; description: string | null; body: string }
 type HorseOption = { id: string; barn_name: string }
+export type CatalogEntry = { id: string; name: string; is_essential: boolean }
 
 type Tab = 'coggins' | 'vet_record'
 
@@ -18,11 +19,13 @@ export default function ImportTools({
   cogginsPrompt,
   vetRecordPrompt,
   horses,
+  catalog,
   initialHorseId,
 }: {
   cogginsPrompt:   PromptData | null
   vetRecordPrompt: PromptData | null
   horses:          HorseOption[]
+  catalog:         CatalogEntry[]
   initialHorseId:  string | null
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('coggins')
@@ -55,7 +58,7 @@ export default function ImportTools({
       )}
       {activeTab === 'vet_record' && (
         vetRecordPrompt
-          ? <VetRecordImport prompt={vetRecordPrompt} horses={horses} initialHorseId={initialHorseId} />
+          ? <VetRecordImport prompt={vetRecordPrompt} horses={horses} catalog={catalog} initialHorseId={initialHorseId} />
           : <div className="text-sm text-[#444650]">Vet record import prompt not configured.</div>
       )}
     </div>

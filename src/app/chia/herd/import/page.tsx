@@ -18,7 +18,7 @@ async function getPageData() {
   // Fetch health item type catalog for vet_record prompt injection
   const { data: catalog, error: catalogError } = await supabase
     .from('health_item_type')
-    .select('name, is_essential, default_interval_days')
+    .select('id, name, is_essential, default_interval_days')
     .eq('is_active', true)
     .is('deleted_at', null)
     .order('sort_order')
@@ -75,6 +75,7 @@ export default async function ImportPage({
         cogginsPrompt={cogginsPrompt ?? null}
         vetRecordPrompt={vetRecordPrompt ?? null}
         horses={horses}
+        catalog={(catalog ?? []).map(c => ({ id: c.id, name: c.name, is_essential: c.is_essential }))}
         initialHorseId={initialHorseId}
       />
     </div>

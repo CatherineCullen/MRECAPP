@@ -263,6 +263,13 @@ type AddVetRecordPayload = {
     next_due:        string | null
     result:          string | null
     lot_number:      string | null
+    // Set by the Review UI's per-event picker. A UUID means "link to
+    // this existing health_item_type — do not create a new one".
+    // null means "no existing match selected — create a new type
+    // from item_name". Must be explicit from the client now so the
+    // admin's in-UI reassignment isn't overridden by stale fuzzy
+    // matching on the server.
+    health_item_type_id?: string | null
   }[]
   care_plans: {
     content:      string
@@ -335,19 +342,17 @@ export async function addVetRecord(horseId: string, payload: AddVetRecordPayload
 
   // 4. Create health events + upsert health program items
   if (payload.health_events.length > 0) {
-    const { data: types } = await supabase
-      .from('health_item_type')
-      .select('id, name')
-      .eq('is_active', true)
-      .is('deleted_at', null)
-
-    const typeMap = new Map(types?.map(t => [t.name.toLowerCase(), t.id]) ?? [])
-
     for (const event of payload.health_events) {
-      const typeId =
-        typeMap.get(event.item_name.toLowerCase()) ??
-        typeMap.get(event.catalog_match?.toLowerCase() ?? '') ??
-        (await getOrCreateHealthItemType(supabase, event.item_name))
+      // Trust the client's explicit choice from the Review UI:
+      // - UUID  → link to that existing type, never create a new one
+      // - null  → no match selected; create a new type from item_name
+      // No fuzzy fallback — the Review screen's picker is the source of
+      // truth for match vs. create. (Earlier version tried to re-match by
+      // name here and that's how combo strings like "EEE/WEE/Tetanus"
+      // silently created dup types even when the admin had picked an
+      // existing catalog entry.)
+      const typeId = event.health_item_type_id
+        ?? (await getOrCreateHealthItemType(supabase, event.item_name))
 
       const { error: heError } = await supabase
         .from('health_event')
