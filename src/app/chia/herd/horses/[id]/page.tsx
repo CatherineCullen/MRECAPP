@@ -7,7 +7,9 @@ import HorseDietSection from './_components/HorseDietSection'
 import HorseCogginsSection from './_components/HorseCogginsSection'
 import HorseContactsSection from './_components/HorseContactsSection'
 import HorseVetVisitsSection from './_components/HorseVetVisitsSection'
-import HorseHealthItemsSection, { type HorseHealthItem } from './_components/HorseHealthItemsSection'
+import HorseHealthItemsSection, { type HorseHealthItem, type HealthItemTypeOption } from './_components/HorseHealthItemsSection'
+import HorseChronologySection from './_components/HorseChronologySection'
+import { loadHorseChronology } from './_lib/loadChronology'
 import HorseBoardServicesSection, { type HorseBoardLog, type BoardServiceOption } from './_components/HorseBoardServicesSection'
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
@@ -72,7 +74,9 @@ export default async function HorseRecordPage({
   const [
     { data: boardLogs },
     { data: boardServices },
+    { data: chronology },
     { data: healthItemsRaw },
+    { data: healthCatalogRaw },
     currentUser,
   ] = await Promise.all([
     supabase
@@ -92,6 +96,7 @@ export default async function HorseRecordPage({
       .eq('is_active', true)
       .eq('is_recurring_monthly', false)
       .order('name'),
+    loadHorseChronology(supabase, id).then(data => ({ data })),
     supabase
       .from('health_program_item')
       .select(`
@@ -102,11 +107,17 @@ export default async function HorseRecordPage({
       `)
       .eq('horse_id', id)
       .is('deleted_at', null),
+    supabase
+      .from('health_item_type')
+      .select('id, name, is_essential, show_in_herd_dashboard')
+      .is('deleted_at', null)
+      .order('name'),
     getCurrentUser(),
   ])
 
   const healthItems: HorseHealthItem[] = (healthItemsRaw ?? [])
     .filter((r: any) => r.type && !r.type.deleted_at) as HorseHealthItem[]
+  const healthCatalog: HealthItemTypeOption[] = (healthCatalogRaw ?? []) as HealthItemTypeOption[]
   const logs: HorseBoardLog[] = (boardLogs ?? []) as HorseBoardLog[]
   const serviceOptions: BoardServiceOption[] = (boardServices ?? []) as BoardServiceOption[]
   const userName = currentUser
@@ -170,11 +181,18 @@ export default async function HorseRecordPage({
         {/* Identity */}
         <HorseIdentitySection horse={horse} recordingIds={horse.horse_recording_ids} />
 
+        {/* Chronology — what's happening with this horse day-to-day.
+            Today-anchored card feed of lessons, training rides, and
+            board services (all non-voided). Health and care plans live
+            in their own dedicated sections below — see
+            docs/requirements/horses.md + session notes 2026-04-19. */}
+        <HorseChronologySection events={chronology ?? []} />
+
         {/* Coggins */}
         <HorseCogginsSection coggins={activeCoggins} horseId={id} />
 
         {/* Recurring Health Items — vaccines, dental, fecal, etc. */}
-        <HorseHealthItemsSection items={healthItems} />
+        <HorseHealthItemsSection horseId={id} items={healthItems} catalog={healthCatalog} />
 
         {/* Daily Care — Care Plans + Diet */}
         <section className="bg-white rounded-lg overflow-hidden">

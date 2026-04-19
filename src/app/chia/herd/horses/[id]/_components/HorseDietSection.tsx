@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 
 type Diet = {
@@ -44,19 +45,34 @@ function TimeBlock({ label, feed, supplements, hay }: {
 }
 
 export default function HorseDietSection({ diet, horseId }: { diet: Diet, horseId: string }) {
+  // Collapsed by default — diet is reference info, not day-to-day. Keeps
+  // the Daily Care section scannable; expand when you actually need to
+  // read or edit the feeding plan.
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div className="border-t border-[#f2f4f7]">
       <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-[#444650] uppercase tracking-wider">Diet</span>
-        <Link
-          href={`/chia/herd/horses/${horseId}/diet/edit`}
-          className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="flex items-center gap-1.5 text-[10px] font-semibold text-[#444650] uppercase tracking-wider hover:text-[#002058]"
+          aria-expanded={expanded}
         >
-          {diet ? 'Edit' : '+ Add'}
-        </Link>
+          <span className={`inline-block transition-transform ${expanded ? 'rotate-90' : ''}`}>▸</span>
+          Diet
+        </button>
+        {expanded && (
+          <Link
+            href={`/chia/herd/horses/${horseId}/diet/edit`}
+            className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
+          >
+            {diet ? 'Edit' : '+ Add'}
+          </Link>
+        )}
       </div>
 
-      {!diet ? (
+      {!expanded ? null : !diet ? (
         <div className="px-4 pb-3 text-sm text-[#444650]">No diet record on file.</div>
       ) : (
         <div className="px-4 pb-3 space-y-4">
