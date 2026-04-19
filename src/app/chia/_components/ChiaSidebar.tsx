@@ -15,6 +15,7 @@ const sections = [
   { label: 'Training Rides',   href: '/chia/training-rides',   icon: '◉' },
   { label: 'People',           href: '/chia/people',           icon: '◯' },
   { label: 'Boarding',         href: '/chia/boarding',         icon: '▣' },
+  { label: 'Documents',        href: '/chia/documents',        icon: '▤' },
   { label: 'Data',             href: '/chia/data',             icon: '◈' },
   { label: 'Configuration',    href: '/chia/configuration',    icon: '◧' },
 ]
