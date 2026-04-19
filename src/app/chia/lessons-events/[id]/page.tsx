@@ -67,9 +67,12 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
   // PostgREST self-FK embeds on `lesson → lesson` are unreliable (schema-cache
   // sensitivity around the auto-named FK), so fetch the origin lesson in a
   // separate round-trip when this lesson is a makeup.
-  let originalLesson:
-    | { id: string; scheduled_at: string; instructor: { first_name: string | null; last_name: string | null; preferred_name: string | null } | null }
-    | null = null
+  type OriginalLesson = {
+    id:           string
+    scheduled_at: string
+    instructor:   { first_name: string | null; last_name: string | null; preferred_name: string | null } | null
+  }
+  let originalLesson: OriginalLesson | null = null
   if (lesson.is_makeup && lesson.makeup_for_lesson_id) {
     const { data: orig } = await supabase
       .from('lesson')
@@ -79,7 +82,7 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
       `)
       .eq('id', lesson.makeup_for_lesson_id)
       .maybeSingle()
-    originalLesson = orig as typeof originalLesson
+    originalLesson = orig as unknown as OriginalLesson | null
   }
 
   // ─────────────────────────────────────────────────────────────
