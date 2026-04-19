@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import WeekPicker from './_components/WeekPicker'
 import WeekGrid, { type GridDay, type GridLesson, type GridLessonStatus, type GridEvent, type InstructorKey } from './_components/WeekGrid'
+import NewLessonMenu from './_components/NewLessonMenu'
 import { toISODate, startOfWeek, weekDays, parseISODate } from './_lib/weekRange'
 import { effectiveStatus, type RawStatus } from './_lib/effectiveLessonStatus'
 import { displayName, shortName, personInitials } from '@/lib/displayName'
@@ -31,7 +32,7 @@ export default async function LessonsCalendarPage({
         id, scheduled_at, lesson_type, duration_minutes, status, notes,
         instructor:person!lesson_instructor_id_fkey ( id, first_name, last_name, preferred_name, calendar_color ),
         lesson_rider (
-          id, cancelled_at,
+          id, cancelled_at, rider_id,
           rider:person!lesson_rider_rider_id_fkey ( id, first_name, last_name, preferred_name ),
           horse:horse                               ( id, barn_name ),
           subscription:lesson_subscription ( id, status )
@@ -61,6 +62,29 @@ export default async function LessonsCalendarPage({
   if (error)   throw error
   if (calErr)  throw calErr
   if (evtErr)  throw evtErr
+
+  // Waiver check — any rider on this week's lessons who has no non-deleted
+  // Waiver document on file. Surfaces as part of the "pending" badge alongside
+  // the unpaid-subscription signal (v1b — admin picked one combined badge to
+  // keep calendar clutter down).
+  const riderIdSet = new Set<string>()
+  for (const l of lessons ?? []) {
+    for (const r of l.lesson_rider ?? []) {
+      if (!r.cancelled_at && r.rider_id) riderIdSet.add(r.rider_id)
+    }
+  }
+  const waivedRiderIds = new Set<string>()
+  if (riderIdSet.size > 0) {
+    const { data: waiverDocs } = await supabase
+      .from('document')
+      .select('person_id')
+      .eq('document_type', 'Waiver')
+      .in('person_id', Array.from(riderIdSet))
+      .is('deleted_at', null)
+    for (const d of waiverDocs ?? []) {
+      if (d.person_id) waivedRiderIds.add(d.person_id)
+    }
+  }
 
   const dayMetaByIso = new Map<string, { closed: boolean; makeup: boolean; notes: string | null }>()
   for (const d of calDays ?? []) {
@@ -93,10 +117,13 @@ export default async function LessonsCalendarPage({
 
     const riders = (l.lesson_rider ?? []).filter(r => !r.cancelled_at)
     const unpaid = riders.some(r => r.subscription?.status === 'pending')
+    const waiverMissing = riders.some(r => r.rider_id && !waivedRiderIds.has(r.rider_id))
 
-    // Derive effective status. Scheduled + past → completed. Scheduled + unpaid
-    // subscription → pending. Explicit terminal statuses are left alone.
-    const rawForDisplay: RawStatus = (l.status === 'scheduled' && unpaid) ? 'pending' : (l.status as RawStatus)
+    // Derive effective status. Scheduled + past → completed. Scheduled + (unpaid
+    // subscription OR any rider missing a waiver) → pending. Explicit terminal
+    // statuses are left alone. Both pre-ride signals collapse into one badge per
+    // the admin's preference — calendar clutter stays minimal.
+    const rawForDisplay: RawStatus = (l.status === 'scheduled' && (unpaid || waiverMissing)) ? 'pending' : (l.status as RawStatus)
     const effStatus = effectiveStatus({ status: rawForDisplay, scheduledAt: l.scheduled_at }) as GridLessonStatus
 
     return {
@@ -189,30 +216,7 @@ export default async function LessonsCalendarPage({
           >
             Tokens
           </Link>
-          <Link
-            href="/chia/lessons-events/products/new"
-            className="text-xs text-[#002058] font-semibold border border-[#c4c6d1] bg-white px-3 py-1.5 rounded hover:border-[#002058] hover:bg-[#f7f9fc] transition-colors"
-          >
-            + New Lesson
-          </Link>
-          <Link
-            href="/chia/lessons-events/events/new"
-            className="text-xs text-[#002058] font-semibold border border-[#c4c6d1] bg-white px-3 py-1.5 rounded hover:border-[#002058] hover:bg-[#f7f9fc] transition-colors"
-          >
-            + New Event
-          </Link>
-          <Link
-            href="/chia/lessons-events/makeups/new"
-            className="text-xs text-[#002058] font-semibold border border-[#c4c6d1] bg-white px-3 py-1.5 rounded hover:border-[#002058] hover:bg-[#f7f9fc] transition-colors"
-          >
-            + Schedule Makeup
-          </Link>
-          <Link
-            href="/chia/lessons-events/subscriptions/new"
-            className="text-xs text-[#002058] font-semibold border border-[#c4c6d1] bg-white px-3 py-1.5 rounded hover:border-[#002058] hover:bg-[#f7f9fc] transition-colors"
-          >
-            + New Subscription
-          </Link>
+          <NewLessonMenu />
         </div>
       </div>
 

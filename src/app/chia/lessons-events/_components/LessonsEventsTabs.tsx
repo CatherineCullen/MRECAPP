@@ -6,46 +6,54 @@ import { usePathname } from 'next/navigation'
 // Domain-first tabs: scheduling and billing for Lessons & Events live together
 // because admins think of them as one flow (sell → schedule → bill).
 //
-// Calendar is the default (week grid). Renewal owns the quarterly renewal
-// lifecycle end-to-end (renewing list + batch invoice generation + sent list).
-// Invoices is the current-quarter ad-hoc lane: one-off extra lessons, events,
-// and mid-quarter new-rider signups that need individual billing.
+// Order reflects day-to-day frequency:
+//   Calendar  — default, the week grid admin looks at constantly.
+//   Invoices  — current-quarter ad-hoc lane: one-off extra lessons, events,
+//               and mid-quarter new-rider signups that need individual billing.
+//   Renewal   — quarterly batch flow (renewing list + batch invoice
+//               generation + sent list). Intentionally last because it only
+//               fires a few times a year, and sitting between Calendar and
+//               Invoices confused the "which invoices live where" split.
 //
-// Subscriptions and Tokens are both management views, not daily flows, so
-// they live as lightweight links on the Calendar page header rather than as
+// Subscriptions and Tokens are management views, not daily flows, so they
+// live as lightweight links on the Calendar page header rather than as
 // top-level tabs — keeps the tab row focused on what admin touches daily.
 //
 // (The URL for the ad-hoc lane is still /unbilled for now — content moved
 // there is a superset of what the old Unbilled tab showed.)
 const tabs = [
-  { label: 'Calendar',      href: '/chia/lessons-events',               exact: true  },
-  { label: 'Renewal',       href: '/chia/lessons-events/renewal',       exact: false },
-  { label: 'Invoices',      href: '/chia/lessons-events/unbilled',      exact: false },
+  { label: 'Calendar',          href: '/chia/lessons-events',               exact: true,  distinct: false },
+  { label: 'Invoices',          href: '/chia/lessons-events/unbilled',      exact: false, distinct: false },
+  // Quarterly Renewal sits apart visually — it's a periodic batch flow, not
+  // part of the daily Calendar/Invoices rhythm. A left gap + divider signals
+  // "different mode" without pushing it off into a second nav row.
+  { label: 'Quarterly Renewal', href: '/chia/lessons-events/renewal',       exact: false, distinct: true  },
 ]
 
 export default function LessonsEventsTabs() {
   const pathname = usePathname()
 
   return (
-    <div className="flex gap-0">
-      {tabs.map(({ label, href, exact }) => {
+    <div className="flex gap-0 items-stretch">
+      {tabs.map(({ label, href, exact, distinct }) => {
         const active = exact
           ? pathname === href
           : pathname.startsWith(href)
         return (
-          <Link
-            key={href}
-            href={href}
-            className={`
-              px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors
-              ${active
-                ? 'border-[#002058] text-[#002058]'
-                : 'border-transparent text-[#444650] hover:text-[#191c1e]'
-              }
-            `}
-          >
-            {label}
-          </Link>
+          <div key={href} className={`flex items-stretch ${distinct ? 'ml-4 pl-4 border-l border-[#d7d9de]' : ''}`}>
+            <Link
+              href={href}
+              className={`
+                px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors
+                ${active
+                  ? 'border-[#002058] text-[#002058]'
+                  : 'border-transparent text-[#444650] hover:text-[#191c1e]'
+                }
+              `}
+            >
+              {label}
+            </Link>
+          </div>
         )
       })}
     </div>

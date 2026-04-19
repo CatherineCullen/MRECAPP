@@ -184,13 +184,11 @@ export default function NewSubscriptionForm({
                 Any person. Rider role is auto-assigned.
               </p>
               <Link
-                href="/chia/people/new"
-                target="_blank"
-                rel="noopener"
+                href="/chia/people/invite?returnTo=%2Fchia%2Flessons-events%2Fsubscriptions%2Fnew&returnLabel=New+Subscription"
                 className="text-[10px] text-[#002058] font-semibold hover:underline"
-                title="Opens in a new tab — come back here to pick them"
+                title="Creates a stub Person + waiver invite link, then brings you right back here"
               >
-                + New person ↗
+                + Invite rider
               </Link>
             </div>
           </div>

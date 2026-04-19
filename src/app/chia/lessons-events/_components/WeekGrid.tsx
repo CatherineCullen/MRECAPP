@@ -431,8 +431,11 @@ export default function WeekGrid({ days, lessons, events, instructors }: Props) 
                           <div className="flex-1 min-w-0 px-1 py-0.5">
                             <div className={`font-semibold text-[#191c1e] truncate flex items-center gap-1 ${l.cancelled ? 'text-[#8a1a1a]' : ''}`}>
                               {l.effStatus === 'pending' && (
-                                <span className="text-[8px] font-bold bg-[#7a5a00] text-white px-1 rounded flex-none">
-                                  {l.totalCols >= 3 ? '$' : 'UNPAID'}
+                                <span
+                                  className="text-[8px] font-bold bg-[#7a5a00] text-white px-1 rounded flex-none"
+                                  title="Pending (unpaid subscription or rider missing a waiver)"
+                                >
+                                  {l.totalCols >= 3 ? '!' : 'PENDING'}
                                 </span>
                               )}
                               {l.lessonType !== 'private' && (
@@ -529,8 +532,8 @@ export default function WeekGrid({ days, lessons, events, instructors }: Props) 
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-flex items-center justify-center text-white font-bold rounded-sm bg-[#7a5a00]"
-                  style={{ width: 22, height: 10, fontSize: 7 }}>UNPAID</span>
-            Unpaid
+                  style={{ width: 30, height: 10, fontSize: 7 }}>PENDING</span>
+            Pending (unpaid or no waiver)
           </span>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-3 rounded bg-[#f0f4fa] border border-[#c4c6d1]" />
