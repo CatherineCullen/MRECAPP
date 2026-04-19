@@ -364,14 +364,20 @@ export async function addVetRecord(horseId: string, payload: AddVetRecordPayload
         })
       if (heError) throw heError
 
-      await supabase
-        .from('health_program_item')
-        .upsert({
-          horse_id:            horseId,
-          health_item_type_id: typeId,
-          last_done:           event.administered_on,
-          next_due:            event.next_due,
-        }, { onConflict: 'horse_id,health_item_type_id' })
+      // Use syncHealthProgramItem rather than supabase.upsert — the unique
+      // index on (horse_id, health_item_type_id) is partial, which the JS
+      // client can't generate a valid ON CONFLICT for. See the helper's
+      // docstring for the full story; this bug was silently dropping
+      // health_program_item rows so imported vet records never appeared
+      // on the herd grid.
+      const { error: syncErr } = await syncHealthProgramItem(
+        supabase,
+        horseId,
+        typeId,
+        event.administered_on,
+        event.next_due,
+      )
+      if (syncErr) throw new Error(`health_program_item sync failed: ${syncErr}`)
     }
   }
 
@@ -443,6 +449,11 @@ async function getOrCreateHealthItemType(
 
   if (existing) return existing.id
 
+  // Auto-created types stay hidden from the herd dashboard grid by
+  // default. The grid is a curated view of recurring health items the
+  // admin wants to track at a barn level; AI-coined one-offs (one-time
+  // treatments, unusual diagnostics) shouldn't clutter it automatically.
+  // Admin can promote them from Manage Health Items if they belong.
   const { data, error } = await supabase
     .from('health_item_type')
     .insert({ name, is_essential: false, show_in_herd_dashboard: false, sort_order: 99 })
