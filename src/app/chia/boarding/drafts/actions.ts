@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { stripe } from '@/lib/stripe/server'
 import { ensureStripeCustomer } from '@/lib/stripe/customer'
+import { assertStripeOutboundAllowed } from '@/lib/outbound'
 
 /**
  * Send a single draft invoice.
@@ -55,8 +56,11 @@ export async function sendDraftInvoice(params: {
   // the invoice is already finalized on the Stripe side (e.g. an admin
   // finalized it manually in the dashboard), finalizeInvoice returns the
   // same invoice unchanged, so calling it again is safe.
+  // Kill switch: finalize+send is what causes Stripe to email the customer.
+  // Gated in live mode via OUTBOUND_ENABLED; test mode passes through.
   let finalizedId: string
   try {
+    assertStripeOutboundAllowed('stripe_invoice_finalize')
     const finalized = await stripe.invoices.finalizeInvoice(inv.stripe_invoice_id)
     if (!finalized.id) throw new Error('Stripe finalizeInvoice returned no id')
     finalizedId = finalized.id
@@ -66,6 +70,7 @@ export async function sendDraftInvoice(params: {
 
   let hostedInvoiceUrl: string | null = null
   try {
+    assertStripeOutboundAllowed('stripe_invoice_send')
     const sent = await stripe.invoices.sendInvoice(finalizedId)
     hostedInvoiceUrl = sent.hosted_invoice_url ?? null
   } catch (e) {

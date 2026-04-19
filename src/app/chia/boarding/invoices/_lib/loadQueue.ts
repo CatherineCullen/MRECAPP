@@ -37,7 +37,7 @@ export type QueueLineItem = {
   status: 'draft' | 'reviewed'
   sourceBoardServiceLogId: string | null
   sourceBoardServiceId: string | null
-  sourceKind: 'monthly_board' | 'service_log' | 'ad_hoc'
+  sourceKind: 'monthly_board' | 'service_log' | 'training_ride' | 'ad_hoc'
   createdAt: string
   loggedAt: string | null  // for service logs — when the service actually happened
   notes: string | null     // for service logs — the barn worker's note at log time
@@ -242,6 +242,173 @@ export async function loadQueue(): Promise<QueueSnapshot> {
     }
   }
 
+  // --- Seed rows for any logged training ride not yet staged --------------
+  // Training rides bill through the same monthly boarder invoice as Monthly
+  // Board + services. We aggregate by (horse, provider, rate) so the invoice
+  // reads "Training Rides — Sarah Smith (12 × $50)" instead of twelve line
+  // items.
+  //
+  // Gate: only `logged` rides are staged. Scheduled rides (not yet ridden)
+  // pass by — consistent with the "visibility, not compliance" principle
+  // and the broader pattern that non-lesson calendar entries don't bill
+  // until they're recorded.
+  //
+  // Re-seed is naturally prevented by billing_line_item_id being set on
+  // each ride once it's rolled into an aggregate row. Admin-deleted
+  // aggregate rows leave the ride FKs pointing at a soft-deleted row, so
+  // they also won't be re-staged — same audit respect as service logs.
+  //
+  // Aggregate rows have source_training_ride_id = NULL because they
+  // represent multiple rides; detection downstream uses the "Training
+  // Rides — " description prefix (survives orphans — see below).
+  //
+  // Idempotency: seed can run many times between invoice generation (every
+  // page load). It must NEVER create a second aggregate for the same
+  // (horse, provider, rate) while one is still open. If insert+update
+  // desyncs (network hiccup after insert, before rides are linked), the
+  // next run would otherwise spawn a duplicate. We guard by looking up
+  // any existing open aggregate for the group FIRST and extending it
+  // rather than inserting a new one.
+  if (eligibleHorseIds.length > 0) {
+    // Self-heal: kill any open (draft, un-invoiced) training-ride aggregate
+    // that has zero live rides linked to it. Orphans accumulate if a past
+    // seed run inserted an aggregate but the subsequent ride-link update
+    // never landed (pre-idempotency bug, network hiccup, etc.). The seed
+    // code as it stands now won't create new ones — this step cleans up
+    // the residue so admin counts stay accurate.
+    const { data: liveAggs } = await db
+      .from('billing_line_item')
+      .select('id')
+      .in('horse_id', eligibleHorseIds)
+      .is('billing_period_start', null)
+      .is('deleted_at', null)
+      .eq('status', 'draft')
+      .like('description', 'Training Rides — %')
+
+    if ((liveAggs ?? []).length > 0) {
+      const aggIds = (liveAggs ?? []).map(a => a.id)
+      const { data: stillLinked } = await db
+        .from('training_ride')
+        .select('billing_line_item_id')
+        .in('billing_line_item_id', aggIds)
+        .is('deleted_at', null)
+      const linkedSet = new Set(
+        (stillLinked ?? [])
+          .map(r => r.billing_line_item_id)
+          .filter((x): x is string => x !== null),
+      )
+      const orphans = aggIds.filter(id => !linkedSet.has(id))
+      if (orphans.length > 0) {
+        await db
+          .from('billing_line_item')
+          .update({ deleted_at: new Date().toISOString() })
+          .in('id', orphans)
+      }
+    }
+
+    const { data: unbilledRides } = await db
+      .from('training_ride')
+      .select('id, horse_id, rider_id, unit_price')
+      .eq('status', 'logged')
+      .is('billing_line_item_id', null)
+      .is('billing_skipped_at', null)
+      .is('deleted_at', null)
+      .in('horse_id', eligibleHorseIds)
+
+    if ((unbilledRides ?? []).length > 0) {
+      // Group by (horse, provider, rate)
+      type Group = { horseId: string; riderId: string; unitPrice: number; rideIds: string[] }
+      const groups = new Map<string, Group>()
+      for (const r of unbilledRides ?? []) {
+        const price = Number(r.unit_price ?? 0)
+        const key = `${r.horse_id}|${r.rider_id}|${price}`
+        const g = groups.get(key) ?? { horseId: r.horse_id, riderId: r.rider_id, unitPrice: price, rideIds: [] }
+        g.rideIds.push(r.id)
+        groups.set(key, g)
+      }
+
+      // Look up provider display names in one shot
+      const providerIds = Array.from(new Set(Array.from(groups.values()).map(g => g.riderId)))
+      const { data: providers } = await db
+        .from('person')
+        .select('id, first_name, last_name, preferred_name, is_organization, organization_name')
+        .in('id', providerIds)
+      const providerNameById = new Map<string, string>()
+      for (const p of providers ?? []) providerNameById.set(p.id, displayName(p))
+
+      // Fetch all open training-ride aggregates on eligible horses up-front
+      // — one query, match per group in JS. "Open" means not yet rolled
+      // into an invoice (billing_period_start IS NULL) and not deleted.
+      const { data: openAggs } = await db
+        .from('billing_line_item')
+        .select('id, horse_id, unit_price, quantity, description')
+        .in('horse_id', eligibleHorseIds)
+        .is('billing_period_start', null)
+        .is('deleted_at', null)
+        .like('description', 'Training Rides — %')
+
+      for (const g of groups.values()) {
+        const providerName = providerNameById.get(g.riderId) ?? 'Provider'
+        const rateStr = g.unitPrice.toFixed(2).replace(/\.00$/, '')
+        const descPrefix = `Training Rides — ${providerName} (`
+
+        // Match an existing open aggregate: same horse, same rate, same
+        // provider (via description prefix). Rate comparison is loose on
+        // the numeric side — Supabase returns unit_price as string.
+        const existing = (openAggs ?? []).find(r =>
+          r.horse_id === g.horseId &&
+          Number(r.unit_price) === g.unitPrice &&
+          (r.description ?? '').startsWith(descPrefix)
+        )
+
+        if (existing) {
+          // Count rides already linked to this aggregate, add new ones to it.
+          const { data: linked } = await db
+            .from('training_ride')
+            .select('id')
+            .eq('billing_line_item_id', existing.id)
+            .is('deleted_at', null)
+          const linkedCount = linked?.length ?? 0
+          const newTotal = linkedCount + g.rideIds.length
+
+          await db
+            .from('billing_line_item')
+            .update({
+              description: `Training Rides — ${providerName} (${newTotal} × $${rateStr})`,
+              quantity:    newTotal,
+            })
+            .eq('id', existing.id)
+
+          await db
+            .from('training_ride')
+            .update({ billing_line_item_id: existing.id })
+            .in('id', g.rideIds)
+        } else {
+          const { data: inserted, error: insErr } = await db
+            .from('billing_line_item')
+            .insert({
+              horse_id:       g.horseId,
+              description:    `Training Rides — ${providerName} (${g.rideIds.length} × $${rateStr})`,
+              quantity:       g.rideIds.length,
+              unit_price:     g.unitPrice,
+              is_credit:      false,
+              is_admin_added: false,
+              status:         'draft' as const,
+            })
+            .select('id')
+            .single()
+
+          if (insErr || !inserted) continue
+
+          await db
+            .from('training_ride')
+            .update({ billing_line_item_id: inserted.id })
+            .in('id', g.rideIds)
+        }
+      }
+    }
+  }
+
   // --- Load the open queue (period IS NULL) -------------------------------
   const { data: rawItems } = await db
     .from('billing_line_item')
@@ -258,8 +425,14 @@ export async function loadQueue(): Promise<QueueSnapshot> {
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
 
-  // --- Load existing allocations for these items --------------------------
   const itemIds = (rawItems ?? []).map(r => r.id)
+
+  // Training-ride aggregates are identified by description prefix rather
+  // than reverse FK: an orphaned aggregate (created before its rides were
+  // linked) still deserves to be tagged — and re-tagged as ad_hoc would
+  // hide it from any training-ride-specific UI handling later.
+
+  // --- Load existing allocations for these items --------------------------
   const allocsByItem = new Map<string, QueueAllocation[]>()
   if (itemIds.length > 0) {
     const { data: allocs } = await db
@@ -281,8 +454,9 @@ export async function loadQueue(): Promise<QueueSnapshot> {
   for (const row of rawItems ?? []) {
     const log = row.log as { logged_at?: string; notes?: string | null } | null
     const sourceKind: QueueLineItem['sourceKind'] =
-      row.source_board_service_id       ? 'monthly_board' :
-      row.source_board_service_log_id   ? 'service_log'   :
+      row.source_board_service_id       ? 'monthly_board'  :
+      row.source_board_service_log_id   ? 'service_log'    :
+      row.description?.startsWith('Training Rides — ') ? 'training_ride' :
                                           'ad_hoc'
     const item: QueueLineItem = {
       id:                       row.id,
@@ -307,11 +481,16 @@ export async function loadQueue(): Promise<QueueSnapshot> {
   }
 
   // Sort items within each horse: Monthly Board first, then service logs
-  // by date logged, then ad-hoc by creation date.
+  // by date logged, then training ride aggregates, then ad-hoc by creation.
+  const rankOf = (k: QueueLineItem['sourceKind']) =>
+    k === 'monthly_board' ? 0 :
+    k === 'service_log'   ? 1 :
+    k === 'training_ride' ? 2 :
+                            3
   for (const list of byHorse.values()) {
     list.sort((a, b) => {
-      const aRank = a.sourceKind === 'monthly_board' ? 0 : a.sourceKind === 'service_log' ? 1 : 2
-      const bRank = b.sourceKind === 'monthly_board' ? 0 : b.sourceKind === 'service_log' ? 1 : 2
+      const aRank = rankOf(a.sourceKind)
+      const bRank = rankOf(b.sourceKind)
       if (aRank !== bRank) return aRank - bRank
       const aWhen = a.loggedAt ?? a.createdAt
       const bWhen = b.loggedAt ?? b.createdAt

@@ -174,7 +174,7 @@ export async function deleteLineItem(params: {
 
   const { data: item, error: itemErr } = await db
     .from('billing_line_item')
-    .select('id, status, billing_period_start, deleted_at')
+    .select('id, description, status, billing_period_start, deleted_at')
     .eq('id', params.itemId)
     .single()
 
@@ -187,6 +187,27 @@ export async function deleteLineItem(params: {
     return { ok: false, error: 'Un-approve first, then delete' }
   }
 
+  // Training-ride aggregate cascade: if this line rolled up N training rides,
+  // we mark each of them billing_skipped so they stay out of the queue but
+  // remain visible on the horse timeline as "unbilled" (record preserved,
+  // not billed). Without this step the rides would either (a) silently
+  // disappear — FK stuck to a soft-deleted row — or (b) re-stage next load,
+  // making the delete feel like a no-op. Skip is the middle path.
+  const isTrainingRideAggregate = (item.description ?? '').startsWith('Training Rides — ')
+  if (isTrainingRideAggregate) {
+    const nowIso = new Date().toISOString()
+    const { error: skipErr } = await db
+      .from('training_ride')
+      .update({
+        billing_line_item_id:   null,
+        billing_skipped_at:     nowIso,
+        billing_skipped_by:     user.personId ?? null,
+        billing_skipped_reason: 'Billing line deleted from Review & Allocate',
+      })
+      .eq('billing_line_item_id', item.id)
+    if (skipErr) return { ok: false, error: `Failed to cascade skip to training rides: ${skipErr.message}` }
+  }
+
   const { error: updErr } = await db
     .from('billing_line_item')
     .update({ deleted_at: new Date().toISOString() })
@@ -195,6 +216,7 @@ export async function deleteLineItem(params: {
   if (updErr) return { ok: false, error: `Failed to delete: ${updErr.message}` }
 
   revalidatePath('/chia/boarding/invoices')
+  if (isTrainingRideAggregate) revalidatePath('/chia/training-rides')
   return { ok: true }
 }
 
@@ -223,7 +245,7 @@ export async function editLineItem(params: {
 
   const { data: item, error: itemErr } = await db
     .from('billing_line_item')
-    .select('id, status, billing_period_start, deleted_at, source_board_service_id, source_board_service_log_id')
+    .select('id, description, status, billing_period_start, deleted_at, source_board_service_id, source_board_service_log_id')
     .eq('id', params.itemId)
     .single()
 
@@ -234,6 +256,19 @@ export async function editLineItem(params: {
   }
   if (item.status !== 'draft') {
     return { ok: false, error: 'Un-approve first, then edit' }
+  }
+
+  // Training-ride aggregates are derived — description + quantity + unit_price
+  // all reflect the underlying set of logged training rides. Allowing an
+  // ad-hoc edit here would silently desync the line from its rides. To
+  // change what's billed, admin unlogs individual rides (which decrements
+  // the line in cascade) or deletes the whole line (which skips all of
+  // them). Matches edge decision #3 — "forbid once allocated".
+  if ((item.description ?? '').startsWith('Training Rides — ')) {
+    return {
+      ok: false,
+      error: 'Training ride lines can\'t be edited directly — unlog individual rides or delete the line.',
+    }
   }
 
   const isAdHoc = !item.source_board_service_id && !item.source_board_service_log_id
