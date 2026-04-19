@@ -186,8 +186,10 @@ export async function loadQueue(): Promise<QueueSnapshot> {
         source_board_service_id: monthlyBoardServiceId,
         status:                  'draft' as const,
       }))
-      // Don't await error on conflict — each row is independent and a
-      // concurrent insert (e.g., admin refreshing twice fast) is harmless.
+      // Concurrent page loads used to double-seed Monthly Board rows; a
+      // partial unique index (migration 20260419000001) now blocks that at
+      // the DB level. If the race still happens the second request gets a
+      // unique violation — swallow it, the first request already won.
       await db.from('billing_line_item').insert(toInsert)
     }
   }
