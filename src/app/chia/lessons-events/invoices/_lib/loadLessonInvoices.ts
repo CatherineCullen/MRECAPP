@@ -70,18 +70,108 @@ export type LessonSentSnapshot = {
 }
 
 // Helper — given a list of invoice_line_item rows, return the invoice ids
-// that have ANY lesson_subscription_id set. This is our "this invoice belongs
-// to the lesson domain" discriminator.
+// that have ANY lesson-domain source FK set on a line item:
+//   - lesson_subscription_id (quarterly recurring)
+//   - lesson_package_id      (one-off: evaluation, extra)
+//   - event_id               (birthday, clinic, therapy, other)
+//
+// This is our "this invoice belongs to the lesson domain" discriminator.
+// Boarding-only invoices (board service lines, no lesson FKs) don't match,
+// which keeps the boarding and lessons queues cleanly separated.
 async function lessonInvoiceIdsFrom(invoiceIds: string[]): Promise<Set<string>> {
   if (invoiceIds.length === 0) return new Set()
   const db = createAdminClient()
   const { data: lines } = await db
     .from('invoice_line_item')
-    .select('invoice_id, lesson_subscription_id')
+    .select('invoice_id, lesson_subscription_id, lesson_package_id, event_id')
     .in('invoice_id', invoiceIds)
-    .not('lesson_subscription_id', 'is', null)
+    .or('lesson_subscription_id.not.is.null,lesson_package_id.not.is.null,event_id.not.is.null')
     .is('deleted_at', null)
   return new Set((lines ?? []).map(l => l.invoice_id))
+}
+
+// Given a set of invoice ids, return a map: invoice.id → Set<quarter_id> it
+// touches. Quarter is resolved per line-item by:
+//   - subscription line → subscription.quarter_id
+//   - package     line → underlying lesson.scheduled_at falls into which quarter
+//                        (fallback: lesson_package.purchased_at when no lesson rows)
+//   - event       line → event.scheduled_at falls into which quarter
+// Returns empty set for an invoice whose lines don't resolve to any quarter.
+async function invoiceQuartersMap(invoiceIds: string[]): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>()
+  if (invoiceIds.length === 0) return out
+  const db = createAdminClient()
+
+  const { data: lines } = await db
+    .from('invoice_line_item')
+    .select('invoice_id, lesson_subscription_id, lesson_package_id, event_id')
+    .in('invoice_id', invoiceIds)
+    .is('deleted_at', null)
+
+  const subIds = [...new Set((lines ?? []).map(l => l.lesson_subscription_id).filter((x): x is string => !!x))]
+  const pkgIds = [...new Set((lines ?? []).map(l => l.lesson_package_id).filter((x): x is string => !!x))]
+  const evtIds = [...new Set((lines ?? []).map(l => l.event_id).filter((x): x is string => !!x))]
+
+  const [subRes, pkgRes, lrRes, evtRes, qRes] = await Promise.all([
+    subIds.length
+      ? db.from('lesson_subscription').select('id, quarter_id').in('id', subIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; quarter_id: string }> }),
+    pkgIds.length
+      ? db.from('lesson_package').select('id, purchased_at').in('id', pkgIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; purchased_at: string }> }),
+    // lesson_rider carries (package_id, lesson_id) — join through to the
+    // lesson's scheduled_at to get the actual service date for this package.
+    pkgIds.length
+      ? db.from('lesson_rider')
+          .select('package_id, lesson:lesson ( scheduled_at )')
+          .in('package_id', pkgIds)
+          .is('deleted_at', null)
+      : Promise.resolve({ data: [] as Array<{ package_id: string | null; lesson: { scheduled_at: string } | null }> }),
+    evtIds.length
+      ? db.from('event').select('id, scheduled_at').in('id', evtIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; scheduled_at: string }> }),
+    db.from('quarter').select('id, start_date, end_date').is('deleted_at', null),
+  ])
+
+  const subQuarter = new Map((subRes.data ?? []).map(s => [s.id, s.quarter_id]))
+  // Package → iso date. Prefer the linked lesson's scheduled date (what
+  // actually determines which quarter the service happens in); fall back to
+  // lesson_package.purchased_at when the package hasn't been scheduled yet
+  // (e.g., bulk package of extras, a couple still unused).
+  const pkgPurchased = new Map((pkgRes.data ?? []).map(p => [p.id, p.purchased_at.slice(0, 10)]))
+  const pkgLessonDate = new Map<string, string>()
+  for (const r of (lrRes.data ?? [])) {
+    if (!r.package_id || !r.lesson?.scheduled_at) continue
+    const iso = r.lesson.scheduled_at.slice(0, 10)
+    const existing = pkgLessonDate.get(r.package_id)
+    if (!existing || iso < existing) pkgLessonDate.set(r.package_id, iso)
+  }
+  const pkgDate = new Map<string, string>()
+  for (const id of pkgIds) {
+    pkgDate.set(id, pkgLessonDate.get(id) ?? pkgPurchased.get(id) ?? '')
+  }
+  const evtDate = new Map((evtRes.data ?? []).map(e => [e.id, e.scheduled_at.slice(0, 10)]))
+
+  const quarters = qRes.data ?? []
+  function dateToQuarter(iso: string): string | null {
+    if (!iso) return null
+    for (const q of quarters) {
+      if (q.start_date <= iso && q.end_date >= iso) return q.id
+    }
+    return null
+  }
+
+  for (const l of (lines ?? [])) {
+    let qid: string | null = null
+    if (l.lesson_subscription_id)   qid = subQuarter.get(l.lesson_subscription_id) ?? null
+    else if (l.lesson_package_id)   qid = dateToQuarter(pkgDate.get(l.lesson_package_id) ?? '')
+    else if (l.event_id)            qid = dateToQuarter(evtDate.get(l.event_id) ?? '')
+    if (!qid) continue
+    const set = out.get(l.invoice_id) ?? new Set<string>()
+    set.add(qid)
+    out.set(l.invoice_id, set)
+  }
+  return out
 }
 
 // Resolve the "current active quarter" and the one immediately after, so
@@ -139,28 +229,16 @@ export async function loadLessonDrafts(scope: InvoiceScope = 'all'): Promise<Les
     .in('invoice_id', invoiceIds)
     .is('deleted_at', null)
 
-  // Scope filtering — match invoice to quarter via linked subs, keep only
-  // invoices whose subs fall in the requested quarter bucket.
+  // Scope filtering — for each invoice, resolve the quarter(s) its lines
+  // touch (subscription → sub.quarter_id; package/event → date containment
+  // against quarter rows) and keep only those that hit the requested bucket.
   if (scope !== 'all') {
-    const subIds = Array.from(new Set(
-      (lines ?? [])
-        .map(l => l.lesson_subscription_id)
-        .filter((x): x is string => !!x),
-    ))
-    const { data: subRows } = subIds.length > 0
-      ? await db
-          .from('lesson_subscription')
-          .select('id, quarter_id')
-          .in('id', subIds)
-      : { data: [] as Array<{ id: string; quarter_id: string }> }
-    const subQuarter = new Map((subRows ?? []).map(s => [s.id, s.quarter_id]))
+    const quartersByInvoice = await invoiceQuartersMap(lessonInvoices.map(i => i.id))
     const { currentId, nextIds } = await currentAndNextQuarterIds()
     lessonInvoices = lessonInvoices.filter(inv => {
-      const myLines = (lines ?? []).filter(l => l.invoice_id === inv.id && l.lesson_subscription_id)
-      if (myLines.length === 0) return false
-      for (const l of myLines) {
-        const qid = subQuarter.get(l.lesson_subscription_id!)
-        if (!qid) continue
+      const qids = quartersByInvoice.get(inv.id)
+      if (!qids || qids.size === 0) return false
+      for (const qid of qids) {
         if (scope === 'renewal' && nextIds.has(qid)) return true
         if (scope === 'current' && qid === currentId) return true
       }
@@ -240,32 +318,15 @@ export async function loadLessonSent(scope: InvoiceScope = 'all'): Promise<Lesso
     return { groups: [], grandTotal: 0, paidTotal: 0, outstandingTotal: 0 }
   }
 
-  // Scope-by-quarter filter (same shape as loadLessonDrafts)
+  // Scope-by-quarter filter — same shape as loadLessonDrafts, widened to
+  // handle package + event lines (not just subscription lines).
   if (scope !== 'all') {
-    const { data: preLines } = await db
-      .from('invoice_line_item')
-      .select('invoice_id, lesson_subscription_id')
-      .in('invoice_id', lessonInvoices.map(i => i.id))
-      .is('deleted_at', null)
-    const subIds = Array.from(new Set(
-      (preLines ?? [])
-        .map(l => l.lesson_subscription_id)
-        .filter((x): x is string => !!x),
-    ))
-    const { data: subRows } = subIds.length > 0
-      ? await db
-          .from('lesson_subscription')
-          .select('id, quarter_id')
-          .in('id', subIds)
-      : { data: [] as Array<{ id: string; quarter_id: string }> }
-    const subQuarter = new Map((subRows ?? []).map(s => [s.id, s.quarter_id]))
+    const quartersByInvoice = await invoiceQuartersMap(lessonInvoices.map(i => i.id))
     const { currentId, nextIds } = await currentAndNextQuarterIds()
     lessonInvoices = lessonInvoices.filter(inv => {
-      const myLines = (preLines ?? []).filter(l => l.invoice_id === inv.id && l.lesson_subscription_id)
-      if (myLines.length === 0) return false
-      for (const l of myLines) {
-        const qid = subQuarter.get(l.lesson_subscription_id!)
-        if (!qid) continue
+      const qids = quartersByInvoice.get(inv.id)
+      if (!qids || qids.size === 0) return false
+      for (const qid of qids) {
         if (scope === 'renewal' && nextIds.has(qid)) return true
         if (scope === 'current' && qid === currentId) return true
       }

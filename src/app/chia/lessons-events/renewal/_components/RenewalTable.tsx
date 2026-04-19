@@ -146,7 +146,11 @@ export default function RenewalTable({
       if (okCount > 0)   bits.push(`${okCount} invoice${okCount === 1 ? '' : 's'} generated`)
       if (failCount > 0) bits.push(`${failCount} failed`)
       setToast(bits.join(' · ') || 'Nothing to invoice.')
-      if (okCount > 0) router.refresh() // drafts appear inline on this page
+      // Drafts live on the Invoices sub-tab now — navigate there so admin
+      // sees what they just created rather than refreshing this roster in
+      // place. Roster data is fine as-is since the bulk action only creates
+      // invoice rows; it doesn't change the roster state.
+      if (okCount > 0) router.push('/chia/lessons-events/renewal/invoices')
     })
   }
 

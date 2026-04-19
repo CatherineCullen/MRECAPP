@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { stripe } from '@/lib/stripe/server'
 import { createDraftInvoice } from '@/lib/stripe/invoice'
 import { ensureStripeCustomer } from '@/lib/stripe/customer'
+import { assertStripeOutboundAllowed } from '@/lib/outbound'
 import { displayName } from '@/lib/displayName'
 
 // Lesson-subscription invoicing.
@@ -225,8 +226,11 @@ export async function sendLessonDraftInvoice(params: {
     console.error('[sendLessonDraftInvoice] customer sync failed', inv.billed_to_id, e)
   }
 
+  // Kill switch: finalize+send is what causes Stripe to email the customer.
+  // Gated in live mode via OUTBOUND_ENABLED; test mode passes through.
   let finalizedId: string
   try {
+    assertStripeOutboundAllowed('stripe_invoice_finalize')
     const finalized = await stripe.invoices.finalizeInvoice(inv.stripe_invoice_id)
     if (!finalized.id) throw new Error('Stripe finalizeInvoice returned no id')
     finalizedId = finalized.id
@@ -236,6 +240,7 @@ export async function sendLessonDraftInvoice(params: {
 
   let hostedInvoiceUrl: string | null = null
   try {
+    assertStripeOutboundAllowed('stripe_invoice_send')
     const sent = await stripe.invoices.sendInvoice(finalizedId)
     hostedInvoiceUrl = sent.hosted_invoice_url ?? null
   } catch (e) {
