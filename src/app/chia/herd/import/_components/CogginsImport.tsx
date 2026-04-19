@@ -6,7 +6,7 @@ import { addCoggins } from '../actions'
 import { createClient } from '@/lib/supabase/client'
 import SearchPicker from '@/components/SearchPicker'
 
-type HorseOption = { id: string; barn_name: string }
+type HorseOption = { id: string; barn_name: string; registered_name?: string | null }
 
 type HealthEvent = {
   item_name:       string
@@ -18,6 +18,10 @@ type HealthEvent = {
 }
 
 type ParsedData = {
+  horse?: {
+    name_on_document: string | null
+    registered_name:  string | null
+  }
   coggins: {
     date_drawn:         string | null
     vet_name:           string | null
@@ -25,6 +29,26 @@ type ParsedData = {
   }
   health_events: HealthEvent[]
   clarifications: string[]
+}
+
+// Try to identify the horse on the Coggins certificate against the
+// active roster. Returns the horse id if exactly one matches; null if
+// none or ambiguous (so the admin is still forced to pick). Mirrors
+// autoMatchHorse in VetRecordImport.
+function autoMatchHorse(hint: ParsedData['horse'], horses: HorseOption[]): string | null {
+  const candidates = [hint?.name_on_document, hint?.registered_name]
+    .filter((s): s is string => !!s && s.trim().length > 0)
+    .map(s => s.trim().toLowerCase())
+  if (candidates.length === 0) return null
+
+  const matches = horses.filter(h => {
+    const names = [h.barn_name, h.registered_name ?? '']
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+    return candidates.some(c => names.includes(c))
+  })
+
+  return matches.length === 1 ? matches[0].id : null
 }
 
 function parseCogginsJson(raw: string): { ok: true; data: ParsedData } | { ok: false; message: string } {
@@ -65,7 +89,10 @@ function ReviewCards({
   initialHorseId: string | null
   onReset: () => void
 }) {
-  const [horseId,     setHorseId]   = useState<string | null>(initialHorseId)
+  // Horse auto-match from the AI's horse hint. initialHorseId (from the
+  // ?horse_id query param) wins; otherwise fall back to the name match.
+  const autoMatchedHorseId = autoMatchHorse(data.horse, horses)
+  const [horseId,     setHorseId]   = useState<string | null>(initialHorseId ?? autoMatchedHorseId)
   const [coggins,     setCoggins]   = useState(data.coggins)
   const [events,      setEvents]    = useState<HealthEvent[]>(data.health_events ?? [])
   const [pdfFile,     setPdfFile]   = useState<File | null>(null)
@@ -138,10 +165,18 @@ function ReviewCards({
         </div>
       )}
 
-      {/* Horse picker */}
-      <div className="bg-white rounded-lg overflow-hidden">
-        <div className="px-4 py-2.5 bg-[#f2f4f7]">
+      {/* Horse picker — no overflow-hidden so SearchPicker's dropdown isn't clipped */}
+      <div className="bg-white rounded-lg">
+        <div className="px-4 py-2.5 bg-[#f2f4f7] rounded-t-lg flex items-center justify-between">
           <h3 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">Horse <span className="text-[#b00020]">*</span></h3>
+          {data.horse?.name_on_document && (
+            <span className="text-[10px] text-[#444650] normal-case tracking-normal">
+              {autoMatchedHorseId
+                ? <>Auto-matched from document: <strong className="text-[#1a6b3c]">{data.horse.name_on_document}</strong></>
+                : <>Document says: <strong>{data.horse.name_on_document}</strong> — no unique match, please pick.</>
+              }
+            </span>
+          )}
         </div>
         <div className="p-4">
           <SearchPicker
@@ -149,7 +184,11 @@ function ReviewCards({
             options={horseOptions}
             placeholder="Search horses…"
             required
-            initialValue={initialHorseId ? horseOptions.find(h => h.id === initialHorseId) ?? null : null}
+            initialValue={
+              (initialHorseId && horseOptions.find(h => h.id === initialHorseId)) ||
+              (autoMatchedHorseId && horseOptions.find(h => h.id === autoMatchedHorseId)) ||
+              null
+            }
             onSelect={opt => setHorseId(opt?.id ?? null)}
           />
         </div>
