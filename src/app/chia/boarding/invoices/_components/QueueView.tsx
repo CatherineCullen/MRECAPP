@@ -175,7 +175,7 @@ export default function QueueView({
           (10*$80)", with buffer for longer names. Summary strip and
           the bulk charge form above stay full-width — more room for
           the horse-selection checks in bulk charge is useful. */}
-      <div className="grid grid-cols-1 gap-3 max-w-4xl">
+      <div className="grid grid-cols-1 gap-3 max-w-4xl mx-auto">
         {horseGroups.map(group => (
           <HorsePanel
             key={group.horseId}
