@@ -161,8 +161,13 @@ export default function QueueView({
       {/* Bulk charge entry — wormer case */}
       <AddChargeForm horseGroups={horseGroups} />
 
-      {/* Per-horse panels */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+      {/* Per-horse panels — single column on purpose. The previous
+          xl:grid-cols-2 layout split horses across two columns on wide
+          screens, which looked dense but made the Review & Allocate
+          flow confusing (hard to know which row you just changed, and
+          scanning order wasn't obvious). One vertical column is more
+          intuitive; scrolling is fine. */}
+      <div className="grid grid-cols-1 gap-3">
         {horseGroups.map(group => (
           <HorsePanel
             key={group.horseId}
