@@ -27,15 +27,14 @@ export async function updateEventTypePrice(code: string, price: number | null): 
   return {}
 }
 
-export async function toggleEventTypeActive(code: string, active: boolean): Promise<{ error?: string }> {
+export async function toggleEventTypeActive(code: string, active: boolean): Promise<void> {
   const supabase = createAdminClient()
   const { error } = await supabase
     .from('event_type')
     .update({ is_active: active })
     .eq('code', code)
-  if (error) return { error: error.message }
+  if (error) throw new Error(error.message)
   revalidatePath(CATALOG_PATH)
-  return {}
 }
 
 export async function addEventType(formData: FormData): Promise<{ error?: string }> {
