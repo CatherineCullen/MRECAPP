@@ -5,7 +5,7 @@ import CogginsImport from './CogginsImport'
 import VetRecordImport from './VetRecordImport'
 
 type PromptData = { slug: string; label: string; description: string | null; body: string }
-type HorseOption = { id: string; barn_name: string }
+type HorseOption = { id: string; barn_name: string; registered_name?: string | null }
 export type CatalogEntry = { id: string; name: string; is_essential: boolean }
 
 type Tab = 'coggins' | 'vet_record'

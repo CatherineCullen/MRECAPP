@@ -28,7 +28,7 @@ async function getPageData() {
   // Fetch active horses for the horse picker
   const { data: horses, error: horsesError } = await supabase
     .from('horse')
-    .select('id, barn_name')
+    .select('id, barn_name, registered_name')
     .eq('status', 'active')
     .is('deleted_at', null)
     .order('barn_name')
