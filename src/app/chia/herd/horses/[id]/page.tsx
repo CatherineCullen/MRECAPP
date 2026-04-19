@@ -8,6 +8,7 @@ import HorseCogginsSection from './_components/HorseCogginsSection'
 import HorseContactsSection from './_components/HorseContactsSection'
 import HorseVetVisitsSection from './_components/HorseVetVisitsSection'
 import HorseBoardServicesSection, { type HorseBoardLog, type BoardServiceOption } from './_components/HorseBoardServicesSection'
+import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
 import { displayName } from '@/lib/displayName'
 
@@ -76,6 +77,7 @@ export default async function HorseRecordPage({
       .from('board_service_log')
       .select(`
         id, logged_at, logged_by_label, log_source, unit_price, is_billable, notes, status,
+        void_reason, voided_at,
         service:board_service!board_service_log_service_id_fkey ( id, name )
       `)
       .eq('horse_id', id)
@@ -180,6 +182,9 @@ export default async function HorseRecordPage({
 
         {/* Vet Records */}
         {vetVisits.length > 0 && <HorseVetVisitsSection visits={vetVisits} />}
+
+        {/* Documents — Coggins PDFs, vet attachments, vaccine certs, misc */}
+        <EntityDocumentsSection kind="horse" id={id} label={`Horse: ${horse.barn_name}`} />
       </div>
     </div>
   )

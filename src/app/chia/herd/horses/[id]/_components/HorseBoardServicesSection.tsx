@@ -13,6 +13,8 @@ export type HorseBoardLog = {
   is_billable:    boolean
   notes:          string | null
   status:         'logged' | 'pending_review' | 'reviewed' | 'invoiced' | 'voided'
+  void_reason:    string | null
+  voided_at:      string | null
   service:        { id: string; name: string } | null
 }
 
@@ -122,7 +124,12 @@ function LogRow({ log }: { log: HorseBoardLog }) {
           <span className="capitalize">{log.log_source.replace('_', ' ')}</span>
         </div>
         {log.notes && (
-          <p className="mt-0.5 text-xs text-[#444650] italic">{log.notes}</p>
+          <p className="mt-0.5 text-xs text-[#444650] italic whitespace-pre-wrap">{log.notes}</p>
+        )}
+        {voided && log.void_reason && (
+          <p className="mt-0.5 text-xs text-[#8f3434]">
+            <span className="font-semibold">Voided:</span> {log.void_reason}
+          </p>
         )}
       </div>
       {log.is_billable && log.unit_price !== null && !voided && (

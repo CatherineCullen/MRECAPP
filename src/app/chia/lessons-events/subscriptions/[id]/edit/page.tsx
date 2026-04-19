@@ -16,6 +16,7 @@ export default async function EditSubscriptionPage({ params }: { params: Promise
         id, billed_to_id, subscription_type, subscription_price, status,
         default_horse_id, is_prorated, prorated_price, prorated_lesson_count,
         lesson_day, lesson_time,
+        makeup_notes, renewal_intent, enrolled_at, cancelled_at, invoice_id,
         rider:person!lesson_subscription_rider_id_fkey ( id, first_name, last_name, preferred_name ),
         instructor:person!lesson_subscription_instructor_id_fkey ( id, first_name, last_name, preferred_name ),
         horse:horse ( id, barn_name ),
@@ -84,6 +85,11 @@ export default async function EditSubscriptionPage({ params }: { params: Promise
           prorated_price:        sub.prorated_price != null ? Number(sub.prorated_price) : null,
           prorated_lesson_count: sub.prorated_lesson_count ?? null,
           status:                sub.status as 'pending' | 'active' | 'cancelled' | 'completed',
+          makeup_notes:          sub.makeup_notes ?? null,
+          renewal_intent:        sub.renewal_intent as 'renewing' | 'not_renewing',
+          enrolled_at:           sub.enrolled_at,
+          cancelled_at:          sub.cancelled_at,
+          invoice_id:            sub.invoice_id,
         }}
         futureLessonCount={futureLessonCount}
         billers={billers}

@@ -41,8 +41,9 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
     .from('lesson')
     .select(`
       id, scheduled_at, lesson_type, duration_minutes, status, notes,
-      cancellation_reason, cancelled_at, completed_at, is_makeup,
+      cancellation_reason, cancelled_at, completed_at, is_makeup, makeup_for_lesson_id,
       instructor:person!lesson_instructor_id_fkey ( id, first_name, last_name, preferred_name, calendar_color ),
+      canceller:person!lesson_cancelled_by_id_fkey ( id, first_name, last_name, preferred_name ),
       lesson_rider (
         id, cancelled_at,
         rider:person!lesson_rider_rider_id_fkey ( id, first_name, last_name, preferred_name ),
@@ -62,6 +63,24 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
 
   if (error) throw error
   if (!lesson) notFound()
+
+  // PostgREST self-FK embeds on `lesson → lesson` are unreliable (schema-cache
+  // sensitivity around the auto-named FK), so fetch the origin lesson in a
+  // separate round-trip when this lesson is a makeup.
+  let originalLesson:
+    | { id: string; scheduled_at: string; instructor: { first_name: string | null; last_name: string | null; preferred_name: string | null } | null }
+    | null = null
+  if (lesson.is_makeup && lesson.makeup_for_lesson_id) {
+    const { data: orig } = await supabase
+      .from('lesson')
+      .select(`
+        id, scheduled_at,
+        instructor:person!lesson_instructor_id_fkey ( first_name, last_name, preferred_name )
+      `)
+      .eq('id', lesson.makeup_for_lesson_id)
+      .maybeSingle()
+    originalLesson = orig as typeof originalLesson
+  }
 
   // ─────────────────────────────────────────────────────────────
   // Self-heal: lesson_type must match active rider count.
@@ -289,17 +308,46 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
             )}
           </dd>
 
+          {lesson.is_makeup && originalLesson && (
+            <>
+              <dt className="text-[#444650] font-semibold">Makeup for</dt>
+              <dd className="text-[#191c1e]">
+                <Link
+                  href={`/chia/lessons-events/${originalLesson.id}`}
+                  className="hover:underline hover:text-[#002058]"
+                >
+                  {formatDateTime(originalLesson.scheduled_at)}
+                </Link>
+                {originalLesson.instructor && (
+                  <span className="text-[#444650]"> · {displayName(originalLesson.instructor)}</span>
+                )}
+              </dd>
+            </>
+          )}
+
           {lesson.notes && (
             <>
               <dt className="text-[#444650] font-semibold">Notes</dt>
-              <dd className="text-[#191c1e]">{lesson.notes}</dd>
+              <dd className="text-[#191c1e] whitespace-pre-wrap">{lesson.notes}</dd>
             </>
           )}
 
           {lesson.cancellation_reason && (
             <>
               <dt className="text-[#444650] font-semibold">Cancel reason</dt>
-              <dd className="text-[#191c1e]">{lesson.cancellation_reason}</dd>
+              <dd className="text-[#191c1e] whitespace-pre-wrap">{lesson.cancellation_reason}</dd>
+            </>
+          )}
+
+          {lesson.cancelled_at && (
+            <>
+              <dt className="text-[#444650] font-semibold">Cancelled</dt>
+              <dd className="text-[#191c1e]">
+                {formatDateTime(lesson.cancelled_at)}
+                {lesson.canceller && (
+                  <span className="text-[#444650]"> by {displayName(lesson.canceller)}</span>
+                )}
+              </dd>
             </>
           )}
         </dl>
@@ -312,7 +360,13 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
           <ul className="space-y-1 text-xs">
             {generatedTokens.map(t => (
               <li key={t.id} className="flex items-center justify-between">
-                <span className="text-[#191c1e]">{displayName(t.rider)}</span>
+                <Link
+                  href={`/chia/lessons-events/tokens/${t.id}`}
+                  className="text-[#191c1e] hover:underline hover:text-[#002058]"
+                  title="Open token detail"
+                >
+                  {displayName(t.rider)} →
+                </Link>
                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize ${
                   t.status === 'available' ? 'bg-[#b7f0d0] text-[#1a6b3c]' :
                   t.status === 'scheduled' ? 'bg-[#dae2ff] text-[#002058]' :

@@ -38,10 +38,23 @@ type Props = {
     prorated_price:        number | null
     prorated_lesson_count: number | null
     status:                'pending' | 'active' | 'cancelled' | 'completed'
+    makeup_notes:          string | null
+    renewal_intent:        'renewing' | 'not_renewing'
+    enrolled_at:           string          // ISO timestamp
+    cancelled_at:          string | null   // ISO timestamp
+    invoice_id:            string | null
   }
   futureLessonCount: number
   billers: Option[]
   horses:  Option[]
+}
+
+function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })
 }
 
 export default function EditSubscriptionForm({ subscription: s, futureLessonCount, billers, horses }: Props) {
@@ -59,6 +72,8 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
   const [proratedPrice, setProratedPrice] = useState<number | ''>(s.prorated_price ?? '')
   const [proratedCount, setProratedCount] = useState<number | ''>(s.prorated_lesson_count ?? '')
   const [status, setStatus]               = useState(s.status)
+  const [makeupNotes, setMakeupNotes]     = useState<string>(s.makeup_notes ?? '')
+  const [renewalIntent, setRenewalIntent] = useState<'renewing' | 'not_renewing'>(s.renewal_intent)
 
   // Cancel-remaining dialog state
   const [confirming, setConfirming]   = useState(false)
@@ -81,6 +96,8 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
         proratedPrice:       isProrated && typeof proratedPrice === 'number' ? proratedPrice : null,
         proratedLessonCount: isProrated && typeof proratedCount === 'number' ? proratedCount : null,
         status,
+        makeupNotes:         makeupNotes.trim() || null,
+        renewalIntent,
         cascadeDefaultHorse: cascadeHorse,
       })
       if (r?.error) { setError(r.error); return }
@@ -118,7 +135,7 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
       {/* Header / locked fields */}
       <div className="bg-white rounded-lg border border-[#c4c6d1]/40 p-4 mb-4">
         <h3 className="text-xs font-bold text-[#191c1e] uppercase tracking-wide mb-2">Slot (locked)</h3>
-        <dl className="grid grid-cols-[100px_1fr] gap-y-1.5 text-xs">
+        <dl className="grid grid-cols-[110px_1fr] gap-y-1.5 text-xs">
           <dt className="text-[#444650] font-semibold">Rider</dt>
           <dd className="text-[#191c1e]">{s.rider_name}</dd>
           <dt className="text-[#444650] font-semibold">Instructor</dt>
@@ -127,6 +144,30 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
           <dd className="text-[#191c1e]">{s.quarter_label}</dd>
           <dt className="text-[#444650] font-semibold">Slot</dt>
           <dd className="text-[#191c1e]">{DAY_LABEL[s.lesson_day]} {formatTime(s.lesson_time)}</dd>
+          <dt className="text-[#444650] font-semibold">Enrolled</dt>
+          <dd className="text-[#191c1e]">{fmtDateTime(s.enrolled_at)}</dd>
+          {s.cancelled_at && (
+            <>
+              <dt className="text-[#444650] font-semibold">Cancelled</dt>
+              <dd className="text-[#191c1e]">{fmtDateTime(s.cancelled_at)}</dd>
+            </>
+          )}
+          {s.invoice_id && (
+            <>
+              <dt className="text-[#444650] font-semibold">Invoice</dt>
+              <dd className="text-[#191c1e]">
+                <Link
+                  href={`/chia/invoices/${s.invoice_id}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[#002058] hover:underline"
+                  title="Open invoice detail"
+                >
+                  View invoice ↗
+                </Link>
+              </dd>
+            </>
+          )}
         </dl>
         <p className="text-[10px] text-[#444650] mt-2 leading-relaxed">
           To change the day, time, or instructor, cancel the remaining lessons below — that issues one makeup token per cancelled lesson. Reschedule the tokens at the new slot from the <Link href="/chia/lessons-events/tokens" className="text-[#002058] font-semibold hover:underline">Tokens page</Link>.
@@ -252,6 +293,35 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
                 />
               </div>
             )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Renewal intent</label>
+            <select
+              className={inputCls}
+              value={renewalIntent}
+              onChange={e => setRenewalIntent(e.target.value as 'renewing' | 'not_renewing')}
+            >
+              <option value="renewing">Renewing</option>
+              <option value="not_renewing">Not renewing</option>
+            </select>
+            <p className="text-[10px] text-[#444650] mt-1">
+              Drives next-quarter renewal prompts.
+            </p>
+          </div>
+
+          <div className="col-span-2">
+            <label className={labelCls}>Makeup notes</label>
+            <textarea
+              rows={2}
+              className={inputCls}
+              value={makeupNotes}
+              onChange={e => setMakeupNotes(e.target.value)}
+              placeholder="e.g. one makeup pre-approved for holiday week; boarder cap waived this quarter"
+            />
+            <p className="text-[10px] text-[#444650] mt-1">
+              Free-text — shows on the subscription record only, not on individual lessons.
+            </p>
           </div>
         </div>
       </div>

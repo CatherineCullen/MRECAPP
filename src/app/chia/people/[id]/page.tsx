@@ -5,6 +5,7 @@ import PersonRolesSection from './_components/PersonRolesSection'
 import PersonHorsesSection from './_components/PersonHorsesSection'
 import PersonGuardianSection from './_components/PersonGuardianSection'
 import PersonStripeSection from './_components/PersonStripeSection'
+import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -243,6 +244,9 @@ export default async function PersonPage({
 
         {/* Horse connections */}
         <PersonHorsesSection horseLinks={horseLinks} personId={id} />
+
+        {/* Documents — waivers, boarding agreements, misc attached to this person */}
+        <EntityDocumentsSection kind="person" id={id} label={`Person: ${displayName}`} />
 
         {/* Stripe sync — admin-only. Stripe customer IDs are billing
             plumbing, not something end users should see or trigger. */}

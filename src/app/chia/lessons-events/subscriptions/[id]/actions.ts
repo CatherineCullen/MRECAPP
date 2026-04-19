@@ -18,6 +18,8 @@ type UpdateArgs = {
   proratedPrice:         number | null
   proratedLessonCount:   number | null
   status:                'pending' | 'active' | 'cancelled' | 'completed'
+  makeupNotes:           string | null
+  renewalIntent:         'renewing' | 'not_renewing'
   /** When true, also push the new default_horse_id onto future lesson_rider
    *  rows that currently point at the OLD default. Per-lesson overrides are
    *  preserved. */
@@ -48,6 +50,8 @@ export async function updateSubscription(args: UpdateArgs): Promise<{ error?: st
       prorated_price:        args.isProrated ? args.proratedPrice : null,
       prorated_lesson_count: args.isProrated ? args.proratedLessonCount : null,
       status:                args.status,
+      makeup_notes:          args.makeupNotes,
+      renewal_intent:        args.renewalIntent,
       updated_at:            now,
     })
     .eq('id', args.subscriptionId)
