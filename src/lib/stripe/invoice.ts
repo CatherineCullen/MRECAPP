@@ -2,6 +2,7 @@ import 'server-only'
 import { stripe } from './server'
 import { ensureStripeCustomer } from './customer'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertStripeOutboundAllowed } from '@/lib/outbound'
 
 /**
  * Thin wrappers around Stripe Invoicing for CHIA's billing pipeline.
@@ -124,12 +125,17 @@ export async function createAndSendInvoice(params: {
   }
 
   // 3. Finalize — locks the invoice and assigns a permanent number.
+  //    Kill switch: finalize+send is the point where Stripe emails the
+  //    customer. In live mode, require OUTBOUND_ENABLED. Test mode passes
+  //    through (Stripe simulates test-mode emails in the dashboard).
+  assertStripeOutboundAllowed('stripe_invoice_finalize')
   const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id)
   if (!finalized.id) {
     throw new Error('Stripe finalizeInvoice returned no id')
   }
 
   // 4. Send — emails the hosted invoice link to the Customer's email.
+  assertStripeOutboundAllowed('stripe_invoice_send')
   const sent = await stripe.invoices.sendInvoice(finalized.id)
 
   // 5. Mirror to our DB. One invoice row + one invoice_line_item row per input.

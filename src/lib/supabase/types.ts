@@ -804,7 +804,10 @@ export type Database = {
           id: string
           notes: string | null
           person_id: string | null
+          signature_png_path: string | null
           signed_at: string | null
+          signed_by_person_id: string | null
+          template_version_id: string | null
           updated_at: string
           uploaded_at: string
           uploaded_by: string | null
@@ -821,7 +824,10 @@ export type Database = {
           id?: string
           notes?: string | null
           person_id?: string | null
+          signature_png_path?: string | null
           signed_at?: string | null
+          signed_by_person_id?: string | null
+          template_version_id?: string | null
           updated_at?: string
           uploaded_at: string
           uploaded_by?: string | null
@@ -838,7 +844,10 @@ export type Database = {
           id?: string
           notes?: string | null
           person_id?: string | null
+          signature_png_path?: string | null
           signed_at?: string | null
+          signed_by_person_id?: string | null
+          template_version_id?: string | null
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
@@ -866,8 +875,127 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "document_signed_by_person_id_fkey"
+            columns: ["signed_by_person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_template_version_id_fkey"
+            columns: ["template_version_id"]
+            isOneToOne: false
+            referencedRelation: "document_template"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "document_uploaded_by_fkey"
             columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_template: {
+        Row: {
+          body_markdown: string
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          effective_from: string
+          id: string
+          kind: string
+          version: number
+        }
+        Insert: {
+          body_markdown: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          effective_from?: string
+          id?: string
+          kind: string
+          version: number
+        }
+        Update: {
+          body_markdown?: string
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          effective_from?: string
+          id?: string
+          kind?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_template_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enrollment_token: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          expires_at: string
+          guardian_person_id: string | null
+          id: string
+          kind: string
+          rider_person_id: string
+          template_kind: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          expires_at: string
+          guardian_person_id?: string | null
+          id?: string
+          kind: string
+          rider_person_id: string
+          template_kind: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          expires_at?: string
+          guardian_person_id?: string | null
+          id?: string
+          kind?: string
+          rider_person_id?: string
+          template_kind?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_token_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_token_guardian_person_id_fkey"
+            columns: ["guardian_person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_token_rider_person_id_fkey"
+            columns: ["rider_person_id"]
             isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["id"]
@@ -2595,6 +2723,8 @@ export type Database = {
           default_training_ride_rate: number
           deleted_at: string | null
           email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           first_name: string
           guardian_id: string | null
           height: string | null
@@ -2630,6 +2760,8 @@ export type Database = {
           default_training_ride_rate?: number
           deleted_at?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           first_name: string
           guardian_id?: string | null
           height?: string | null
@@ -2665,6 +2797,8 @@ export type Database = {
           default_training_ride_rate?: number
           deleted_at?: string | null
           email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           first_name?: string
           guardian_id?: string | null
           height?: string | null
@@ -2850,6 +2984,9 @@ export type Database = {
       training_ride: {
         Row: {
           billing_line_item_id: string | null
+          billing_skipped_at: string | null
+          billing_skipped_by: string | null
+          billing_skipped_reason: string | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
@@ -2867,6 +3004,9 @@ export type Database = {
         }
         Insert: {
           billing_line_item_id?: string | null
+          billing_skipped_at?: string | null
+          billing_skipped_by?: string | null
+          billing_skipped_reason?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -2884,6 +3024,9 @@ export type Database = {
         }
         Update: {
           billing_line_item_id?: string | null
+          billing_skipped_at?: string | null
+          billing_skipped_by?: string | null
+          billing_skipped_reason?: string | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
@@ -2905,6 +3048,13 @@ export type Database = {
             columns: ["billing_line_item_id"]
             isOneToOne: false
             referencedRelation: "billing_line_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_ride_billing_skipped_by_fkey"
+            columns: ["billing_skipped_by"]
+            isOneToOne: false
+            referencedRelation: "person"
             referencedColumns: ["id"]
           },
           {
