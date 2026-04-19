@@ -58,6 +58,10 @@ export type BillingContactOpt = {
 export type HorseGroup = {
   horseId: string
   barnName: string
+  /** False for barn-owned and free-lease horses: no Monthly Board is
+   * auto-seeded, and the horse only appears in the queue when it has
+   * some other billable activity. */
+  chargesMonthlyBoard: boolean
   billingContacts: BillingContactOpt[]
   items: QueueLineItem[]
   subtotal: number
@@ -104,7 +108,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
   const { data: horses } = await db
     .from('horse')
     .select(`
-      id, barn_name,
+      id, barn_name, charges_monthly_board,
       contacts:horse_contact (
         id, person_id, is_billing_contact, deleted_at,
         person:person ( id, first_name, last_name, preferred_name, is_organization, organization_name, is_minor )
@@ -144,6 +148,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
       return {
         id: h.id,
         barnName: h.barn_name ?? 'Unnamed horse',
+        chargesMonthlyBoard: h.charges_monthly_board !== false,
         billingContacts,
       }
     })
@@ -154,14 +159,16 @@ export async function loadQueue(): Promise<QueueSnapshot> {
     .filter(h => h.billingContacts.some(c => c.isDefault))
 
   // --- Seed Monthly Board rows where missing ------------------------------
-  // One Monthly Board row per horse per calendar month. Gate: if we've
-  // already created (or soft-deleted) a Monthly Board for this horse at
-  // any point in the current calendar month, don't seed another. This
-  // means an April Generate doesn't spawn May's board on the next page
-  // visit — May will appear once the calendar rolls over.
+  // One Monthly Board row per horse per calendar month. Gates:
+  //  - horse.charges_monthly_board must be true (barn-owned and free-lease
+  //    horses set this false — they have owners for recording purposes but
+  //    nobody pays monthly board on them)
+  //  - no existing Monthly Board row (even soft-deleted) for this horse
+  //    this calendar month — mid-month deletes by admin mean "no thanks,"
+  //    don't resurrect
   //
-  // Deleted rows count too: if admin deleted this month's board for a
-  // horse as a mistake, we don't resurrect it.
+  // This means an April Generate doesn't spawn May's board on the next page
+  // visit — May will appear once the calendar rolls over.
   if (monthlyBoardServiceId && monthlyBoardUnitPrice !== null && eligibleHorses.length > 0) {
     const now = new Date()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
@@ -173,7 +180,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
       .gte('created_at', monthStart)
 
     const haveMonthly = new Set((existingMonthly ?? []).map(r => r.horse_id))
-    const missingFor = eligibleHorses.filter(h => !haveMonthly.has(h.id))
+    const missingFor = eligibleHorses.filter(h => h.chargesMonthlyBoard && !haveMonthly.has(h.id))
 
     if (missingFor.length > 0) {
       const toInsert = missingFor.map(h => ({
@@ -510,13 +517,18 @@ export async function loadQueue(): Promise<QueueSnapshot> {
       const items = byHorse.get(h.id) ?? []
       const subtotal = items.reduce((sum, it) => sum + it.total, 0)
       return {
-        horseId:         h.id,
-        barnName:        h.barnName,
-        billingContacts: h.billingContacts,
+        horseId:             h.id,
+        barnName:             h.barnName,
+        chargesMonthlyBoard:  h.chargesMonthlyBoard,
+        billingContacts:     h.billingContacts,
         items,
         subtotal,
       }
     })
+    // Horses that don't charge monthly board only appear if they have
+    // something billable this month. Saves space on the queue and avoids
+    // implying a Monthly Board should exist where it doesn't.
+    .filter(g => g.chargesMonthlyBoard || g.items.length > 0)
     // Surface horses with activity first; those with nothing yet go to the
     // bottom (still visible — admin may want to add ad-hoc charges to them).
     .sort((a, b) => {

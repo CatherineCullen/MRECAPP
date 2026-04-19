@@ -1432,6 +1432,7 @@ export type Database = {
         Row: {
           barn_name: string
           breed: string | null
+          charges_monthly_board: boolean
           color: string | null
           created_at: string
           custom_fields: Json | null
@@ -1456,6 +1457,7 @@ export type Database = {
         Insert: {
           barn_name: string
           breed?: string | null
+          charges_monthly_board?: boolean
           color?: string | null
           created_at?: string
           custom_fields?: Json | null
@@ -1480,6 +1482,7 @@ export type Database = {
         Update: {
           barn_name?: string
           breed?: string | null
+          charges_monthly_board?: boolean
           color?: string | null
           created_at?: string
           custom_fields?: Json | null

@@ -40,6 +40,11 @@ export default function HorseIdentitySection({ horse, recordingIds }: { horse: a
               Solo turnout
             </span>
           )}
+          {horse.charges_monthly_board === false && (
+            <span className="text-[10px] font-semibold bg-[#e8edf4] text-[#444650] px-1.5 py-0.5 rounded uppercase tracking-wider" title="Monthly board is not auto-billed for this horse.">
+              No monthly board
+            </span>
+          )}
           {horse.registered_name && horse.registered_name !== horse.barn_name && (
             <span className="text-xs text-[#444650]">{horse.registered_name}</span>
           )}

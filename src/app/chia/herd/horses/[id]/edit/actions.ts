@@ -16,8 +16,9 @@ export async function updateHorse(horseId: string, formData: FormData) {
   const weightRaw      = formData.get('weight') as string | null
   const dob            = (formData.get('date_of_birth') as string | null) || null
   const microchip      = (formData.get('microchip') as string | null)?.trim() || null
-  const lessonHorse    = formData.get('lesson_horse') === 'on'
-  const soloTurnout    = formData.get('solo_turnout') === 'on'
+  const lessonHorse           = formData.get('lesson_horse') === 'on'
+  const soloTurnout           = formData.get('solo_turnout') === 'on'
+  const chargesMonthlyBoard   = formData.get('charges_monthly_board') === 'on'
   const notes          = (formData.get('notes') as string | null)?.trim() || null
   const turnoutNotes   = (formData.get('turnout_notes') as string | null)?.trim() || null
   const ownershipNotes = (formData.get('ownership_notes') as string | null)?.trim() || null
@@ -39,8 +40,9 @@ export async function updateHorse(horseId: string, formData: FormData) {
       weight:           weightRaw ? parseInt(weightRaw, 10) : null,
       date_of_birth:    dob,
       microchip,
-      lesson_horse:     lessonHorse,
-      solo_turnout:     soloTurnout,
+      lesson_horse:          lessonHorse,
+      solo_turnout:          soloTurnout,
+      charges_monthly_board: chargesMonthlyBoard,
       notes,
       turnout_notes:    turnoutNotes,
       ownership_notes:  ownershipNotes,

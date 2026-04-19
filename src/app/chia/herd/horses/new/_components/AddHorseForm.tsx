@@ -145,7 +145,7 @@ export default function AddHorseForm() {
         </div>
 
         {/* Flags */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-6 flex-wrap">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               name="lesson_horse"
@@ -161,6 +161,15 @@ export default function AddHorseForm() {
               className="w-4 h-4 accent-[#002058]"
             />
             <span className="text-sm text-[#191c1e]">Solo turnout</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer" title="Uncheck for barn-owned or free-lease horses. Monthly board is not auto-billed when off; a la carte services still flow through.">
+            <input
+              name="charges_monthly_board"
+              type="checkbox"
+              defaultChecked
+              className="w-4 h-4 accent-[#002058]"
+            />
+            <span className="text-sm text-[#191c1e]">Charges monthly board</span>
           </label>
         </div>
       </fieldset>
