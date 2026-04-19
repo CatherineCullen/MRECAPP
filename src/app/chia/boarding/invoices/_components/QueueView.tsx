@@ -166,8 +166,16 @@ export default function QueueView({
           screens, which looked dense but made the Review & Allocate
           flow confusing (hard to know which row you just changed, and
           scanning order wasn't obvious). One vertical column is more
-          intuitive; scrolling is fine. */}
-      <div className="grid grid-cols-1 gap-3">
+          intuitive; scrolling is fine.
+
+          Width-capped to max-w-4xl (896px) so on a wide monitor the
+          "item description → action buttons" distance stays in a
+          readable scanline. Sized around the longest realistic item
+          description, e.g. "Training Rides - Kaley Pratt-Jones
+          (10*$80)", with buffer for longer names. Summary strip and
+          the bulk charge form above stay full-width — more room for
+          the horse-selection checks in bulk charge is useful. */}
+      <div className="grid grid-cols-1 gap-3 max-w-4xl">
         {horseGroups.map(group => (
           <HorsePanel
             key={group.horseId}
