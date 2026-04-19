@@ -17,7 +17,6 @@ const sections = [
   { label: 'Boarding',         href: '/chia/boarding',         icon: '▣' },
   { label: 'Documents',        href: '/chia/documents',        icon: '▤' },
   { label: 'Data',             href: '/chia/data',             icon: '◈' },
-  { label: 'Configuration',    href: '/chia/configuration',    icon: '◧' },
 ]
 
 export default function ChiaSidebar() {

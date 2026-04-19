@@ -1108,6 +1108,7 @@ export type Database = {
           code: string
           created_at: string
           default_duration_minutes: number
+          default_price: number | null
           is_active: boolean
           label: string
           sort_order: number
@@ -1118,6 +1119,7 @@ export type Database = {
           code: string
           created_at?: string
           default_duration_minutes: number
+          default_price?: number | null
           is_active?: boolean
           label: string
           sort_order?: number
@@ -1128,6 +1130,7 @@ export type Database = {
           code?: string
           created_at?: string
           default_duration_minutes?: number
+          default_price?: number | null
           is_active?: boolean
           label?: string
           sort_order?: number
@@ -2881,6 +2884,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pricing_config: {
+        Row: {
+          default_price: number | null
+          key: string
+          label: string
+          section: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          default_price?: number | null
+          key: string
+          label: string
+          section: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          default_price?: number | null
+          key?: string
+          label?: string
+          section?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       provider_qr_code: {
         Row: {

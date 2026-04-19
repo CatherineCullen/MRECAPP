@@ -28,6 +28,9 @@ const tabs = [
   // part of the daily Calendar/Invoices rhythm. A left gap + divider signals
   // "different mode" without pushing it off into a second nav row.
   { label: 'Quarterly Renewal', href: '/chia/lessons-events/renewal',       exact: false, distinct: true  },
+  // Configuration groups Catalog and Quarters — both are rare admin tasks,
+  // not part of the daily Calendar/Invoices/Renewal flow.
+  { label: 'Configuration',     href: '/chia/lessons-events/configuration', exact: false, distinct: true  },
 ]
 
 export default function LessonsEventsTabs() {

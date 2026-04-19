@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSort, SortableHeader, type Sortable } from '@/lib/sortableTable'
 
@@ -46,7 +46,24 @@ function contactDisplay(hc: HorseContact): string {
 type Props = { horses: HorseRow[] }
 
 export default function HorsesTable({ horses }: Props) {
-  const rows = useMemo(() => horses.map(h => {
+  const [query, setQuery] = useState('')
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return horses
+    return horses.filter(h => {
+      const haystack = [
+        h.barn_name,
+        h.registered_name ?? '',
+        h.breed ?? '',
+        h.gender ?? '',
+        ...h.horse_contact.map(hc => contactDisplay(hc)),
+      ].join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [horses, query])
+
+  const rows = useMemo(() => filtered.map(h => {
     const firstContact = h.horse_contact?.[0]
     const firstContactName = firstContact ? contactDisplay(firstContact) : ''
     return {
@@ -59,12 +76,26 @@ export default function HorsesTable({ horses }: Props) {
         status:  STATUS_ORDER[h.status] ?? 99,
       } satisfies Record<string, string | number | null>,
     }
-  }) satisfies (HorseRow & Sortable)[], [horses])
+  }) satisfies (HorseRow & Sortable)[], [filtered])
 
   const { sorted, sort, onSort } = useSort(rows, { key: 'name', dir: 'asc' })
 
   return (
     <div className="bg-white rounded-lg overflow-hidden">
+      <div className="px-4 py-2 border-b border-[#e8edf4] flex items-center gap-3">
+        <input
+          type="search"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Filter by name, breed, gender, or person…"
+          className="flex-1 bg-white border border-[#c4c6d1] rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#002058]"
+        />
+        {query && (
+          <span className="text-[11px] text-[#444650] whitespace-nowrap">
+            {sorted.length} of {horses.length}
+          </span>
+        )}
+      </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-[#f2f4f7]">
@@ -136,7 +167,7 @@ export default function HorsesTable({ horses }: Props) {
 
       <div className="px-4 py-2.5 bg-[#f2f4f7] border-t border-[#c4c6d1]/20">
         <span className="text-xs text-[#444650]">
-          {sorted.length} horse{sorted.length !== 1 ? 's' : ''}
+          {sorted.length}{query ? ` of ${horses.length}` : ''} horse{horses.length !== 1 ? 's' : ''}
         </span>
       </div>
     </div>

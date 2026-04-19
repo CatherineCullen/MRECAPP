@@ -69,7 +69,10 @@ function autoMatchHorse(hint: ParsedData['horse'], horses: HorseOption[]): strin
 }
 
 function parseVetJson(raw: string): { ok: true; data: ParsedData } | { ok: false; message: string } {
-  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  const stripped = raw
+    .replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+    .replace(/\s*\[cite:[^\]]*\]/g, '')  // strip Gemini citation annotations
+    .trim()
   try {
     const data = JSON.parse(stripped) as ParsedData
     if (!data.visit || typeof data.visit !== 'object') {
@@ -127,9 +130,16 @@ function ReviewCards({
   // hits, default to CREATE_NEW — the admin can flip it to an existing
   // entry via the per-event picker.
   const catalogByName = new Map(catalog.map(c => [c.name.toLowerCase(), c]))
+
+  // The prompt injects catalog entries as "Name (essential), every N days".
+  // The AI echoes the suffix back in catalog_match, so strip any parenthetical
+  // or trailing descriptor before looking up in the name map.
+  const stripMatchSuffix = (s: string) => s.replace(/\s*\(.*$/, '').replace(/\s*,.*$/, '').trim()
+
   const initialEvents: HealthEvent[] = (data.health_events ?? []).map(e => {
+    const matchKey = e.catalog_match ? stripMatchSuffix(e.catalog_match).toLowerCase() : null
     const matched =
-      (e.catalog_match && catalogByName.get(e.catalog_match.toLowerCase())) ||
+      (matchKey && catalogByName.get(matchKey)) ||
       catalogByName.get(e.item_name.toLowerCase()) ||
       null
     return { ...e, health_item_type_id: matched?.id ?? CREATE_NEW }
