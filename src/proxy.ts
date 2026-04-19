@@ -31,7 +31,10 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Public routes — always accessible
-  const publicPaths = ['/sign-in', '/auth/callback', '/api/', '/log']
+  // Token-based public routes carry their own authorization in the URL
+  // (`/enroll/[token]` — enrollment invite; `/p/[token]`, `/s/[id]` — shared
+  // print/signing surfaces). No session required.
+  const publicPaths = ['/sign-in', '/auth/callback', '/api/', '/log', '/enroll/', '/p/', '/s/']
   const isPublic = publicPaths.some(p => pathname.startsWith(p))
 
   if (!user && !isPublic) {

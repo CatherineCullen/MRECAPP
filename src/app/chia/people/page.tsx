@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import PeopleFilters from './_components/PeopleFilters'
 import AddPersonButton from './_components/AddPersonButton'
+import InviteRiderButton from './_components/InviteRiderButton'
 import PeopleTable, { type PersonRow } from './_components/PeopleTable'
 
 export default async function PeoplePage({
@@ -78,7 +79,10 @@ export default async function PeoplePage({
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-bold text-[#191c1e]">People</h1>
-        <AddPersonButton />
+        <div className="flex items-center gap-2">
+          <InviteRiderButton />
+          <AddPersonButton />
+        </div>
       </div>
 
       {/* Filters */}
