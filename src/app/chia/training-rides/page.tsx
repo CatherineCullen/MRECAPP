@@ -4,6 +4,7 @@ import RiderSelector from './_components/RiderSelector'
 import WeekGrid, { type GridHorse, type GridCell } from './_components/WeekGrid'
 import { toISODate, startOfWeek, weekDays, parseISODate } from '../lessons-events/_lib/weekRange'
 import { displayName } from '@/lib/displayName'
+import { redirect } from 'next/navigation'
 
 const ACTIVE_WINDOW_DAYS = 60
 
@@ -63,8 +64,15 @@ export default async function TrainingRidesPage({
     }))
     .sort((a, b) => b.rides_60d - a.rides_60d)
 
-  // Determine selected rider
+  // Determine selected rider. If none in URL, redirect to write the default
+  // into the URL so WeekPicker can preserve it across week navigation.
   const selectedRiderId = params.rider ?? providers[0]?.id ?? null
+  if (!params.rider && selectedRiderId) {
+    const qs = new URLSearchParams()
+    qs.set('rider', selectedRiderId)
+    if (params.week) qs.set('week', params.week)
+    redirect(`/chia/training-rides?${qs.toString()}`)
+  }
 
   // If no rider selected, render chrome only
   if (!selectedRiderId) {

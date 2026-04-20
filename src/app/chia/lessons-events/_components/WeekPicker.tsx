@@ -24,23 +24,28 @@ export default function WeekPicker({ currentWeekStart }: Props) {
   const btnCls   = 'px-2 py-1 text-sm font-semibold text-[#444650] rounded hover:bg-[#e8eaf0] transition-colors'
   const todayCls = 'px-2 py-1 text-xs font-semibold border border-[#c4c6d1] rounded hover:border-[#002058] hover:text-[#002058] transition-colors'
 
+  // Build a week-nav URL preserving all other search params (e.g. ?rider=...)
+  function weekHref(iso: string) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('week', iso)
+    return `${pathname}?${params.toString()}`
+  }
+
   // Jump to any date → navigate to the Monday of that date's week, preserving
   // other query params (e.g., ?rider=...).
   function handleJump(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value   // 'YYYY-MM-DD'
     if (!v) return
     const monday = toISODate(startOfWeek(parseISODate(v)))
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('week', monday)
-    router.push(`${pathname}?${params.toString()}`)
+    router.push(weekHref(monday))
   }
 
   return (
     <div className="flex items-center gap-1">
-      <Link href={`?week=${prev}`} className={btnCls} aria-label="Previous week">‹</Link>
+      <Link href={weekHref(prev)} className={btnCls} aria-label="Previous week">‹</Link>
       <span className="min-w-[180px] text-center text-sm font-semibold text-[#191c1e] px-2">{label}</span>
-      <Link href={`?week=${next}`} className={btnCls} aria-label="Next week">›</Link>
-      <Link href={`?week=${todayIso}`} className={todayCls}>Today</Link>
+      <Link href={weekHref(next)} className={btnCls} aria-label="Next week">›</Link>
+      <Link href={weekHref(todayIso)} className={todayCls}>Today</Link>
 
       {/* Jump-to-date: click the calendar icon / input to pick any week */}
       <label className="ml-2 flex items-center gap-1 text-xs text-[#444650] font-semibold border border-[#c4c6d1] rounded px-2 py-1 hover:border-[#002058] hover:text-[#002058] transition-colors cursor-pointer" title="Jump to week">
