@@ -41,6 +41,21 @@ export type DraftsSnapshot = {
   grandTotal: number
 }
 
+// Returns the subset of invoice IDs that have at least one lesson-domain line
+// item (subscription, package, or event). Used to exclude lesson invoices from
+// the boarding queue — the lesson section already applies the same logic as its
+// own positive filter, so both queues stay clean without a source column.
+async function lessonInvoiceIds(db: ReturnType<typeof createAdminClient>, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const { data } = await db
+    .from('invoice_line_item')
+    .select('invoice_id')
+    .in('invoice_id', ids)
+    .or('lesson_subscription_id.not.is.null,lesson_package_id.not.is.null,event_id.not.is.null')
+    .is('deleted_at', null)
+  return new Set((data ?? []).map(l => l.invoice_id))
+}
+
 export async function loadDrafts(): Promise<DraftsSnapshot> {
   const db = createAdminClient()
 
@@ -55,8 +70,13 @@ export async function loadDrafts(): Promise<DraftsSnapshot> {
   if (invErr) throw new Error(`loadDrafts: invoice query failed — ${invErr.message}`)
   if (!invoices || invoices.length === 0) return { drafts: [], grandTotal: 0 }
 
-  // 2. Person labels for the billed_to column. Single query, client-side map.
-  const personIds = Array.from(new Set(invoices.map(i => i.billed_to_id)))
+  // 2. Exclude lesson-domain invoices — this is the boarding queue only.
+  const lessonIds = await lessonInvoiceIds(db, invoices.map(i => i.id))
+  const boardingInvoices = invoices.filter(i => !lessonIds.has(i.id))
+  if (boardingInvoices.length === 0) return { drafts: [], grandTotal: 0 }
+
+  // 3. Person labels for the billed_to column. Single query, client-side map.
+  const personIds = Array.from(new Set(boardingInvoices.map(i => i.billed_to_id)))
   const { data: persons } = await db
     .from('person')
     .select('id, first_name, last_name, preferred_name, is_organization, organization_name')
@@ -69,10 +89,8 @@ export async function loadDrafts(): Promise<DraftsSnapshot> {
     return [p.preferred_name ?? p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown'
   }
 
-  // 3. Line items, grouped client-side. The `total` column is generated
-  //    (quantity * unit_price); we trust it so the roll-up matches Stripe's
-  //    view of the invoice.
-  const invoiceIds = invoices.map(i => i.id)
+  // 4. Line items, grouped client-side.
+  const invoiceIds = boardingInvoices.map(i => i.id)
   const { data: lines, error: linesErr } = await db
     .from('invoice_line_item')
     .select('id, invoice_id, description, quantity, unit_price, is_credit, total')
@@ -95,7 +113,7 @@ export async function loadDrafts(): Promise<DraftsSnapshot> {
     linesByInvoice.set(l.invoice_id, list)
   }
 
-  const drafts: DraftInvoice[] = invoices.map(inv => {
+  const drafts: DraftInvoice[] = boardingInvoices.map(inv => {
     const myLines = linesByInvoice.get(inv.id) ?? []
     // Credits stored with is_credit=true and a positive unit_price; they
     // subtract from the invoice total. Match that convention here so the

@@ -65,6 +65,19 @@ export type SentSnapshot = {
 
 const ACTIVE_STATUSES: SentInvoiceStatus[] = ['sent', 'opened', 'paid', 'overdue']
 
+// Returns invoice IDs that have at least one lesson-domain line item.
+// Boarding invoices are those NOT in this set.
+async function lessonInvoiceIds(db: ReturnType<typeof createAdminClient>, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set()
+  const { data } = await db
+    .from('invoice_line_item')
+    .select('invoice_id')
+    .in('invoice_id', ids)
+    .or('lesson_subscription_id.not.is.null,lesson_package_id.not.is.null,event_id.not.is.null')
+    .is('deleted_at', null)
+  return new Set((data ?? []).map(l => l.invoice_id))
+}
+
 export async function loadSent(): Promise<SentSnapshot> {
   const db = createAdminClient()
 
@@ -83,8 +96,15 @@ export async function loadSent(): Promise<SentSnapshot> {
     return { groups: [], grandTotal: 0, paidTotal: 0, outstandingTotal: 0 }
   }
 
+  // Exclude lesson-domain invoices — this is the boarding history only.
+  const lessonIds = await lessonInvoiceIds(db, invoices.map(i => i.id))
+  const boardingInvoices = invoices.filter(i => !lessonIds.has(i.id))
+  if (boardingInvoices.length === 0) {
+    return { groups: [], grandTotal: 0, paidTotal: 0, outstandingTotal: 0 }
+  }
+
   // Person labels
-  const personIds = Array.from(new Set(invoices.map(i => i.billed_to_id)))
+  const personIds = Array.from(new Set(boardingInvoices.map(i => i.billed_to_id)))
   const { data: persons } = await db
     .from('person')
     .select('id, first_name, last_name, preferred_name, is_organization, organization_name')
@@ -98,7 +118,7 @@ export async function loadSent(): Promise<SentSnapshot> {
   }
 
   // Line items
-  const invoiceIds = invoices.map(i => i.id)
+  const invoiceIds = boardingInvoices.map(i => i.id)
   const { data: lines, error: linesErr } = await db
     .from('invoice_line_item')
     .select('id, invoice_id, description, quantity, unit_price, is_credit, total')
@@ -121,7 +141,7 @@ export async function loadSent(): Promise<SentSnapshot> {
     linesByInvoice.set(l.invoice_id, list)
   }
 
-  const enriched: SentInvoice[] = invoices.map(inv => {
+  const enriched: SentInvoice[] = boardingInvoices.map(inv => {
     const myLines = linesByInvoice.get(inv.id) ?? []
     const total = myLines.reduce((s, l) => s + (l.isCredit ? -l.total : l.total), 0)
     return {
