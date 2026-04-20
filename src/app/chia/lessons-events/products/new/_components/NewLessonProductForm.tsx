@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SearchPicker from '@/components/SearchPicker'
 import { createLessonProduct, type ProductKind } from '../actions'
+import { sendPackageInvoice } from '../../../unbilled/actions'
 
 type Option      = { id: string; name: string }
 type RiderOption = Option & { defaultBilledToId: string }
@@ -56,6 +57,9 @@ export default function NewLessonProductForm({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [invoicePending, startInvoiceTransition] = useTransition()
+  const [invoiceError, setInvoiceError] = useState<string | null>(null)
+  const [created, setCreated] = useState<{ packageId: string; lessonId: string; billedToId: string } | null>(null)
 
   const isMakeup = Boolean(makeup)
   const makeupDaySet = new Set(makeupDays ?? [])
@@ -119,22 +123,69 @@ export default function NewLessonProductForm({
         return
       }
 
-      // After makeup redemption, send the user back to the tokens page so they
-      // see the token flip to 'scheduled'. After one-off, send them to the
-      // new lesson's detail so they can add more riders or cancel if needed.
       if (isMakeup) {
         router.push('/chia/lessons-events/tokens')
+      } else if (result.packageId && result.lessonId) {
+        setCreated({ packageId: result.packageId, lessonId: result.lessonId, billedToId })
       } else {
-        router.push(result?.lessonId
-          ? `/chia/lessons-events/${result.lessonId}`
-          : '/chia/lessons-events')
+        router.push('/chia/lessons-events')
       }
+    })
+  }
+
+  function handleSendNow() {
+    if (!created) return
+    setInvoiceError(null)
+    startInvoiceTransition(async () => {
+      const result = await sendPackageInvoice({
+        billedToId: created.billedToId,
+        packageIds: [created.packageId],
+      })
+      if (result.error) {
+        setInvoiceError(result.error)
+        return
+      }
+      router.push(`/chia/lessons-events/${created.lessonId}`)
     })
   }
 
   // ---------- UI helpers ----------
   const labelCls = 'block text-xs font-semibold text-[#191c1e] mb-1'
   const inputCls = 'w-full border border-[#c4c6d1] rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#002058] bg-white'
+
+  if (created) {
+    const billerName = billers.find(b => b.id === created.billedToId)?.name ?? 'the billed contact'
+    const kindLabel = KIND_OPTIONS.find(o => o.value === kind)?.label ?? 'Lesson'
+    return (
+      <div className="bg-white rounded-lg border border-[#c4c6d1]/40 p-6 max-w-md">
+        <p className="text-sm font-semibold text-[#191c1e] mb-1">{kindLabel} created</p>
+        <p className="text-xs text-[#444650] mb-5">Invoice {billerName}?</p>
+        {invoiceError && (
+          <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+            {invoiceError}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSendNow}
+            disabled={invoicePending}
+            className="bg-[#002058] text-white text-sm font-semibold px-4 py-2 rounded hover:bg-[#003099] disabled:opacity-50 transition-colors"
+          >
+            {invoicePending ? 'Sending…' : 'Send Invoice Now'}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/chia/lessons-events/${created.lessonId}`)}
+            disabled={invoicePending}
+            className="text-sm text-[#444650] font-semibold px-4 py-2 rounded hover:bg-[#e8eaf0] transition-colors"
+          >
+            Hold for Later
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const REASON_LABEL: Record<MakeupContext['reason'], string> = {
     rider_cancel: 'Rider cancel',

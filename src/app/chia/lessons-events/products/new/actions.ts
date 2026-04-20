@@ -49,7 +49,7 @@ export type CreateLessonProductArgs = {
 
 export async function createLessonProduct(
   args: CreateLessonProductArgs,
-): Promise<{ error?: string; lessonId?: string }> {
+): Promise<{ error?: string; lessonId?: string; packageId?: string }> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
 
@@ -237,5 +237,5 @@ export async function createLessonProduct(
   }
 
   revalidatePath('/chia/lessons-events')
-  return { lessonId: lesson.id }
+  return { lessonId: lesson.id, packageId: pkg.id }
 }
