@@ -100,6 +100,7 @@ export default async function TrainingRidesPage({
     .from('horse')
     .select('id, barn_name, status')
     .is('deleted_at', null)
+    .in('status', ['active', 'pending', 'away'])
     .order('barn_name')
 
   const activeHorses: GridHorse[] = (allHorses ?? [])
