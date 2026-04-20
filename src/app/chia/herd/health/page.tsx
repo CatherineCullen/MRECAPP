@@ -58,11 +58,17 @@ export default async function HerdHealthPage() {
     programItems = data ?? []
   }
 
-  // Build lookup: horseId → typeId → item
+  // Build lookup: horseId → typeId → item. When duplicates exist (e.g. a type
+  // recorded via vet import AND a standalone import), keep the one with the
+  // later next_due so the most current record wins.
   const lookup = new Map<string, Map<string, typeof programItems[0]>>()
   for (const item of programItems) {
     if (!lookup.has(item.horse_id)) lookup.set(item.horse_id, new Map())
-    lookup.get(item.horse_id)!.set(item.health_item_type_id, item)
+    const horseMap = lookup.get(item.horse_id)!
+    const existing = horseMap.get(item.health_item_type_id)
+    if (!existing || (item.next_due ?? '') > (existing.next_due ?? '')) {
+      horseMap.set(item.health_item_type_id, item)
+    }
   }
 
   // Pre-shape rows for the client component

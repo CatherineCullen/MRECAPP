@@ -421,6 +421,22 @@ async function syncHealthProgramItem(
   if (selErr) return { error: selErr.message }
 
   if (existing) {
+    // Only update if this record is more recent — prevents an older import
+    // (e.g. a vet record containing a past Coggins) from overwriting a newer
+    // one that was imported first.
+    const { data: cur } = await supabase
+      .from('health_program_item')
+      .select('next_due, last_done')
+      .eq('id', existing.id)
+      .maybeSingle()
+
+    const incomingIsNewer =
+      !cur ||
+      (nextDue ?? '') > (cur.next_due ?? '') ||
+      (nextDue === cur.next_due && lastDone > (cur.last_done ?? ''))
+
+    if (!incomingIsNewer) return {}
+
     const { error } = await supabase
       .from('health_program_item')
       .update({ last_done: lastDone, next_due: nextDue, updated_at: new Date().toISOString() })
