@@ -35,7 +35,8 @@ export default async function LessonsCalendarPage({
           id, cancelled_at, rider_id,
           rider:person!lesson_rider_rider_id_fkey ( id, first_name, last_name, preferred_name ),
           horse:horse                               ( id, barn_name ),
-          subscription:lesson_subscription ( id, status )
+          subscription:lesson_subscription ( id, status ),
+          package:lesson_package ( id, invoice_id, billing_skipped_at, invoice:invoice!lesson_package_invoice_fk ( status ) )
         )
       `)
       .is('deleted_at', null)
@@ -116,7 +117,15 @@ export default async function LessonsCalendarPage({
     const minutes = d.getHours() * 60 + d.getMinutes()
 
     const riders = (l.lesson_rider ?? []).filter(r => !r.cancelled_at)
-    const unpaid = riders.some(r => r.subscription?.status === 'pending')
+    const unpaid = riders.some(r => {
+      if (r.subscription?.status === 'pending') return true
+      const pkg = r.package as { invoice_id: string | null; billing_skipped_at: string | null; invoice: { status: string } | null } | null
+      if (pkg && !pkg.billing_skipped_at) {
+        if (!pkg.invoice_id) return true                       // no invoice yet
+        if (pkg.invoice?.status !== 'paid') return true        // sent/draft but not paid
+      }
+      return false
+    })
     const waiverMissing = riders.some(r => r.rider_id && !waivedRiderIds.has(r.rider_id))
 
     // Derive effective status. Scheduled + past → completed. Scheduled + (unpaid
