@@ -48,7 +48,8 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
         id, cancelled_at,
         rider:person!lesson_rider_rider_id_fkey ( id, first_name, last_name, preferred_name ),
         horse:horse                               ( id, barn_name ),
-        subscription:lesson_subscription ( id, subscription_type, quarter_id, status )
+        subscription:lesson_subscription ( id, subscription_type, quarter_id, status, invoice_id ),
+        package:lesson_package ( id, invoice_id, billing_skipped_at, invoice:invoice!lesson_package_invoice_fk ( status ) )
       )
     `)
     .eq('id', id)
@@ -120,7 +121,49 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
 
   const activeRiders = (lesson.lesson_rider ?? []).filter(r => !r.cancelled_at)
   const hasBoarder   = activeRiders.some(r => r.subscription?.subscription_type === 'boarder')
-  const unpaid       = activeRiders.some(r => (r.subscription as { status?: string } | null)?.status === 'pending')
+
+  // Waiver check — same logic as calendar page
+  const riderIds = activeRiders.map(r => r.rider?.id).filter((x): x is string => !!x)
+  const waivedRiderIds = new Set<string>()
+  if (riderIds.length > 0) {
+    const { data: waiverDocs } = await supabase
+      .from('document')
+      .select('person_id')
+      .eq('document_type', 'Waiver')
+      .in('person_id', riderIds)
+      .is('deleted_at', null)
+    for (const d of waiverDocs ?? []) {
+      if (d.person_id) waivedRiderIds.add(d.person_id)
+    }
+  }
+
+  // Per-rider pending signals
+  type RiderSignal = { waiverMissing: boolean; invoiceStatus: 'paid' | 'pending' | 'no_invoice' | 'skipped' }
+  const riderSignals = new Map<string, RiderSignal>()
+  for (const r of activeRiders) {
+    const riderId = r.rider?.id
+    if (!riderId) continue
+    const waiverMissing = !waivedRiderIds.has(riderId)
+    let invoiceStatus: RiderSignal['invoiceStatus'] = 'paid'
+    const sub = r.subscription as { status?: string; invoice_id?: string | null } | null
+    const pkg = r.package as { invoice_id: string | null; billing_skipped_at: string | null; invoice: { status: string } | null } | null
+    if (sub) {
+      invoiceStatus = sub.status === 'pending'
+        ? (sub.invoice_id ? 'pending' : 'no_invoice')
+        : 'paid'
+    } else if (pkg) {
+      if (pkg.billing_skipped_at) invoiceStatus = 'skipped'
+      else if (!pkg.invoice_id)   invoiceStatus = 'no_invoice'
+      else invoiceStatus = pkg.invoice?.status === 'paid' ? 'paid' : 'pending'
+    }
+    riderSignals.set(riderId, { waiverMissing, invoiceStatus })
+  }
+
+  const unpaid       = activeRiders.some(r => {
+    const sig = r.rider?.id ? riderSignals.get(r.rider.id) : undefined
+    return sig?.invoiceStatus === 'pending' || sig?.invoiceStatus === 'no_invoice'
+  })
+  const waiverMissing = activeRiders.some(r => r.rider?.id && !waivedRiderIds.has(r.rider.id))
 
   // Rider-cancel allowance usage: count existing makeup_token rows with
   // reason='rider_cancel' for each (rider, quarter) pair of the active riders.
@@ -163,7 +206,7 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
   // Display the EFFECTIVE status: past + scheduled is shown as completed,
   // matching the calendar. The raw status is passed to LessonActions so it
   // can distinguish "actually terminal" from "past but still scheduled".
-  const rawForDisplay: RawStatus = (lesson.status === 'scheduled' && unpaid)
+  const rawForDisplay: RawStatus = (lesson.status === 'scheduled' && (unpaid || waiverMissing))
     ? 'pending'
     : (lesson.status as RawStatus)
   const effStatus  = effectiveStatus({
@@ -264,47 +307,72 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
             ) : (
               <ul className="space-y-0.5">
                 {activeRiders.map(r => (
-                  <li key={r.id} className="flex items-center flex-wrap gap-x-1 gap-y-1">
-                    {r.rider?.id ? (
-                      <Link
-                        href={`/chia/people/${r.rider.id}`}
-                        target="_blank"
-                        rel="noopener"
-                        className="hover:underline hover:text-[#002058]"
-                        title="Open profile in new tab"
-                      >
-                        {displayName(r.rider)}
-                      </Link>
-                    ) : (
-                      <span>{displayName(r.rider)}</span>
-                    )}
-                    <RiderHorseAssignment
-                      lessonId={lesson.id}
-                      lessonRiderId={r.id}
-                      currentHorseId={r.horse?.id ?? null}
-                      currentName={r.horse?.barn_name ?? null}
-                      horses={horseOptions}
-                      readOnly={TERMINAL_STATUSES.has(lesson.status)}
-                    />
-                    {r.subscription?.subscription_type === 'boarder' && (
-                      <span className="text-[10px] bg-[#dae2ff] text-[#002058] px-1.5 py-0.5 rounded font-semibold">
-                        Boarder
-                      </span>
-                    )}
-                    {lesson.status === 'scheduled' && activeRiders.length > 1 && (
-                      <RiderCancelButton
+                  <li key={r.id} className="flex flex-col gap-0.5">
+                    <div className="flex items-center flex-wrap gap-x-1 gap-y-1">
+                      {r.rider?.id ? (
+                        <Link
+                          href={`/chia/people/${r.rider.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="hover:underline hover:text-[#002058]"
+                          title="Open profile in new tab"
+                        >
+                          {displayName(r.rider)}
+                        </Link>
+                      ) : (
+                        <span>{displayName(r.rider)}</span>
+                      )}
+                      <RiderHorseAssignment
                         lessonId={lesson.id}
                         lessonRiderId={r.id}
-                        scheduledAt={lesson.scheduled_at}
-                        hasBoarder={r.subscription?.subscription_type === 'boarder'}
-                        hasSubscription={!!r.subscription?.id}
-                        riderCancelAllowanceUsed={
-                          r.subscription?.subscription_type === 'standard' && r.subscription?.quarter_id && r.rider?.id
-                            ? (riderCancelCount.get(allowanceKey(r.rider.id, r.subscription.quarter_id as string)) ?? 0)
-                            : 0
-                        }
+                        currentHorseId={r.horse?.id ?? null}
+                        currentName={r.horse?.barn_name ?? null}
+                        horses={horseOptions}
+                        readOnly={TERMINAL_STATUSES.has(lesson.status)}
                       />
-                    )}
+                      {r.subscription?.subscription_type === 'boarder' && (
+                        <span className="text-[10px] bg-[#dae2ff] text-[#002058] px-1.5 py-0.5 rounded font-semibold">
+                          Boarder
+                        </span>
+                      )}
+                      {lesson.status === 'scheduled' && activeRiders.length > 1 && (
+                        <RiderCancelButton
+                          lessonId={lesson.id}
+                          lessonRiderId={r.id}
+                          scheduledAt={lesson.scheduled_at}
+                          hasBoarder={r.subscription?.subscription_type === 'boarder'}
+                          hasSubscription={!!r.subscription?.id}
+                          riderCancelAllowanceUsed={
+                            r.subscription?.subscription_type === 'standard' && r.subscription?.quarter_id && r.rider?.id
+                              ? (riderCancelCount.get(allowanceKey(r.rider.id, r.subscription.quarter_id as string)) ?? 0)
+                              : 0
+                          }
+                        />
+                      )}
+                    </div>
+                    {(() => {
+                      const sig = r.rider?.id ? riderSignals.get(r.rider.id) : undefined
+                      if (!sig || (!sig.waiverMissing && sig.invoiceStatus !== 'pending' && sig.invoiceStatus !== 'no_invoice')) return null
+                      return (
+                        <div className="flex flex-wrap gap-1 pl-0">
+                          {sig.waiverMissing && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#fff4d6] text-[#7a5a00]">
+                              No waiver
+                            </span>
+                          )}
+                          {sig.invoiceStatus === 'no_invoice' && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#fff4d6] text-[#7a5a00]">
+                              No invoice
+                            </span>
+                          )}
+                          {sig.invoiceStatus === 'pending' && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#fff4d6] text-[#7a5a00]">
+                              Invoice unpaid
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </li>
                 ))}
               </ul>
