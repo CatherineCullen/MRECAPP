@@ -3,6 +3,7 @@
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
+import { ensureStripeCustomer } from '@/lib/stripe/customer'
 import { revalidatePath } from 'next/cache'
 
 // Admin-only. Generates the stub Person(s) + a tokenized enrollment row,
@@ -84,6 +85,10 @@ export async function createInvite(
     })
     if (tokErr) return { error: tokErr.message }
 
+    ensureStripeCustomer(person.id).catch(e =>
+      console.error('[createInvite] Stripe customer creation failed', person.id, e)
+    )
+
     revalidatePath('/chia/people')
     return { token, riderPersonId: person.id, link: `/enroll/${token}` }
   }
@@ -141,6 +146,11 @@ export async function createInvite(
     created_by:         user.personId ?? null,
   })
   if (tokErr) return { error: tokErr.message }
+
+  // Parent is the billed party for minors — create their Stripe customer
+  ensureStripeCustomer(parent.id).catch(e =>
+    console.error('[createInvite/minor] Stripe customer creation failed', parent.id, e)
+  )
 
   revalidatePath('/chia/people')
   return { token, riderPersonId: child.id, link: `/enroll/${token}` }

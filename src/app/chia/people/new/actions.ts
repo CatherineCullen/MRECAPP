@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { ensureStripeCustomer } from '@/lib/stripe/customer'
 import { redirect } from 'next/navigation'
 
 export async function createPerson(formData: FormData) {
@@ -42,6 +43,13 @@ export async function createPerson(formData: FormData) {
   if (roles.length > 0) {
     await supabase.from('person_role').insert(
       roles.map(role => ({ person_id: person.id, role: role as any }))
+    )
+  }
+
+  // Create Stripe customer eagerly (best-effort — don't block redirect on failure)
+  if (!isMinor) {
+    ensureStripeCustomer(person.id).catch(e =>
+      console.error('[createPerson] Stripe customer creation failed', person.id, e)
     )
   }
 
