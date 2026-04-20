@@ -214,6 +214,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
         id, horse_id, unit_price, notes, logged_at,
         service:board_service!board_service_log_service_id_fkey ( id, name )
       `)
+      .eq('is_billable', true)
       .is('invoice_line_item_id', null)
       .in('horse_id', eligibleHorseIds)
 
