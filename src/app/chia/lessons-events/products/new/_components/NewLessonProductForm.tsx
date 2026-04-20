@@ -29,6 +29,7 @@ type Props = {
   suggestedDate?: string                  // YYYY-MM-DD default for date picker
   suggestedTime?: string                  // HH:MM default for time input (from calendar click)
   makeupDays?: string[]                   // ISO dates flagged as makeup days (guidance hint)
+  defaultPrices?: { evaluation: number | null; extra_lesson: number | null }
 }
 
 // Birthday parties, clinics, equine therapy, and other non-lesson-shaped
@@ -52,7 +53,7 @@ function todayIso() {
 }
 
 export default function NewLessonProductForm({
-  riders, billers, instructors, horses, makeup, suggestedDate, suggestedTime, makeupDays,
+  riders, billers, instructors, horses, makeup, suggestedDate, suggestedTime, makeupDays, defaultPrices,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -65,6 +66,11 @@ export default function NewLessonProductForm({
   const makeupDaySet = new Set(makeupDays ?? [])
 
   // Form state
+  const priceFromCatalog = (k: Exclude<ProductKind, 'makeup'>): string => {
+    const val = k === 'evaluation' ? defaultPrices?.evaluation : defaultPrices?.extra_lesson
+    return val != null ? String(val) : ''
+  }
+
   const [kind, setKind] = useState<Exclude<ProductKind, 'makeup'>>('evaluation')
   const [riderId, setRiderId]           = useState(isMakeup ? makeup!.riderId : '')
   const [billedToId, setBilledToId]     = useState('')
@@ -73,10 +79,13 @@ export default function NewLessonProductForm({
   const [date, setDate]                 = useState<string>(suggestedDate ?? todayIso())
   const [time, setTime]                 = useState(suggestedTime ?? '16:00')
   const [lessonType, setLessonType]     = useState<'private' | 'semi_private' | 'group'>('private')
-  // Price starts as empty string so the input is blank (not "0"), forcing
-  // the admin to type a real number. Parsed at submit time.
-  const [price, setPrice]               = useState<string>('')
+  const [price, setPrice]               = useState<string>(priceFromCatalog('evaluation'))
   const [notes, setNotes]               = useState('')
+
+  function handleKindChange(k: Exclude<ProductKind, 'makeup'>) {
+    setKind(k)
+    setPrice(priceFromCatalog(k))
+  }
 
   function handleRiderChange(v: string) {
     setRiderId(v)
@@ -222,7 +231,7 @@ export default function NewLessonProductForm({
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setKind(opt.value)}
+                onClick={() => handleKindChange(opt.value)}
                 className={`text-xs font-semibold py-2 px-2 rounded border transition-colors text-center ${
                   kind === opt.value
                     ? 'bg-[#002058] text-white border-[#002058]'

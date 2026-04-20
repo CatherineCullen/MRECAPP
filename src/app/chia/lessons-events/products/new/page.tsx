@@ -17,8 +17,8 @@ export default async function NewLessonProductPage({
   const clickedDate = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : undefined
   const clickedTime = params.time && /^\d{2}:\d{2}$/.test(params.time) ? params.time : undefined
 
-  // Parallel fetch: people, horses, and (if makeup) the token with its context
-  const [{ data: people }, { data: horses }, tokenResult] = await Promise.all([
+  // Parallel fetch: people, horses, pricing defaults, and (if makeup) the token
+  const [{ data: people }, { data: horses }, { data: pricingRows }, tokenResult] = await Promise.all([
     supabase
       .from('person')
       .select(`
@@ -34,6 +34,10 @@ export default async function NewLessonProductPage({
       .select('id, barn_name')
       .is('deleted_at', null)
       .order('barn_name'),
+    supabase
+      .from('pricing_config')
+      .select('key, default_price')
+      .eq('section', 'lesson_package'),
     tokenId
       ? supabase
           .from('makeup_token')
@@ -47,6 +51,15 @@ export default async function NewLessonProductPage({
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ])
+
+  const priceFor = (key: string): number | null => {
+    const row = (pricingRows ?? []).find(r => r.key === key)
+    return row?.default_price != null ? Number(row.default_price) : null
+  }
+  const defaultPrices = {
+    evaluation:   priceFor('lesson_evaluation'),
+    extra_lesson: priceFor('lesson_extra'),
+  }
 
   const getRoles = (p: any): string[] =>
     (p.person_role ?? []).filter((r: any) => !r.deleted_at).map((r: any) => r.role)
@@ -146,6 +159,7 @@ export default async function NewLessonProductPage({
         suggestedDate={clickedDate ?? suggestedDate}
         suggestedTime={clickedTime}
         makeupDays={makeupDays}
+        defaultPrices={defaultPrices}
       />
     </div>
   )
