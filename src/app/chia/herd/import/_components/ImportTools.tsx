@@ -21,14 +21,18 @@ export default function ImportTools({
   horses,
   catalog,
   initialHorseId,
+  initialTab = 'coggins',
+  initialMode = 'manual',
 }: {
   cogginsPrompt:   PromptData | null
   vetRecordPrompt: PromptData | null
   horses:          HorseOption[]
   catalog:         CatalogEntry[]
   initialHorseId:  string | null
+  initialTab?:     Tab
+  initialMode?:    'manual' | 'ai'
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>('coggins')
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
 
   return (
     <div className="max-w-3xl">
@@ -53,12 +57,12 @@ export default function ImportTools({
 
       {activeTab === 'coggins' && (
         cogginsPrompt
-          ? <CogginsImport prompt={cogginsPrompt} horses={horses} initialHorseId={initialHorseId} />
+          ? <CogginsImport prompt={cogginsPrompt} horses={horses} initialHorseId={initialHorseId} initialMode={initialMode} />
           : <div className="text-sm text-[#444650]">Coggins import prompt not configured.</div>
       )}
       {activeTab === 'vet_record' && (
         vetRecordPrompt
-          ? <VetRecordImport prompt={vetRecordPrompt} horses={horses} catalog={catalog} initialHorseId={initialHorseId} />
+          ? <VetRecordImport prompt={vetRecordPrompt} horses={horses} catalog={catalog} initialHorseId={initialHorseId} initialMode={initialMode} />
           : <div className="text-sm text-[#444650]">Vet record import prompt not configured.</div>
       )}
     </div>

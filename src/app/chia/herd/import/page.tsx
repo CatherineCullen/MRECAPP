@@ -41,9 +41,11 @@ async function getPageData() {
 export default async function ImportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ horse_id?: string }>
+  searchParams: Promise<{ horse_id?: string; type?: string; mode?: string }>
 }) {
-  const { horse_id: initialHorseId = null } = await searchParams
+  const { horse_id: initialHorseId = null, type, mode } = await searchParams
+  const initialTab: 'coggins' | 'vet_record' = type === 'vet' || type === 'vet_record' ? 'vet_record' : 'coggins'
+  const initialMode: 'manual' | 'ai' = mode === 'ai' ? 'ai' : 'manual'
   const { prompts, catalog, horses, migrationPending } = await getPageData()
 
   if (migrationPending) {
@@ -77,6 +79,8 @@ export default async function ImportPage({
         horses={horses}
         catalog={(catalog ?? []).map(c => ({ id: c.id, name: c.name, is_essential: c.is_essential }))}
         initialHorseId={initialHorseId}
+        initialTab={initialTab}
+        initialMode={initialMode}
       />
     </div>
   )

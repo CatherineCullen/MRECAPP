@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
 type VetVisit = {
   id:         string
@@ -10,7 +11,7 @@ type VetVisit = {
   document:   { id: string; filename: string } | null
 }
 
-export default function HorseVetVisitsSection({ visits }: { visits: VetVisit[] }) {
+export default function HorseVetVisitsSection({ visits, horseId }: { visits: VetVisit[]; horseId: string }) {
   const [expanded, setExpanded] = useState(false)
 
   const preview   = visits[0]
@@ -54,19 +55,29 @@ export default function HorseVetVisitsSection({ visits }: { visits: VetVisit[] }
           Vet Records
           <span className="ml-1.5 text-[10px] font-normal text-[#444650] normal-case tracking-normal">({visits.length})</span>
         </h2>
+        <Link
+          href={`/chia/herd/import?horse_id=${horseId}&type=vet`}
+          className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
+        >
+          + Add
+        </Link>
       </div>
-      <div className="px-4 pt-1 pb-2">
-        <VisitRow visit={preview} />
-        {hasMore && expanded && rest.map(v => <VisitRow key={v.id} visit={v} />)}
-        {hasMore && (
-          <button
-            onClick={() => setExpanded(v => !v)}
-            className="mt-1 text-[10px] font-semibold text-[#444650] hover:text-[#191c1e] uppercase tracking-wider"
-          >
-            {expanded ? 'Show less' : `Show ${rest.length} more`}
-          </button>
-        )}
-      </div>
+      {visits.length === 0 ? (
+        <div className="px-4 py-3 text-sm text-[#444650]">No vet records on file.</div>
+      ) : (
+        <div className="px-4 pt-1 pb-2">
+          <VisitRow visit={preview} />
+          {hasMore && expanded && rest.map(v => <VisitRow key={v.id} visit={v} />)}
+          {hasMore && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="mt-1 text-[10px] font-semibold text-[#444650] hover:text-[#191c1e] uppercase tracking-wider"
+            >
+              {expanded ? 'Show less' : `Show ${rest.length} more`}
+            </button>
+          )}
+        </div>
+      )}
     </section>
   )
 }

@@ -2,10 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import ImportFlow from './ImportFlow'
+import VetRecordManualForm from './VetRecordManualForm'
 import { addVetRecord } from '../actions'
 import { createClient } from '@/lib/supabase/client'
 import SearchPicker from '@/components/SearchPicker'
 import type { CatalogEntry } from './ImportTools'
+
+type Mode = 'manual' | 'ai'
 
 type HorseOption = { id: string; barn_name: string; registered_name?: string | null }
 
@@ -426,28 +429,43 @@ export default function VetRecordImport({
   horses,
   catalog,
   initialHorseId,
+  initialMode = 'manual',
 }: {
   prompt:         { body: string; description: string | null }
   horses:         HorseOption[]
   catalog:        CatalogEntry[]
   initialHorseId: string | null
+  initialMode?:   Mode
 }) {
+  const [mode, setMode] = useState<Mode>(initialMode)
+
+  if (mode === 'manual') {
+    return <VetRecordManualForm horses={horses} catalog={catalog} initialHorseId={initialHorseId} onSwitchToAi={() => setMode('ai')} />
+  }
+
   return (
-    <ImportFlow
-      promptBody={prompt.body}
-      description={prompt.description}
-      jsonPlaceholder={'{\n  "visit": { "visit_date": null, "vet_name": null, "findings": null, "recommendations": null },\n  "health_events": [],\n  "care_plans": [],\n  "clarifications": []\n}'}
-      onParse={parseVetJson}
-    >
-      {(data, onReset) => (
-        <ReviewCards
-          data={data as ParsedData}
-          horses={horses}
-          catalog={catalog}
-          initialHorseId={initialHorseId}
-          onReset={onReset}
-        />
-      )}
-    </ImportFlow>
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
+        <button onClick={() => setMode('manual')} className="text-xs font-semibold text-[#056380] hover:text-[#002058]">
+          ← Back to manual entry
+        </button>
+      </div>
+      <ImportFlow
+        promptBody={prompt.body}
+        description={prompt.description}
+        jsonPlaceholder={'{\n  "visit": { "visit_date": null, "vet_name": null, "findings": null, "recommendations": null },\n  "health_events": [],\n  "care_plans": [],\n  "clarifications": []\n}'}
+        onParse={parseVetJson}
+      >
+        {(data, onReset) => (
+          <ReviewCards
+            data={data as ParsedData}
+            horses={horses}
+            catalog={catalog}
+            initialHorseId={initialHorseId}
+            onReset={onReset}
+          />
+        )}
+      </ImportFlow>
+    </div>
   )
 }

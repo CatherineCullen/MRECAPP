@@ -9,7 +9,7 @@ export default function HorseCogginsSection({ coggins, horseId }: { coggins: any
         <div className="px-4 py-3 bg-[#f2f4f7] flex items-center justify-between">
           <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">Coggins</h2>
           <Link
-            href={`/chia/herd/import?horse_id=${horseId}`}
+            href={`/chia/herd/import?horse_id=${horseId}&type=coggins`}
             className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
           >
             + Add
@@ -29,7 +29,7 @@ export default function HorseCogginsSection({ coggins, horseId }: { coggins: any
       <div className="px-4 py-3 bg-[#f2f4f7] flex items-center justify-between">
         <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">Coggins</h2>
         <Link
-          href={`/chia/herd/import?horse_id=${horseId}`}
+          href={`/chia/herd/import?horse_id=${horseId}&type=coggins`}
           className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
         >
           + Add

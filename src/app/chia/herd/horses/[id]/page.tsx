@@ -216,7 +216,7 @@ export default async function HorseRecordPage({
         />
 
         {/* Vet Records */}
-        {vetVisits.length > 0 && <HorseVetVisitsSection visits={vetVisits} />}
+        <HorseVetVisitsSection visits={vetVisits} horseId={id} />
 
         {/* Documents — Coggins PDFs, vet attachments, vaccine certs, misc */}
         <EntityDocumentsSection kind="horse" id={id} label={`Horse: ${horse.barn_name}`} />
