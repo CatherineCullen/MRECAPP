@@ -220,16 +220,7 @@ export async function createAndSendInvoice(params: {
       referenceId: chiaInvoice.id,
       email:       person.email,
       phone:       person.phone,
-      subject:     'New invoice from Marlboro Ridge Equestrian Center',
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-          <p>Hi ${person.first_name},</p>
-          <p>A new invoice from Marlboro Ridge Equestrian Center is ready.
-          Check your email for the payment link.</p>
-          <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
-        </div>
-      `,
-      smsBody: `MREC: A new invoice is ready. Check your email for the payment link.`,
+      vars: { first_name: person.first_name ?? '' },
     })
   })().catch(e => console.error('[invoice] notify error', e))
 

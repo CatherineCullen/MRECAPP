@@ -79,19 +79,11 @@ export async function GET(req: NextRequest) {
         referenceId: lesson.id,
         email:       rider.email,
         phone:       rider.phone,
-        subject:     `Reminder: Your lesson tomorrow at Marlboro Ridge`,
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-            <p>Hi ${rider.first_name},</p>
-            <p>Just a reminder — you have a <strong>${typeLabel}</strong> scheduled for
-            <strong>${timeStr}</strong> at Marlboro Ridge Equestrian Center.</p>
-            <p style="color:#666;font-size:14px">
-              Need to cancel? Please let us know at least 24 hours in advance.
-            </p>
-            <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
-          </div>
-        `,
-        smsBody: `MREC reminder: ${typeLabel} tomorrow ${timeStr}. Questions? Contact the barn.`,
+        vars: {
+          first_name:  rider.first_name ?? '',
+          lesson_type: typeLabel,
+          lesson_time: timeStr,
+        },
       })
       sent++
     }

@@ -73,14 +73,11 @@ export default async function NotificationsSettingsPage() {
   }))
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-[#002058]">Notification Settings</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Global on/off toggles for each notification type. These apply to everyone —
-          individual riders can further opt out from their own profile.
-        </p>
-      </div>
+    <div>
+      <p className="text-sm text-gray-500 mb-5">
+        Global on/off toggles for each notification type. These apply to everyone —
+        individual riders can further opt out from their own profile.
+      </p>
       <NotificationConfigTable rows={rows} />
     </div>
   )

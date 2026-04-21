@@ -170,8 +170,11 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
   }
 
   // Notify cancelled riders — fire-and-forget, don't block the action
-  const timeStr   = formatLessonTime(lesson.scheduled_at)
-  const barnCancelled = args.cancelledBy === 'barn'
+  const timeStr     = formatLessonTime(lesson.scheduled_at)
+  const barnCancel  = args.cancelledBy === 'barn'
+  const tokenNote   = barnCancel && args.grantTokens
+    ? '<p>A makeup token has been added to your account.</p>'
+    : ''
   void Promise.all(
     activeRiders.map(async r => {
       const { data: person } = await createAdminClient()
@@ -180,27 +183,17 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
         .eq('id', r.rider_id)
         .maybeSingle()
       if (!person) return
-      const tokenNote = barnCancelled && args.grantTokens
-        ? `<p>A makeup token has been added to your account.</p>`
-        : ''
       await notify({
         personId:    person.id,
         type:        'lesson_cancellation',
         referenceId: args.lessonId,
         email:       person.email,
         phone:       person.phone,
-        subject:     'Your lesson has been cancelled — Marlboro Ridge',
-        html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-            <p>Hi ${person.first_name},</p>
-            <p>Your lesson on <strong>${timeStr}</strong> has been cancelled.</p>
-            ${tokenNote}
-            <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
-          </div>
-        `,
-        smsBody: barnCancelled && args.grantTokens
-          ? `MREC: Your lesson on ${timeStr} was cancelled by the barn. A makeup token has been added to your account.`
-          : `MREC: Your lesson on ${timeStr} has been cancelled.`,
+        vars: {
+          first_name:  person.first_name ?? '',
+          lesson_time: timeStr,
+          token_note:  tokenNote,
+        },
       })
     }),
   ).catch(e => console.error('[cancelLesson] notify error', e))
@@ -601,10 +594,9 @@ export async function cancelRider(args: {
       .eq('id', target.rider_id)
       .maybeSingle()
     if (!person) return
-    const timeStr = formatLessonTime(lesson.scheduled_at)
-    const barnCancelled = args.cancelledBy === 'barn'
-    const tokenNote = barnCancelled && args.grantToken
-      ? `<p>A makeup token has been added to your account.</p>`
+    const timeStr   = formatLessonTime(lesson.scheduled_at)
+    const tokenNote = args.cancelledBy === 'barn' && args.grantToken
+      ? '<p>A makeup token has been added to your account.</p>'
       : ''
     await notify({
       personId:    person.id,
@@ -612,18 +604,11 @@ export async function cancelRider(args: {
       referenceId: args.lessonId,
       email:       person.email,
       phone:       person.phone,
-      subject:     'Your lesson has been cancelled — Marlboro Ridge',
-      html: `
-        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-          <p>Hi ${person.first_name},</p>
-          <p>Your lesson on <strong>${timeStr}</strong> has been cancelled.</p>
-          ${tokenNote}
-          <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
-        </div>
-      `,
-      smsBody: barnCancelled && args.grantToken
-        ? `MREC: Your lesson on ${timeStr} was cancelled by the barn. A makeup token has been added to your account.`
-        : `MREC: Your lesson on ${timeStr} has been cancelled.`,
+      vars: {
+        first_name:  person.first_name ?? '',
+        lesson_time: timeStr,
+        token_note:  tokenNote,
+      },
     })
   })().catch(e => console.error('[cancelRider] notify error', e))
 
