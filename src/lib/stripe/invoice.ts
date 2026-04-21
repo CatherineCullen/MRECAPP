@@ -3,6 +3,7 @@ import { stripe } from './server'
 import { ensureStripeCustomer } from './customer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertStripeOutboundAllowed } from '@/lib/outbound'
+import { notify } from '@/lib/notifications'
 
 /**
  * Thin wrappers around Stripe Invoicing for CHIA's billing pipeline.
@@ -203,6 +204,34 @@ export async function createAndSendInvoice(params: {
     // Same as above: Stripe side is done, just surface the problem.
     throw new Error(`Stripe invoice sent but line-item mirror failed: ${lineErr.message}`)
   }
+
+  // SMS notification — Stripe already emails the invoice link, so we send
+  // an SMS nudge only (email_enabled=false in notification_config by default).
+  void (async () => {
+    const { data: person } = await db
+      .from('person')
+      .select('id, first_name, email, phone')
+      .eq('id', personId)
+      .maybeSingle()
+    if (!person) return
+    await notify({
+      personId:    person.id,
+      type:        'invoice',
+      referenceId: chiaInvoice.id,
+      email:       person.email,
+      phone:       person.phone,
+      subject:     'New invoice from Marlboro Ridge Equestrian Center',
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+          <p>Hi ${person.first_name},</p>
+          <p>A new invoice from Marlboro Ridge Equestrian Center is ready.
+          Check your email for the payment link.</p>
+          <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
+        </div>
+      `,
+      smsBody: `MREC: A new invoice is ready. Check your email for the payment link.`,
+    })
+  })().catch(e => console.error('[invoice] notify error', e))
 
   return {
     stripeInvoiceId: finalized.id,

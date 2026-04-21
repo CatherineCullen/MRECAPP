@@ -9,27 +9,39 @@ type NotificationType = Database['public']['Enums']['notification_type']
 type NotificationChannel = Database['public']['Enums']['notification_channel']
 
 interface NotifyParams {
-  personId:  string
-  type:      NotificationType
-  referenceId: string  // lesson_id, invoice_id, etc.
-  email?: string | null
-  phone?: string | null
-  subject:   string
-  html:      string
-  smsBody:   string
+  personId:    string
+  type:        NotificationType
+  referenceId: string
+  email?:      string | null
+  phone?:      string | null
+  subject:     string
+  html:        string
+  smsBody:     string
 }
 
 /**
- * Send email and/or SMS to a person, respecting their opt-out preferences
- * and deduplicating against notification_log. Swallows OutboundDisabledError
- * silently so callers don't need to handle the dev/preview no-op case.
+ * Send email and/or SMS to a person, respecting:
+ *   1. Global notification_config toggles (admin-controlled per type)
+ *   2. Per-user notification_preference opt-outs
+ *   3. notification_log deduplication (never send the same type+reference twice)
  *
- * Does NOT throw — log errors and move on so the parent action always succeeds.
+ * Swallows OutboundDisabledError silently — expected in dev/preview.
+ * Never throws — log errors so the parent action always succeeds.
  */
 export async function notify(params: NotifyParams): Promise<void> {
   const db = createAdminClient()
 
-  // Load opt-outs for this person + type
+  // Load global config for this type
+  const { data: config } = await db
+    .from('notification_config')
+    .select('email_enabled, sms_enabled')
+    .eq('notification_type', params.type)
+    .maybeSingle()
+
+  // Unknown type (no seed row) → skip
+  if (!config) return
+
+  // Load per-user opt-outs
   const { data: prefs } = await db
     .from('notification_preference')
     .select('channel, opted_out')
@@ -41,7 +53,7 @@ export async function notify(params: NotifyParams): Promise<void> {
     (prefs ?? []).filter(p => p.opted_out).map(p => p.channel),
   )
 
-  // Load already-sent logs for this person + type + reference
+  // Load already-sent dedup log
   const { data: sent } = await db
     .from('notification_log')
     .select('channel')
@@ -52,8 +64,10 @@ export async function notify(params: NotifyParams): Promise<void> {
   const alreadySent = new Set((sent ?? []).map(s => s.channel))
 
   const channels: NotificationChannel[] = []
-  if (params.email && !optedOut.has('email') && !alreadySent.has('email')) channels.push('email')
-  if (params.phone && !optedOut.has('sms')   && !alreadySent.has('sms'))   channels.push('sms')
+  if (config.email_enabled && params.email && !optedOut.has('email') && !alreadySent.has('email'))
+    channels.push('email')
+  if (config.sms_enabled && params.phone && !optedOut.has('sms') && !alreadySent.has('sms'))
+    channels.push('sms')
 
   for (const channel of channels) {
     try {
@@ -69,7 +83,7 @@ export async function notify(params: NotifyParams): Promise<void> {
         reference_id:      params.referenceId,
       })
     } catch (err) {
-      if (err instanceof OutboundDisabledError) return  // expected in dev/preview
+      if (err instanceof OutboundDisabledError) return
       console.error(`[notify] Failed to send ${channel} ${params.type} to ${params.personId}`, err)
     }
   }

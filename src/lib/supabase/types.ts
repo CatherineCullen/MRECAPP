@@ -2667,6 +2667,38 @@ export type Database = {
           },
         ]
       }
+      notification_config: {
+        Row: {
+          email_enabled: boolean
+          notification_type: Database["public"]["Enums"]["notification_type"]
+          sms_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          email_enabled?: boolean
+          notification_type: Database["public"]["Enums"]["notification_type"]
+          sms_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          email_enabled?: boolean
+          notification_type?: Database["public"]["Enums"]["notification_type"]
+          sms_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_config_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_log: {
         Row: {
           channel: Database["public"]["Enums"]["notification_channel"]
