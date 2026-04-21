@@ -1,20 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { saveDietInline } from '../actions'
+
+type DietFields = {
+  am_feed:        string | null
+  am_supplements: string | null
+  am_hay:         string | null
+  pm_feed:        string | null
+  pm_supplements: string | null
+  pm_hay:         string | null
+  notes:          string | null
+}
 
 type DietRow = {
   id:        string
   barn_name: string
   status:    string
-  diet: {
-    am_feed:        string | null
-    am_supplements: string | null
-    am_hay:         string | null
-    pm_feed:        string | null
-    pm_supplements: string | null
-    pm_hay:         string | null
-    notes:          string | null
-  } | null
+  diet: (DietFields & { id: string }) | null
 }
 
 function cell(v: string | null | undefined) {
@@ -47,9 +51,21 @@ function exportCSV(rows: DietRow[], selected: Set<string>) {
   URL.revokeObjectURL(url)
 }
 
+const EMPTY: DietFields = {
+  am_feed: '', am_supplements: '', am_hay: '',
+  pm_feed: '', pm_supplements: '', pm_hay: '',
+  notes: '',
+}
+
 export default function DietTable({ rows }: { rows: DietRow[] }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+
   const allIds = rows.map(r => r.id)
   const [selected, setSelected] = useState<Set<string>>(new Set(allIds))
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft]         = useState<DietFields>(EMPTY)
 
   function toggleAll() {
     setSelected(selected.size === rows.length ? new Set() : new Set(allIds))
@@ -61,11 +77,51 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
     setSelected(next)
   }
 
+  function startEdit(r: DietRow) {
+    setEditingId(r.id)
+    setDraft({
+      am_feed:        r.diet?.am_feed        ?? '',
+      am_supplements: r.diet?.am_supplements ?? '',
+      am_hay:         r.diet?.am_hay         ?? '',
+      pm_feed:        r.diet?.pm_feed        ?? '',
+      pm_supplements: r.diet?.pm_supplements ?? '',
+      pm_hay:         r.diet?.pm_hay         ?? '',
+      notes:          r.diet?.notes          ?? '',
+    })
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setDraft(EMPTY)
+  }
+
+  function save(r: DietRow) {
+    startTransition(async () => {
+      await saveDietInline(r.id, r.diet?.id ?? null, draft)
+      setEditingId(null)
+      setDraft(EMPTY)
+      router.refresh()
+    })
+  }
+
   const visible = rows.filter(r => selected.has(r.id))
 
-  const th = 'px-2 py-1.5 text-left text-[10px] font-semibold text-[#444650] uppercase tracking-wider whitespace-nowrap'
-  const td = 'px-2 py-2 text-xs text-[#191c1e] align-top whitespace-pre-wrap'
+  const th      = 'px-2 py-1.5 text-left text-[10px] font-semibold text-[#444650] uppercase tracking-wider whitespace-nowrap'
+  const td      = 'px-2 py-2 text-xs text-[#191c1e] align-top whitespace-pre-wrap'
   const tdEmpty = 'px-2 py-2 text-xs text-[#c4c6d1] align-top'
+  const tdEdit  = 'px-1 py-1 align-top'
+  const inputCls = 'w-full min-w-[100px] text-xs text-[#191c1e] bg-white border border-[#c4c6d1] rounded px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-[#056380] resize-y'
+
+  function field(key: keyof DietFields, rows = 2) {
+    return (
+      <textarea
+        rows={rows}
+        value={draft[key] ?? ''}
+        onChange={e => setDraft({ ...draft, [key]: e.target.value })}
+        className={inputCls}
+      />
+    )
+  }
 
   return (
     <>
@@ -135,6 +191,7 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
                 <th className={`${th} border border-[#e0e3e6] text-center`} colSpan={3}>AM</th>
                 <th className={`${th} border border-[#e0e3e6] text-center`} colSpan={3}>PM</th>
                 <th className={`${th} border border-[#e0e3e6]`} rowSpan={2}>Notes</th>
+                <th className={`${th} border border-[#e0e3e6] print:hidden`} rowSpan={2}></th>
               </tr>
               <tr className="bg-[#f2f4f7]">
                 <th className={`${th} border border-[#e0e3e6]`}>Feed</th>
@@ -146,24 +203,70 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {visible.map((r, i) => (
-                <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f9fafb]'}>
-                  <td className={`${td} font-semibold border border-[#e0e3e6]`}>{r.barn_name}</td>
-                  {r.diet ? (
-                    <>
-                      <td className={`${r.diet.am_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_feed        ?? '—'}</td>
-                      <td className={`${r.diet.am_supplements ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_supplements ?? '—'}</td>
-                      <td className={`${r.diet.am_hay         ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_hay         ?? '—'}</td>
-                      <td className={`${r.diet.pm_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_feed        ?? '—'}</td>
-                      <td className={`${r.diet.pm_supplements ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_supplements ?? '—'}</td>
-                      <td className={`${r.diet.pm_hay         ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_hay         ?? '—'}</td>
-                      <td className={`${r.diet.notes          ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.notes          ?? '—'}</td>
-                    </>
-                  ) : (
-                    <td colSpan={7} className={`${tdEmpty} border border-[#e0e3e6] italic`}>No diet on file</td>
-                  )}
-                </tr>
-              ))}
+              {visible.map((r, i) => {
+                const isEditing = editingId === r.id
+                const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-[#f9fafb]'
+
+                if (isEditing) {
+                  return (
+                    <tr key={r.id} className={rowBg}>
+                      <td className={`${td} font-semibold border border-[#e0e3e6]`}>{r.barn_name}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_feed')}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_supplements')}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_hay')}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_feed')}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_supplements')}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_hay')}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('notes', 3)}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6] print:hidden whitespace-nowrap`}>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => save(r)}
+                            disabled={pending}
+                            className="text-[10px] font-semibold text-white bg-[#056380] hover:bg-[#002058] px-2 py-1 rounded disabled:opacity-60"
+                          >
+                            {pending ? 'Saving…' : 'Save'}
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            disabled={pending}
+                            className="text-[10px] font-semibold text-[#444650] hover:text-[#191c1e] px-2 py-1 rounded"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                }
+
+                return (
+                  <tr key={r.id} className={rowBg}>
+                    <td className={`${td} font-semibold border border-[#e0e3e6]`}>{r.barn_name}</td>
+                    {r.diet ? (
+                      <>
+                        <td className={`${r.diet.am_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_feed        ?? '—'}</td>
+                        <td className={`${r.diet.am_supplements ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_supplements ?? '—'}</td>
+                        <td className={`${r.diet.am_hay         ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_hay         ?? '—'}</td>
+                        <td className={`${r.diet.pm_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_feed        ?? '—'}</td>
+                        <td className={`${r.diet.pm_supplements ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_supplements ?? '—'}</td>
+                        <td className={`${r.diet.pm_hay         ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_hay         ?? '—'}</td>
+                        <td className={`${r.diet.notes          ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.notes          ?? '—'}</td>
+                      </>
+                    ) : (
+                      <td colSpan={7} className={`${tdEmpty} border border-[#e0e3e6] italic`}>No diet on file</td>
+                    )}
+                    <td className={`${tdEdit} border border-[#e0e3e6] print:hidden whitespace-nowrap`}>
+                      <button
+                        onClick={() => startEdit(r)}
+                        className="text-[10px] font-semibold text-[#056380] hover:text-[#002058] px-2 py-1 rounded"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
