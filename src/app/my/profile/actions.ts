@@ -30,3 +30,43 @@ export async function updateMyProfile(data: {
   revalidatePath('/my/profile')
   return {}
 }
+
+export async function toggleNotificationPref(
+  type: string,
+  channel: 'email' | 'sms',
+  optedOut: boolean,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.personId) return { error: 'Not signed in.' }
+
+  const db  = createAdminClient()
+  const now = new Date().toISOString()
+
+  // Check if a row already exists
+  const { data: existing } = await db
+    .from('notification_preference')
+    .select('id')
+    .eq('person_id', user.personId)
+    .eq('notification_type', type as any)
+    .eq('channel', channel)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (existing) {
+    await db
+      .from('notification_preference')
+      .update({ opted_out: optedOut, updated_at: now, updated_by: user.personId })
+      .eq('id', existing.id)
+  } else {
+    await db.from('notification_preference').insert({
+      person_id:         user.personId,
+      notification_type: type as any,
+      channel,
+      opted_out:         optedOut,
+      updated_by:        user.personId,
+    })
+  }
+
+  revalidatePath('/my/profile')
+  return {}
+}

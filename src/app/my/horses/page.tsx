@@ -13,25 +13,26 @@ export default async function MyHorsesPage() {
 
   const { data: connections } = await db
     .from('horse_contact')
-    .select(`
-      role,
-      horse:horse!horse_id (
-        id, barn_name, status,
-        temporary_care_plan (
-          id, description, is_active, deleted_at, ends_at
-        )
-      )
-    `)
+    .select('horse_id, role')
     .eq('person_id', user.personId)
     .is('deleted_at', null)
 
-  const horses = (connections ?? [])
-    .map(c => {
-      const h = Array.isArray(c.horse) ? c.horse[0] : c.horse as any
-      return h ? { ...h, role: c.role } : null
-    })
-    .filter(Boolean)
-    .filter((h: any) => h.status !== 'inactive')
+  const horseIds = (connections ?? []).map(c => c.horse_id)
+
+  const { data: horseRows } = horseIds.length > 0
+    ? await db
+        .from('horse')
+        .select(`
+          id, barn_name, status,
+          care_plan ( id, content, is_active, deleted_at )
+        `)
+        .in('id', horseIds)
+        .is('deleted_at', null)
+        .neq('status', 'archived')
+    : { data: [] }
+
+  const roleMap = new Map((connections ?? []).map(c => [c.horse_id, c.role]))
+  const horses = (horseRows ?? []).map(h => ({ ...h, role: roleMap.get(h.id) }))
 
   if (horses.length === 1) {
     redirect(`/my/horses/${horses[0].id}`)
@@ -50,7 +51,7 @@ export default async function MyHorsesPage() {
       ) : (
         <div className="space-y-2">
           {horses.map((horse: any) => {
-            const activePlans = (horse.temporary_care_plan ?? []).filter(
+            const activePlans = ((horse as any).care_plan ?? []).filter(
               (p: any) => p.is_active && !p.deleted_at
             )
             return (
@@ -69,7 +70,7 @@ export default async function MyHorsesPage() {
                 </div>
                 {activePlans[0] && (
                   <p className="text-sm text-on-surface-muted mt-0.5 truncate">
-                    {activePlans[0].description}
+                    {activePlans[0].content}
                     {activePlans.length > 1 && ` +${activePlans.length - 1} more`}
                   </p>
                 )}

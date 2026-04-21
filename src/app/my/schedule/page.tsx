@@ -144,12 +144,15 @@ export default async function MySchedulePage() {
       )}
 
       {/* Footer links */}
-      <div className="pt-2 space-y-1">
+      <div className="pt-2 space-y-2">
         <p className="text-xs text-on-surface-muted">
           Questions about your schedule?{' '}
           <a href="mailto:marlbororidgeec@gmail.com" className="text-on-secondary-container font-semibold">
             Contact the barn
           </a>
+        </p>
+        <p className="text-xs text-on-surface-muted/50">
+          Add to Calendar — coming soon
         </p>
       </div>
     </div>
