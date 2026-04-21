@@ -154,6 +154,56 @@ export async function addAdHocLineItems(params: {
 }
 
 /**
+ * Add Monthly Board lines for the picked horses. Same shape as the bulk
+ * ad-hoc form, but stamps source_board_service_id so the queue groups and
+ * sorts these as Monthly Board (not Ad hoc). Description is admin-editable
+ * so the month label ("Monthly Board - May 2026") rides through to the
+ * invoice line.
+ */
+export async function addMonthlyBoardLineItems(params: {
+  horseIds:    string[]
+  description: string
+  unitPrice:   number
+}): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  const user = await getCurrentUser()
+  if (!user?.isAdmin) return { ok: false, error: 'Not authorized' }
+
+  if (params.horseIds.length === 0) return { ok: false, error: 'Pick at least one horse' }
+  const desc = params.description.trim()
+  if (!desc) return { ok: false, error: 'Description is required' }
+  if (!Number.isFinite(params.unitPrice)) return { ok: false, error: 'Unit price is invalid' }
+
+  const db = createAdminClient()
+
+  const { data: monthly } = await db
+    .from('board_service')
+    .select('id')
+    .eq('is_recurring_monthly', true)
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (!monthly?.id) return { ok: false, error: 'Monthly Board service is not configured' }
+
+  const rows = params.horseIds.map(horseId => ({
+    horse_id:                horseId,
+    description:             desc,
+    quantity:                1,
+    unit_price:              params.unitPrice,
+    is_credit:               false,
+    is_admin_added:          false,
+    source_board_service_id: monthly.id,
+    status:                  'draft' as const,
+  }))
+
+  const { error: insErr } = await db.from('billing_line_item').insert(rows)
+  if (insErr) return { ok: false, error: `Failed to add monthly board: ${insErr.message}` }
+
+  revalidatePath('/chia/boarding/invoices')
+  return { ok: true, count: rows.length }
+}
+
+/**
  * Soft-delete a Draft line item. Only Draft items are deletable — once
  * Reviewed, admin must Undo first (to clear the allocation cleanly) and
  * then delete. Once on a generated invoice (billing_period_start set),

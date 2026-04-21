@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { QueueSnapshot, HorseGroup, BoardServiceOption } from '../_lib/loadQueue'
 import AllocateRow from './AllocateRow'
 import AddChargeForm from './AddChargeForm'
+import AddMonthlyBoardForm from './AddMonthlyBoardForm'
 import AddServiceForm from './AddServiceForm'
 import GenerateInvoices from './GenerateInvoices'
 
@@ -111,9 +112,8 @@ export default function QueueView({
         <div className="max-w-xl p-4 bg-[#fef3e7] border border-[#f3a712]/40 rounded text-sm text-[#7a5408]">
           <strong>Monthly Board isn&rsquo;t configured.</strong>
           <p className="mt-1">
-            Go to Service Catalog and set up the recurring Monthly Board rate.
-            Without it, the billing queue can&rsquo;t seed board charges for
-            your boarders.
+            Go to Service Catalog and set up the recurring Monthly Board rate
+            so the &ldquo;Add monthly board&rdquo; action knows what to charge.
           </p>
         </div>
       </div>
@@ -124,9 +124,8 @@ export default function QueueView({
     return (
       <div className="p-6">
         <div className="max-w-xl p-4 text-sm text-[#444650]">
-          No active horses have billing contacts yet. Once a horse has at
-          least one billing contact, Monthly Board will seed here
-          automatically.
+          No active horses have billing contacts yet. Add a billing
+          contact on a horse before adding monthly board.
         </div>
       </div>
     )
@@ -158,7 +157,10 @@ export default function QueueView({
         <GenerateInvoices totalReviewed={totalReviewed} />
       </div>
 
-      {/* Bulk charge entry — wormer case */}
+      {/* Monthly board + bulk charge entry — both fan out across horses.
+          Each form renders as a button when collapsed and a full-width
+          panel when open; stacking them keeps the open panel readable. */}
+      <AddMonthlyBoardForm horseGroups={horseGroups} unitPriceHint={monthlyBoardUnitPrice} />
       <AddChargeForm horseGroups={horseGroups} />
 
       {/* Per-horse panels — single column on purpose. The previous

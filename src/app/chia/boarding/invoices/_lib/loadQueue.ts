@@ -5,10 +5,10 @@ import { displayName } from '@/lib/displayName'
 /**
  * Billing Review queue loader.
  *
- * Always-on model: on page load, we (1) seed any missing Monthly Board rows
- * for active boarder horses, (2) seed billing_line_item rows for any reviewed
- * board_service_log that hasn't been staged yet, and (3) load the current
- * open queue for rendering.
+ * Always-on model: on page load, we (1) seed billing_line_item rows for any
+ * reviewed board_service_log that hasn't been staged yet, and (2) load the
+ * current open queue for rendering. Monthly board is added explicitly via
+ * the "Add monthly board" action — no auto-seed.
  *
  * "Open queue" = billing_line_item rows where billing_period_start IS NULL
  * (not yet invoiced). Once Generate Invoices stamps a period_end on a row,
@@ -157,49 +157,6 @@ export async function loadQueue(): Promise<QueueSnapshot> {
     // flag; any contacts on the horse with default=false still participate
     // in allocation once the horse is eligible.
     .filter(h => h.billingContacts.some(c => c.isDefault))
-
-  // --- Seed Monthly Board rows where missing ------------------------------
-  // One Monthly Board row per horse per calendar month. Gates:
-  //  - horse.charges_monthly_board must be true (barn-owned and free-lease
-  //    horses set this false — they have owners for recording purposes but
-  //    nobody pays monthly board on them)
-  //  - no existing Monthly Board row (even soft-deleted) for this horse
-  //    this calendar month — mid-month deletes by admin mean "no thanks,"
-  //    don't resurrect
-  //
-  // This means an April Generate doesn't spawn May's board on the next page
-  // visit — May will appear once the calendar rolls over.
-  if (monthlyBoardServiceId && monthlyBoardUnitPrice !== null && eligibleHorses.length > 0) {
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-
-    const { data: existingMonthly } = await db
-      .from('billing_line_item')
-      .select('horse_id')
-      .eq('source_board_service_id', monthlyBoardServiceId)
-      .gte('created_at', monthStart)
-
-    const haveMonthly = new Set((existingMonthly ?? []).map(r => r.horse_id))
-    const missingFor = eligibleHorses.filter(h => h.chargesMonthlyBoard && !haveMonthly.has(h.id))
-
-    if (missingFor.length > 0) {
-      const toInsert = missingFor.map(h => ({
-        horse_id:                h.id,
-        description:             'Monthly Board',
-        quantity:                1,
-        unit_price:              monthlyBoardUnitPrice,
-        is_credit:               false,
-        is_admin_added:          false,
-        source_board_service_id: monthlyBoardServiceId,
-        status:                  'draft' as const,
-      }))
-      // Concurrent page loads used to double-seed Monthly Board rows; a
-      // partial unique index (migration 20260419000001) now blocks that at
-      // the DB level. If the race still happens the second request gets a
-      // unique violation — swallow it, the first request already won.
-      await db.from('billing_line_item').insert(toInsert)
-    }
-  }
 
   // --- Seed rows for any service log not yet staged -----------------------
   // The admin no longer has a separate Review Queue — the Invoices surface
