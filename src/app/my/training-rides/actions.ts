@@ -7,6 +7,8 @@ import {
   logRide as logRideAdmin,
   unlogRide as unlogRideAdmin,
   addLoggedRide as addLoggedRideAdmin,
+  scheduleRide as scheduleRideAdmin,
+  unscheduleRide as unscheduleRideAdmin,
 } from '@/app/chia/training-rides/actions'
 
 /**
@@ -58,6 +60,42 @@ export async function unlogMyRide(rideId: string): Promise<{ error?: string }> {
   if (!auth.isAdmin && ride.rider_id !== auth.personId) return { error: 'Not authorized.' }
 
   const res = await unlogRideAdmin(rideId)
+  revalidatePath('/my/training-rides')
+  return res
+}
+
+export async function scheduleMyRide(args: {
+  horseId: string
+  date:    string
+}): Promise<{ error?: string; id?: string }> {
+  const auth = await requireProvider()
+  if (auth.error) return { error: auth.error }
+
+  const res = await scheduleRideAdmin({
+    riderId: auth.personId!,
+    horseId: args.horseId,
+    date:    args.date,
+  })
+  revalidatePath('/my/training-rides')
+  return res
+}
+
+export async function unscheduleMyRide(rideId: string): Promise<{ error?: string }> {
+  const auth = await requireProvider()
+  if (auth.error) return { error: auth.error }
+
+  const supabase = createAdminClient()
+  const { data: ride } = await supabase
+    .from('training_ride')
+    .select('rider_id, status')
+    .eq('id', rideId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (!ride) return { error: 'Ride not found.' }
+  if (!auth.isAdmin && ride.rider_id !== auth.personId) return { error: 'Not authorized.' }
+  if (ride.status !== 'scheduled') return { error: 'Only scheduled rides can be unscheduled.' }
+
+  const res = await unscheduleRideAdmin(rideId)
   revalidatePath('/my/training-rides')
   return res
 }

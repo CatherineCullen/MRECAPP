@@ -2,7 +2,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { loadTrainingRidesPageData } from '@/lib/trainingRideLogging'
 import TrainingRidesClient from './_components/TrainingRidesClient'
-import { logMyRide, unlogMyRide, addMyLoggedRide } from './actions'
+import { logMyRide, unlogMyRide, addMyLoggedRide, scheduleMyRide, unscheduleMyRide } from './actions'
 
 export const metadata = { title: 'Training Rides — Marlboro Ridge Equestrian Center' }
 
@@ -35,9 +35,11 @@ export default async function MyTrainingRidesPage({
       allHorses={allHorses}
       basePath="/my/training-rides"
       actions={{
-        logRide:       logMyRide,
-        unlogRide:     unlogMyRide,
-        addLoggedRide: addMyLoggedRide,
+        logRide:        logMyRide,
+        unlogRide:      unlogMyRide,
+        addLoggedRide:  addMyLoggedRide,
+        scheduleRide:   scheduleMyRide,
+        unscheduleRide: unscheduleMyRide,
       }}
     />
   )

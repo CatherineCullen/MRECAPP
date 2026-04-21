@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 export type RideRow = {
@@ -20,7 +20,11 @@ export type TrainingRideActions = {
   logRide:        (rideId: string, notes: string) => Promise<{ error?: string }>
   unlogRide:      (rideId: string) => Promise<{ error?: string }>
   addLoggedRide:  (args: { horseId: string; date: string; notes: string }) => Promise<{ error?: string }>
+  scheduleRide?:  (args: { horseId: string; date: string }) => Promise<{ error?: string }>
+  unscheduleRide?: (rideId: string) => Promise<{ error?: string }>
 }
+
+type DayMode = 'past' | 'today' | 'future'
 
 export default function TrainingRidesClient({
   date, rides, recentHorses, allHorses, basePath, actions, providerName,
@@ -34,6 +38,7 @@ export default function TrainingRidesClient({
   providerName?: string
 }) {
   const router = useRouter()
+  const dateInputRef = useRef<HTMLInputElement>(null)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [openLogId, setOpenLogId] = useState<string | null>(null)
@@ -41,6 +46,10 @@ export default function TrainingRidesClient({
   const [showAll, setShowAll] = useState(false)
   const [addingHorse, setAddingHorse] = useState<HorseLite | null>(null)
   const [addNotes, setAddNotes] = useState('')
+
+  const today = todayDate()
+  const mode: DayMode = date < today ? 'past' : date === today ? 'today' : 'future'
+  const canSchedule = mode === 'future' && !!actions.scheduleRide
 
   function setDate(next: string) {
     router.push(`${basePath}?date=${next}`)
@@ -73,15 +82,24 @@ export default function TrainingRidesClient({
     })
   }
 
+  function confirmUnschedule(rideId: string) {
+    if (!actions.unscheduleRide) return
+    if (!confirm('Remove this scheduled ride?')) return
+    setError(null)
+    startTransition(async () => {
+      const r = await actions.unscheduleRide!(rideId)
+      if (r.error) { setError(r.error); return }
+      router.refresh()
+    })
+  }
+
   function confirmAdd() {
     if (!addingHorse) return
     setError(null)
     startTransition(async () => {
-      const r = await actions.addLoggedRide({
-        horseId: addingHorse.horseId,
-        date,
-        notes:   addNotes,
-      })
+      const r = canSchedule
+        ? await actions.scheduleRide!({ horseId: addingHorse.horseId, date })
+        : await actions.addLoggedRide({ horseId: addingHorse.horseId, date, notes: addNotes })
       if (r.error) { setError(r.error); return }
       setAddingHorse(null)
       setAddNotes('')
@@ -89,7 +107,9 @@ export default function TrainingRidesClient({
     })
   }
 
-  const isToday = date === todayDate()
+  const addVerb     = canSchedule ? 'Schedule' : 'Log'
+  const addingVerb  = canSchedule ? 'Scheduling…' : 'Logging…'
+  const sectionLabel = canSchedule ? 'Schedule a horse' : 'Log another horse'
 
   return (
     <div className="space-y-3">
@@ -106,11 +126,25 @@ export default function TrainingRidesClient({
         >
           ‹
         </button>
+        <button
+          onClick={() => {
+            const el = dateInputRef.current
+            if (!el) return
+            if (typeof el.showPicker === 'function') el.showPicker()
+            else el.click()
+          }}
+          className="flex-1 text-sm text-on-surface bg-surface-lowest border border-outline rounded px-2 py-1 focus:outline-none focus:border-primary text-center"
+        >
+          {mode === 'today' ? `Today · ${formatWeekday(date)}` : formatFull(date)}
+        </button>
         <input
+          ref={dateInputRef}
           type="date"
           value={date}
           onChange={e => setDate(e.target.value)}
-          className="flex-1 text-sm text-on-surface bg-surface-lowest border border-outline rounded px-2 py-1 focus:outline-none focus:border-primary"
+          className="sr-only"
+          aria-hidden="true"
+          tabIndex={-1}
         />
         <button
           onClick={() => shift(1)}
@@ -119,9 +153,9 @@ export default function TrainingRidesClient({
         >
           ›
         </button>
-        {!isToday && (
+        {mode !== 'today' && (
           <button
-            onClick={() => setDate(todayDate())}
+            onClick={() => setDate(today)}
             className="text-[11px] font-semibold text-on-secondary-container px-2"
           >
             Today
@@ -138,8 +172,12 @@ export default function TrainingRidesClient({
       {/* Rides for this date */}
       {rides.length === 0 ? (
         <div className="bg-surface-lowest rounded-lg px-4 py-6 text-center">
-          <p className="text-sm text-on-surface">No rides scheduled for this day.</p>
-          <p className="text-xs text-on-surface-muted mt-1">Log one below.</p>
+          <p className="text-sm text-on-surface">
+            No rides {canSchedule ? 'scheduled' : 'on'} this day.
+          </p>
+          <p className="text-xs text-on-surface-muted mt-1">
+            {canSchedule ? 'Schedule one below.' : 'Log one below.'}
+          </p>
         </div>
       ) : (
         <ul className="bg-surface-lowest rounded-lg overflow-hidden">
@@ -153,15 +191,28 @@ export default function TrainingRidesClient({
                     {r.notes && ` — ${r.notes}`}
                   </div>
                 </div>
-                {r.status === 'scheduled' ? (
-                  <button
-                    onClick={() => { setOpenLogId(r.id === openLogId ? null : r.id); setLogNotes('') }}
-                    disabled={pending}
-                    className="shrink-0 text-xs font-semibold bg-primary text-on-primary px-3 py-1.5 rounded disabled:opacity-60"
-                  >
-                    {openLogId === r.id ? 'Cancel' : 'Log'}
-                  </button>
-                ) : (
+                {r.status === 'scheduled' && (
+                  canSchedule ? (
+                    actions.unscheduleRide && (
+                      <button
+                        onClick={() => confirmUnschedule(r.id)}
+                        disabled={pending}
+                        className="shrink-0 text-xs font-semibold text-on-surface-muted underline disabled:opacity-60"
+                      >
+                        Remove
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      onClick={() => { setOpenLogId(r.id === openLogId ? null : r.id); setLogNotes('') }}
+                      disabled={pending}
+                      className="shrink-0 text-xs font-semibold bg-primary text-on-primary px-3 py-1.5 rounded disabled:opacity-60"
+                    >
+                      {openLogId === r.id ? 'Cancel' : 'Log'}
+                    </button>
+                  )
+                )}
+                {r.status === 'logged' && !canSchedule && (
                   <button
                     onClick={() => confirmUnlog(r.id)}
                     disabled={pending}
@@ -171,7 +222,7 @@ export default function TrainingRidesClient({
                   </button>
                 )}
               </div>
-              {openLogId === r.id && (
+              {openLogId === r.id && !canSchedule && (
                 <div className="mt-2 flex items-center gap-2">
                   <input
                     value={logNotes}
@@ -193,96 +244,101 @@ export default function TrainingRidesClient({
         </ul>
       )}
 
-      {/* Log another horse */}
-      <div className="bg-surface-lowest rounded-lg px-4 py-3">
-        <h2 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide mb-2">
-          Log another horse
-        </h2>
+      {/* Add another horse — hidden in past */}
+      {sectionLabel && (
+        <div className="bg-surface-lowest rounded-lg px-4 py-3">
+          <h2 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide mb-2">
+            {sectionLabel}
+          </h2>
 
-        {addingHorse ? (
-          <div className="space-y-2">
-            <p className="text-sm text-on-surface">
-              Log a ride on <span className="font-semibold">{addingHorse.name}</span> for {formatDate(date)}?
-            </p>
-            <input
-              value={addNotes}
-              onChange={e => setAddNotes(e.target.value)}
-              placeholder="Notes (optional)"
-              className="w-full text-xs border border-outline rounded px-2 py-1.5 focus:outline-none focus:border-primary bg-surface-lowest"
-            />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={confirmAdd}
-                disabled={pending}
-                className="text-xs font-semibold bg-primary text-on-primary px-3 py-1.5 rounded disabled:opacity-60"
-              >
-                {pending ? 'Logging…' : 'Log ride'}
-              </button>
-              <button
-                onClick={() => { setAddingHorse(null); setAddNotes('') }}
-                disabled={pending}
-                className="text-xs font-semibold text-on-surface-muted px-2 py-1.5"
-              >
-                Cancel
-              </button>
+          {addingHorse ? (
+            <div className="space-y-2">
+              <p className="text-sm text-on-surface">
+                {canSchedule ? 'Schedule' : 'Log'} a ride on{' '}
+                <span className="font-semibold">{addingHorse.name}</span> for {formatDate(date)}?
+              </p>
+              {!canSchedule && (
+                <input
+                  value={addNotes}
+                  onChange={e => setAddNotes(e.target.value)}
+                  placeholder="Notes (optional)"
+                  className="w-full text-xs border border-outline rounded px-2 py-1.5 focus:outline-none focus:border-primary bg-surface-lowest"
+                />
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={confirmAdd}
+                  disabled={pending}
+                  className="text-xs font-semibold bg-primary text-on-primary px-3 py-1.5 rounded disabled:opacity-60"
+                >
+                  {pending ? addingVerb : `${addVerb} ride`}
+                </button>
+                <button
+                  onClick={() => { setAddingHorse(null); setAddNotes('') }}
+                  disabled={pending}
+                  className="text-xs font-semibold text-on-surface-muted px-2 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <>
-            {recentHorses.length > 0 && (
-              <>
-                <div className="text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider mb-1">
-                  Recent (last 60 days)
-                </div>
-                <ul className="space-y-1 mb-2">
-                  {recentHorses.map(h => (
-                    <li key={h.horseId}>
-                      <button
-                        onClick={() => setAddingHorse({ horseId: h.horseId, name: h.name })}
-                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-on-surface border border-outline/30 rounded hover:bg-surface-low"
-                      >
-                        <span>{h.name}</span>
-                        <span className="text-[10px] font-semibold text-on-surface-muted bg-surface-low px-1.5 py-0.5 rounded">
-                          {h.recentCount}×
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
+          ) : (
+            <>
+              {recentHorses.length > 0 && (
+                <>
+                  <div className="text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider mb-1">
+                    Recent (last 60 days)
+                  </div>
+                  <ul className="space-y-1 mb-2">
+                    {recentHorses.map(h => (
+                      <li key={h.horseId}>
+                        <button
+                          onClick={() => setAddingHorse({ horseId: h.horseId, name: h.name })}
+                          className="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-on-surface border border-outline/30 rounded hover:bg-surface-low"
+                        >
+                          <span>{h.name}</span>
+                          <span className="text-[10px] font-semibold text-on-surface-muted bg-surface-low px-1.5 py-0.5 rounded">
+                            {h.recentCount}×
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
 
-            {!showAll && allHorses.length > 0 && (
-              <button
-                onClick={() => setShowAll(true)}
-                className="w-full text-xs font-semibold text-on-secondary-container border border-outline/30 rounded py-2 hover:bg-surface-low"
-              >
-                + Another horse
-              </button>
-            )}
+              {!showAll && allHorses.length > 0 && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="w-full text-xs font-semibold text-on-secondary-container border border-outline/30 rounded py-2 hover:bg-surface-low"
+                >
+                  + Another horse
+                </button>
+              )}
 
-            {showAll && (
-              <>
-                <div className="text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider mb-1 mt-2">
-                  All horses
-                </div>
-                <ul className="space-y-1">
-                  {allHorses.map(h => (
-                    <li key={h.horseId}>
-                      <button
-                        onClick={() => setAddingHorse({ horseId: h.horseId, name: h.name })}
-                        className="w-full text-left px-3 py-2 text-sm font-semibold text-on-surface border border-outline/30 rounded hover:bg-surface-low"
-                      >
-                        {h.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </>
-        )}
-      </div>
+              {showAll && (
+                <>
+                  <div className="text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider mb-1 mt-2">
+                    All horses
+                  </div>
+                  <ul className="space-y-1">
+                    {allHorses.map(h => (
+                      <li key={h.horseId}>
+                        <button
+                          onClick={() => setAddingHorse({ horseId: h.horseId, name: h.name })}
+                          className="w-full text-left px-3 py-2 text-sm font-semibold text-on-surface border border-outline/30 rounded hover:bg-surface-low"
+                        >
+                          {h.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -294,4 +350,14 @@ function todayDate(): string {
 function formatDate(ymd: string): string {
   const d = new Date(ymd + 'T12:00:00')
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function formatWeekday(ymd: string): string {
+  const d = new Date(ymd + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'long' })
+}
+
+function formatFull(ymd: string): string {
+  const d = new Date(ymd + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
 }
