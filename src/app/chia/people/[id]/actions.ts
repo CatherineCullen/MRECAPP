@@ -1,10 +1,87 @@
 'use server'
 
+import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { ensureStripeCustomer } from '@/lib/stripe/customer'
 import { createAndSendInvoice } from '@/lib/stripe/invoice'
 import { getCurrentUser } from '@/lib/auth'
+import { sendEmail } from '@/lib/email'
+import { getAppOrigin } from '@/lib/appUrl'
+
+const TOKEN_TTL_DAYS = 30
+
+/**
+ * Create an enrollment token for a person who already exists in the DB but
+ * has no Supabase account yet. Sends an invite email if they have one on file.
+ * Used from the person detail page for existing boarders / riders.
+ */
+export async function sendInviteToExistingPerson(
+  personId: string,
+): Promise<{ link?: string; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.isAdmin) return { error: 'Admin only.' }
+
+  const db = createAdminClient()
+
+  const { data: person } = await db
+    .from('person')
+    .select('id, first_name, email, is_minor, auth_user_id')
+    .eq('id', personId)
+    .maybeSingle()
+
+  if (!person) return { error: 'Person not found.' }
+  if (person.auth_user_id) return { error: 'This person already has an account.' }
+  if (person.is_minor)     return { error: 'Minors do not get direct logins — invite the guardian instead.' }
+
+  // Expire any existing unused tokens so only one is live at a time
+  await db
+    .from('enrollment_token')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('rider_person_id', personId)
+    .is('used_at', null)
+    .is('deleted_at', null)
+
+  const token   = crypto.randomBytes(32).toString('base64url')
+  const expires = new Date()
+  expires.setDate(expires.getDate() + TOKEN_TTL_DAYS)
+
+  const { error: tokErr } = await db.from('enrollment_token').insert({
+    token,
+    rider_person_id:    personId,
+    guardian_person_id: null,
+    kind:               'adult',
+    template_kind:      'waiver',
+    expires_at:         expires.toISOString(),
+    created_by:         user.personId ?? null,
+  })
+  if (tokErr) return { error: tokErr.message }
+
+  const origin     = await getAppOrigin()
+  const enrollLink = `${origin}/enroll/${token}`
+
+  if (person.email) {
+    sendEmail({
+      to:      person.email,
+      subject: 'Enrollment invitation — Marlboro Ridge Equestrian Center',
+      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+        <p>Hi ${person.first_name},</p>
+        <p>You've been invited to enroll at <strong>Marlboro Ridge Equestrian Center</strong>.
+        Please click the button below to complete your enrollment and sign your waiver.</p>
+        <p style="margin:32px 0">
+          <a href="${enrollLink}" style="background:#0f3460;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">
+            Complete Enrollment
+          </a>
+        </p>
+        <p style="color:#666;font-size:14px">This link expires in 30 days.</p>
+        <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
+      </div>`,
+    }).catch(e => console.error('[sendInviteToExistingPerson] email failed', personId, e))
+  }
+
+  revalidatePath(`/chia/people/${personId}`)
+  return { link: enrollLink }
+}
 
 /**
  * Add or remove a single role from a person.

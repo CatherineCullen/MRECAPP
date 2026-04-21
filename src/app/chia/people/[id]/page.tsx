@@ -7,6 +7,7 @@ import PersonGuardianSection from './_components/PersonGuardianSection'
 import PersonStripeSection from './_components/PersonStripeSection'
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
+import SendInviteButton from './_components/SendInviteButton'
 
 const ROLE_LABELS: Record<string, string> = {
   rider: 'Rider', owner: 'Owner', instructor: 'Instructor',
@@ -131,12 +132,17 @@ export default async function PersonPage({
             )}
           </div>
         </div>
-        <Link
-          href={`/chia/people/${id}/edit`}
-          className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
-        >
-          Edit
-        </Link>
+        <div className="flex items-center gap-3">
+          {!person.auth_user_id && !person.is_minor && !person.is_organization && (
+            <SendInviteButton personId={id} hasEmail={!!person.email} />
+          )}
+          <Link
+            href={`/chia/people/${id}/edit`}
+            className="text-xs font-semibold text-[#056380] hover:text-[#002058]"
+          >
+            Edit
+          </Link>
+        </div>
       </div>
 
       <div className="space-y-3">
