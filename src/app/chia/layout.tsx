@@ -6,7 +6,7 @@ import ChiaTopBar from './_components/ChiaTopBar'
 export default async function ChiaLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
   if (!user) redirect('/sign-in')
-  if (!user.isAdmin) redirect('/sign-in')
+  if (!user.isAdmin) redirect('/my/schedule')
 
   return (
     <div className="flex h-screen bg-[#f7f9fc] overflow-hidden">
