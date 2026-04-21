@@ -36,6 +36,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         hasInvoices={hasInvoices}
         isAdmin={user.isAdmin}
         canLogServices={user.isAdmin || user.isBarnWorker}
+        canLogTrainingRides={user.isTrainingRideProvider || user.isAdmin}
       />
       <main className="max-w-md mx-auto px-4 py-4">
         {children}
