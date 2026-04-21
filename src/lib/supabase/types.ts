@@ -2667,6 +2667,44 @@ export type Database = {
           },
         ]
       }
+      notification_log: {
+        Row: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at: string
+          id: string
+          notification_type: Database["public"]["Enums"]["notification_type"]
+          person_id: string | null
+          reference_id: string | null
+          sent_at: string
+        }
+        Insert: {
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string
+          id?: string
+          notification_type: Database["public"]["Enums"]["notification_type"]
+          person_id?: string | null
+          reference_id?: string | null
+          sent_at?: string
+        }
+        Update: {
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string
+          id?: string
+          notification_type?: Database["public"]["Enums"]["notification_type"]
+          person_id?: string | null
+          reference_id?: string | null
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preference: {
         Row: {
           channel: Database["public"]["Enums"]["notification_channel"]

@@ -4,13 +4,53 @@ import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { ensureStripeCustomer } from '@/lib/stripe/customer'
+import { sendEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 
+function appBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  return 'http://localhost:3000'
+}
+
+function enrollmentEmailHtml(params: {
+  recipientName: string
+  enrollLink: string
+  forName?: string // set when the invite is for a child
+}): string {
+  const { recipientName, enrollLink, forName } = params
+  const subject = forName
+    ? `Enrollment invitation for ${forName} — Marlboro Ridge Equestrian Center`
+    : 'Enrollment invitation — Marlboro Ridge Equestrian Center'
+  void subject
+  const forLine = forName
+    ? `<p>This enrollment is for <strong>${forName}</strong>.</p>`
+    : ''
+  return `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+      <p>Hi ${recipientName},</p>
+      <p>You've been invited to enroll at <strong>Marlboro Ridge Equestrian Center</strong>.
+      Please click the button below to complete your enrollment and sign your waiver.</p>
+      ${forLine}
+      <p style="margin:32px 0">
+        <a href="${enrollLink}"
+           style="background:#0f3460;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">
+          Complete Enrollment
+        </a>
+      </p>
+      <p style="color:#666;font-size:14px">
+        This link expires in 30 days. If you have questions, reply to this email or
+        contact the barn office directly.
+      </p>
+      <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
+    </div>
+  `
+}
+
 // Admin-only. Generates the stub Person(s) + a tokenized enrollment row,
-// returning a link the admin hands off to the rider. No email is sent from
-// here — admin-held-link pattern while rider-facing pages are still being
-// built. Once those ship, we flip a switch to email as well (gated behind
-// the outbound kill switch).
+// returning a link the admin hands off to the rider. If the person has an
+// email address on file, an invite email is sent automatically (gated behind
+// the outbound kill switch — no-op in dev/preview).
 
 const TOKEN_TTL_DAYS = 30
 
@@ -89,6 +129,18 @@ export async function createInvite(
       console.error('[createInvite] Stripe customer creation failed', person.id, e)
     )
 
+    if (input.email) {
+      const enrollLink = `${appBaseUrl()}/enroll/${token}`
+      sendEmail({
+        to: input.email.trim(),
+        subject: 'Enrollment invitation — Marlboro Ridge Equestrian Center',
+        html: enrollmentEmailHtml({
+          recipientName: input.firstName.trim(),
+          enrollLink,
+        }),
+      }).catch(e => console.error('[createInvite] Email send failed', person.id, e))
+    }
+
     revalidatePath('/chia/people')
     return { token, riderPersonId: person.id, link: `/enroll/${token}` }
   }
@@ -151,6 +203,19 @@ export async function createInvite(
   ensureStripeCustomer(parent.id).catch(e =>
     console.error('[createInvite/minor] Stripe customer creation failed', parent.id, e)
   )
+
+  if (input.parentEmail) {
+    const enrollLink = `${appBaseUrl()}/enroll/${token}`
+    sendEmail({
+      to: input.parentEmail.trim(),
+      subject: `Enrollment invitation for ${input.childFirstName.trim()} — Marlboro Ridge Equestrian Center`,
+      html: enrollmentEmailHtml({
+        recipientName: input.parentFirstName.trim(),
+        enrollLink,
+        forName: input.childFirstName.trim(),
+      }),
+    }).catch(e => console.error('[createInvite/minor] Email send failed', parent.id, e))
+  }
 
   revalidatePath('/chia/people')
   return { token, riderPersonId: child.id, link: `/enroll/${token}` }

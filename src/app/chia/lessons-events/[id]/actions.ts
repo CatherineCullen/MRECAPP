@@ -2,7 +2,16 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
+import { notify } from '@/lib/notifications'
 import { revalidatePath } from 'next/cache'
+
+function formatLessonTime(scheduledAt: string): string {
+  const d = new Date(scheduledAt)
+  return d.toLocaleString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York',
+  })
+}
 
 /**
  * Mark a lesson as completed.
@@ -159,6 +168,42 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
       if (tokenErr) return { error: `Lesson cancelled but token creation failed: ${tokenErr.message}` }
     }
   }
+
+  // Notify cancelled riders — fire-and-forget, don't block the action
+  const timeStr   = formatLessonTime(lesson.scheduled_at)
+  const barnCancelled = args.cancelledBy === 'barn'
+  void Promise.all(
+    activeRiders.map(async r => {
+      const { data: person } = await createAdminClient()
+        .from('person')
+        .select('id, first_name, email, phone')
+        .eq('id', r.rider_id)
+        .maybeSingle()
+      if (!person) return
+      const tokenNote = barnCancelled && args.grantTokens
+        ? `<p>A makeup token has been added to your account.</p>`
+        : ''
+      await notify({
+        personId:    person.id,
+        type:        'lesson_cancellation',
+        referenceId: args.lessonId,
+        email:       person.email,
+        phone:       person.phone,
+        subject:     'Your lesson has been cancelled — Marlboro Ridge',
+        html: `
+          <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+            <p>Hi ${person.first_name},</p>
+            <p>Your lesson on <strong>${timeStr}</strong> has been cancelled.</p>
+            ${tokenNote}
+            <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
+          </div>
+        `,
+        smsBody: barnCancelled && args.grantTokens
+          ? `MREC: Your lesson on ${timeStr} was cancelled by the barn. A makeup token has been added to your account.`
+          : `MREC: Your lesson on ${timeStr} has been cancelled.`,
+      })
+    }),
+  ).catch(e => console.error('[cancelLesson] notify error', e))
 
   revalidatePath('/chia/lessons-events')
   revalidatePath(`/chia/lessons-events/${args.lessonId}`)
@@ -547,6 +592,40 @@ export async function cancelRider(args: {
       })
     }
   }
+
+  // Notify the cancelled rider — fire-and-forget
+  void (async () => {
+    const { data: person } = await createAdminClient()
+      .from('person')
+      .select('id, first_name, email, phone')
+      .eq('id', target.rider_id)
+      .maybeSingle()
+    if (!person) return
+    const timeStr = formatLessonTime(lesson.scheduled_at)
+    const barnCancelled = args.cancelledBy === 'barn'
+    const tokenNote = barnCancelled && args.grantToken
+      ? `<p>A makeup token has been added to your account.</p>`
+      : ''
+    await notify({
+      personId:    person.id,
+      type:        'lesson_cancellation',
+      referenceId: args.lessonId,
+      email:       person.email,
+      phone:       person.phone,
+      subject:     'Your lesson has been cancelled — Marlboro Ridge',
+      html: `
+        <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
+          <p>Hi ${person.first_name},</p>
+          <p>Your lesson on <strong>${timeStr}</strong> has been cancelled.</p>
+          ${tokenNote}
+          <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
+        </div>
+      `,
+      smsBody: barnCancelled && args.grantToken
+        ? `MREC: Your lesson on ${timeStr} was cancelled by the barn. A makeup token has been added to your account.`
+        : `MREC: Your lesson on ${timeStr} has been cancelled.`,
+    })
+  })().catch(e => console.error('[cancelRider] notify error', e))
 
   revalidatePath('/chia/lessons-events')
   revalidatePath(`/chia/lessons-events/${args.lessonId}`)
