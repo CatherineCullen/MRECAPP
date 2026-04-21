@@ -7,6 +7,7 @@ import PrintTriggerBar from './_components/PrintTriggerBar'
 type ParsedKey =
   | { kind: 's'; id: string }
   | { kind: 'p'; id: string }
+  | { kind: 't'; id: string }
 
 function parseKeys(keysParam: string | undefined): ParsedKey[] {
   if (!keysParam) return []
@@ -16,7 +17,7 @@ function parseKeys(keysParam: string | undefined): ParsedKey[] {
     .filter(Boolean)
     .map(k => {
       const [kind, id] = k.split(':')
-      if ((kind === 's' || kind === 'p') && id) return { kind, id }
+      if ((kind === 's' || kind === 'p' || kind === 't') && id) return { kind, id }
       return null
     })
     .filter((x): x is ParsedKey => x !== null)
@@ -49,8 +50,9 @@ export default async function QrPrintPage({
   // being picked, so this is belt-and-suspenders).
   const serviceIds  = parsed.filter(p => p.kind === 's').map(p => p.id)
   const providerIds = parsed.filter(p => p.kind === 'p').map(p => p.id)
+  const trainingIds = parsed.filter(p => p.kind === 't').map(p => p.id)
 
-  const [{ data: services }, { data: pqrs }] = await Promise.all([
+  const [{ data: services }, { data: pqrs }, { data: trqs }] = await Promise.all([
     serviceIds.length
       ? supabase
           .from('board_service')
@@ -70,10 +72,22 @@ export default async function QrPrintPage({
           .in('id', providerIds)
           .eq('is_active', true)
       : Promise.resolve({ data: [] }),
+    trainingIds.length
+      ? supabase
+          .from('training_ride_provider_qr')
+          .select(`
+            id, token, is_active,
+            person:person!training_ride_provider_qr_provider_person_id_fkey
+              ( id, first_name, last_name, preferred_name, is_organization, organization_name )
+          `)
+          .in('id', trainingIds)
+          .eq('is_active', true)
+      : Promise.resolve({ data: [] }),
   ])
 
   const serviceById = new Map((services ?? []).map(s => [s.id, s]))
   const pqrById     = new Map((pqrs     ?? []).map(q => [q.id, q]))
+  const trqById     = new Map((trqs     ?? []).map(q => [q.id, q]))
 
   // Build cards in the order the admin selected them
   const cards: Card[] = []
@@ -88,13 +102,23 @@ export default async function QrPrintPage({
         url,
         qrSvg:    await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 }),
       })
-    } else {
+    } else if (p.kind === 'p') {
       const q = pqrById.get(p.id)
       if (!q) continue
       const url = `${origin}/p/${q.token}`
       cards.push({
         heading:  displayName(q.person),
         subtitle: q.service?.name ?? null,
+        url,
+        qrSvg:    await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 }),
+      })
+    } else {
+      const q = trqById.get(p.id)
+      if (!q) continue
+      const url = `${origin}/tr/${q.token}`
+      cards.push({
+        heading:  displayName(q.person),
+        subtitle: 'Training Rides',
         url,
         qrSvg:    await QRCode.toString(url, { type: 'svg', margin: 1, width: 240 }),
       })

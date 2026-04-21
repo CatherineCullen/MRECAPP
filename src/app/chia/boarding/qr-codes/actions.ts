@@ -78,3 +78,49 @@ export async function setProviderQrActive(id: string, active: boolean): Promise<
   revalidatePath('/chia/boarding/qr-codes')
   return {}
 }
+
+/**
+ * Generate the per-provider training-ride QR row for any training ride
+ * provider who doesn't have one yet. Idempotent — safe to call on every
+ * page load; ON CONFLICT DO NOTHING via the UNIQUE on provider_person_id.
+ */
+export async function ensureTrainingRideProviderQrs(): Promise<void> {
+  const supabase = createAdminClient()
+  const user     = await getCurrentUser()
+
+  const { data: providers } = await supabase
+    .from('person')
+    .select('id')
+    .eq('is_training_ride_provider', true)
+    .is('deleted_at', null)
+  if (!providers?.length) return
+
+  const { data: existing } = await supabase
+    .from('training_ride_provider_qr')
+    .select('provider_person_id')
+    .in('provider_person_id', providers.map(p => p.id))
+  const existingIds = new Set((existing ?? []).map(e => e.provider_person_id))
+
+  const missing = providers.filter(p => !existingIds.has(p.id))
+  if (!missing.length) return
+
+  await supabase
+    .from('training_ride_provider_qr')
+    .insert(missing.map(p => ({
+      provider_person_id: p.id,
+      token:              randomToken(),
+      is_active:          true,
+      created_by:         user?.personId ?? null,
+    })))
+}
+
+export async function setTrainingRideProviderQrActive(id: string, active: boolean): Promise<{ error?: string }> {
+  const supabase = createAdminClient()
+  const { error } = await supabase
+    .from('training_ride_provider_qr')
+    .update({ is_active: active, updated_at: new Date().toISOString() })
+    .eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/chia/boarding/qr-codes')
+  return {}
+}

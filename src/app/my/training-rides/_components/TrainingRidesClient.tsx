@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { logMyRide, unlogMyRide, addMyLoggedRide } from '../actions'
 
 export type RideRow = {
   id:        string
@@ -17,13 +16,22 @@ export type HorseLite = {
   recentCount?: number
 }
 
+export type TrainingRideActions = {
+  logRide:        (rideId: string, notes: string) => Promise<{ error?: string }>
+  unlogRide:      (rideId: string) => Promise<{ error?: string }>
+  addLoggedRide:  (args: { horseId: string; date: string; notes: string }) => Promise<{ error?: string }>
+}
+
 export default function TrainingRidesClient({
-  date, rides, recentHorses, allHorses,
+  date, rides, recentHorses, allHorses, basePath, actions, providerName,
 }: {
   date:         string
   rides:        RideRow[]
   recentHorses: { horseId: string; name: string; recentCount: number }[]
   allHorses:    HorseLite[]
+  basePath:     string
+  actions:      TrainingRideActions
+  providerName?: string
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -35,7 +43,7 @@ export default function TrainingRidesClient({
   const [addNotes, setAddNotes] = useState('')
 
   function setDate(next: string) {
-    router.push(`/my/training-rides?date=${next}`)
+    router.push(`${basePath}?date=${next}`)
   }
 
   function shift(days: number) {
@@ -47,7 +55,7 @@ export default function TrainingRidesClient({
   function confirmLog(rideId: string) {
     setError(null)
     startTransition(async () => {
-      const r = await logMyRide(rideId, logNotes)
+      const r = await actions.logRide(rideId, logNotes)
       if (r.error) { setError(r.error); return }
       setOpenLogId(null)
       setLogNotes('')
@@ -59,7 +67,7 @@ export default function TrainingRidesClient({
     if (!confirm('Unlog this ride? It will go back to Scheduled.')) return
     setError(null)
     startTransition(async () => {
-      const r = await unlogMyRide(rideId)
+      const r = await actions.unlogRide(rideId)
       if (r.error) { setError(r.error); return }
       router.refresh()
     })
@@ -69,7 +77,7 @@ export default function TrainingRidesClient({
     if (!addingHorse) return
     setError(null)
     startTransition(async () => {
-      const r = await addMyLoggedRide({
+      const r = await actions.addLoggedRide({
         horseId: addingHorse.horseId,
         date,
         notes:   addNotes,
@@ -86,7 +94,7 @@ export default function TrainingRidesClient({
   return (
     <div className="space-y-3">
       <h1 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide px-1">
-        Training rides
+        {providerName ? `${providerName}'s training rides` : 'Training rides'}
       </h1>
 
       {/* Date picker */}

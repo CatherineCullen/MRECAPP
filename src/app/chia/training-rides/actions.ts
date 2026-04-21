@@ -67,7 +67,11 @@ export async function unscheduleRide(rideId: string): Promise<{ error?: string }
  * In production the mobile provider screen will also call this.
  * Leaves unit_price intact (snapshot taken at schedule time).
  */
-export async function logRide(rideId: string, notes: string | null): Promise<{ error?: string }> {
+export async function logRide(
+  rideId: string,
+  notes: string | null,
+  actingAsPersonId?: string,
+): Promise<{ error?: string }> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
 
@@ -76,7 +80,7 @@ export async function logRide(rideId: string, notes: string | null): Promise<{ e
     .update({
       status:       'logged',
       logged_at:    new Date().toISOString(),
-      logged_by_id: user?.personId ?? null,
+      logged_by_id: actingAsPersonId ?? user?.personId ?? null,
       notes:        notes?.trim() || null,
       updated_at:   new Date().toISOString(),
     })
@@ -240,6 +244,7 @@ export async function addLoggedRide(args: {
   horseId: string
   date:    string
   notes?:  string
+  actingAsPersonId?: string
 }): Promise<{ error?: string; id?: string }> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
@@ -263,8 +268,8 @@ export async function addLoggedRide(args: {
       unit_price:   provider.default_training_ride_rate,
       notes:        args.notes?.trim() || null,
       logged_at:    now,
-      logged_by_id: user?.personId ?? null,
-      created_by:   user?.personId ?? null,
+      logged_by_id: args.actingAsPersonId ?? user?.personId ?? null,
+      created_by:   args.actingAsPersonId ?? user?.personId ?? null,
     })
     .select('id')
     .single()

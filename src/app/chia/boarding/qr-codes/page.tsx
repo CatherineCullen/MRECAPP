@@ -3,10 +3,13 @@ import { getAppOrigin } from '@/lib/appUrl'
 import { displayName } from '@/lib/displayName'
 import QrCodesClient, { type QrRow } from './_components/QrCodesClient'
 import { type PersonOption, type ServiceOption } from './_components/NewProviderQrForm'
+import { ensureTrainingRideProviderQrs } from './actions'
 
 export default async function QrCodesPage() {
   const supabase = createAdminClient()
   const origin   = await getAppOrigin()
+
+  await ensureTrainingRideProviderQrs()
 
   // Fetch services (both billable and provider services, but not Monthly Board —
   // Monthly Board never gets logged and never gets a QR code)
@@ -16,6 +19,7 @@ export default async function QrCodesPage() {
     { data: services, error: svcErr },
     { data: providerQrs, error: pqrErr },
     { data: providerRoles, error: prErr },
+    { data: trainingQrs, error: trErr },
   ] = await Promise.all([
     supabase
       .from('board_service')
@@ -40,11 +44,21 @@ export default async function QrCodesPage() {
         person:person!person_role_person_id_fkey ( id, first_name, last_name, preferred_name )
       `)
       .eq('role', 'service_provider'),
+    supabase
+      .from('training_ride_provider_qr')
+      .select(`
+        id, token, is_active,
+        person:person!training_ride_provider_qr_provider_person_id_fkey
+          ( id, first_name, last_name, preferred_name, is_organization, organization_name, is_training_ride_provider )
+      `)
+      .order('is_active', { ascending: false })
+      .order('created_at'),
   ])
 
   if (svcErr) throw svcErr
   if (pqrErr) throw pqrErr
   if (prErr)  throw prErr
+  if (trErr)  throw trErr
 
   // Build rows for the per-service table. Service IDs are UUIDs so they're fine
   // to use directly in the scan URL — no additional token needed.
@@ -78,10 +92,23 @@ export default async function QrCodesPage() {
     .filter(s => s.is_active)
     .map(s => ({ id: s.id, name: s.name, is_billable: s.is_billable }))
 
+  const trainingRows: QrRow[] = (trainingQrs ?? [])
+    .filter(q => q.person?.is_training_ride_provider)
+    .map(q => ({
+      kind:      't',
+      id:        q.id,
+      primary:   displayName(q.person),
+      secondary: 'Training Rides',
+      url:       `${origin}/tr/${q.token}`,
+      active:    q.is_active,
+      canToggle: true,
+    }))
+
   return (
     <QrCodesClient
       serviceRows={serviceRows}
       providerRows={providerRows}
+      trainingRows={trainingRows}
       providers={providers}
       services={serviceOptions}
     />

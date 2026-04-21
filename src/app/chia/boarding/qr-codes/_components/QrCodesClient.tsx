@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import CopyUrlButton from './CopyUrlButton'
 import NewProviderQrForm, { type PersonOption, type ServiceOption } from './NewProviderQrForm'
-import { setProviderQrActive } from '../actions'
+import { setProviderQrActive, setTrainingRideProviderQrActive } from '../actions'
 
-/** One QR in either table. `kind` distinguishes routing. */
+/** One QR in any of the tables. `kind` distinguishes routing. */
 export type QrRow = {
-  kind:      's' | 'p'
+  kind:      's' | 'p' | 't'
   id:        string                // service.id (s) or provider_qr_code.id (p)
   primary:   string
   secondary: string | null
@@ -21,6 +21,7 @@ export type QrRow = {
 type Props = {
   serviceRows:  QrRow[]
   providerRows: QrRow[]
+  trainingRows: QrRow[]
   providers:    PersonOption[]
   services:     ServiceOption[]
 }
@@ -28,7 +29,7 @@ type Props = {
 /** Namespaced key so service IDs and provider-QR IDs don't collide. */
 const keyOf = (r: QrRow) => `${r.kind}:${r.id}`
 
-export default function QrCodesClient({ serviceRows, providerRows, providers, services }: Props) {
+export default function QrCodesClient({ serviceRows, providerRows, trainingRows, providers, services }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [title, setTitle]       = useState('')
 
@@ -106,6 +107,15 @@ export default function QrCodesClient({ serviceRows, providerRows, providers, se
         emptyState="No provider codes yet. Create one below."
         footer={<NewProviderQrForm providers={providers} services={services} />}
       />
+
+      <QrTable
+        heading="Training ride providers"
+        subheading="One per training ride provider. Scanning takes them straight to their logging screen — no sign-in required."
+        rows={trainingRows}
+        selected={selected}
+        onToggle={toggle}
+        emptyState="No training ride providers yet. Add the role on a Person record."
+      />
     </div>
   )
 }
@@ -159,7 +169,9 @@ function Row({ r, k, selected, onToggle }: { r: QrRow; k: string; selected: bool
   function toggleActive() {
     setError(null)
     startTransition(async () => {
-      const res = await setProviderQrActive(r.id, !r.active)
+      const res = r.kind === 't'
+        ? await setTrainingRideProviderQrActive(r.id, !r.active)
+        : await setProviderQrActive(r.id, !r.active)
       if (res.error) setError(res.error)
       else           router.refresh()
     })

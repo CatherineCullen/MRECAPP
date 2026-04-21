@@ -3241,6 +3241,51 @@ export type Database = {
           },
         ]
       }
+      training_ride_provider_qr: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          provider_person_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          provider_person_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          provider_person_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_ride_provider_qr_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_ride_provider_qr_provider_person_id_fkey"
+            columns: ["provider_person_id"]
+            isOneToOne: true
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vet_visit: {
         Row: {
           created_at: string
