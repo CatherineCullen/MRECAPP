@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MyNav from './_components/MyNav'
+import { getRiderScope } from './_lib/riderScope'
 
 export default async function MyLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
@@ -9,16 +10,17 @@ export default async function MyLayout({ children }: { children: React.ReactNode
   if (!user.personId) redirect('/sign-in')
 
   const db = createAdminClient()
+  const riderIds = await getRiderScope(user.personId)
 
   const [horsesRes, invoicesRes] = await Promise.all([
     db.from('horse_contact')
       .select('id')
-      .eq('person_id', user.personId)
+      .in('person_id', riderIds)
       .is('deleted_at', null)
       .limit(1),
     db.from('invoice')
       .select('id')
-      .eq('billed_to_id', user.personId)
+      .in('billed_to_id', riderIds)
       .is('deleted_at', null)
       .limit(1),
   ])
@@ -32,6 +34,8 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         firstName={user.firstName ?? ''}
         hasHorses={hasHorses}
         hasInvoices={hasInvoices}
+        isAdmin={user.isAdmin}
+        canLogServices={user.isAdmin || user.isBarnWorker}
       />
       <main className="max-w-md mx-auto px-4 py-4">
         {children}

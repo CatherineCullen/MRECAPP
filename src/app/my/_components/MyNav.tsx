@@ -7,16 +7,21 @@ export default function MyNav({
   firstName,
   hasHorses,
   hasInvoices,
+  isAdmin,
+  canLogServices,
 }: {
   firstName: string
   hasHorses: boolean
   hasInvoices: boolean
+  isAdmin: boolean
+  canLogServices: boolean
 }) {
   const pathname = usePathname()
 
   const tabs = [
     { label: 'Schedule',  href: '/my/schedule'  },
     ...(hasHorses   ? [{ label: 'Horses',   href: '/my/horses'   }] : []),
+    ...(canLogServices ? [{ label: 'Services', href: '/my/services' }] : []),
     ...(hasInvoices ? [{ label: 'Invoices', href: '/my/invoices' }] : []),
     { label: 'Profile',   href: '/my/profile'   },
   ]
@@ -26,8 +31,15 @@ export default function MyNav({
       <div className="max-w-md mx-auto">
         {/* Wordmark + user */}
         <div className="flex items-center justify-between px-4 pt-3 pb-1">
-          <span className="text-white font-bold text-sm tracking-tight">Marlboro Ridge</span>
-          <span className="text-secondary/60 text-xs">{firstName}</span>
+          <span className="text-white font-bold text-sm tracking-tight">Marlboro Ridge Equestrian Center</span>
+          <div className="flex items-center gap-3">
+            {isAdmin && (
+              <Link href="/chia" className="text-secondary/80 hover:text-white text-[11px] font-semibold uppercase tracking-wider">
+                CHIA →
+              </Link>
+            )}
+            <span className="text-secondary/60 text-xs">{firstName}</span>
+          </div>
         </div>
         {/* Tabs */}
         <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>

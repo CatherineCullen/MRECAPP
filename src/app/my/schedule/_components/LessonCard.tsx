@@ -10,6 +10,7 @@ type Props = {
   lessonType:    'private' | 'semi_private' | 'group'
   isMakeup:      boolean
   hoursUntil:    number   // computed server-side, passed in for display logic
+  riderName?:    string | null
 }
 
 function formatDate(iso: string) {
@@ -35,7 +36,7 @@ const LESSON_LABEL = {
 }
 
 export default function LessonCard({
-  lessonRiderId, scheduledAt, instructorName, lessonType, isMakeup, hoursUntil,
+  lessonRiderId, scheduledAt, instructorName, lessonType, isMakeup, hoursUntil, riderName,
 }: Props) {
   const [expanded,    setExpanded]    = useState(false)
   const [confirming,  setConfirming]  = useState(false)
@@ -103,7 +104,7 @@ export default function LessonCard({
             {formatTime(scheduledAt)}
           </p>
           <p className="text-sm text-on-surface-muted mt-0.5">
-            {instructorName} · {LESSON_LABEL[lessonType]}
+            {riderName ? `${riderName} · ` : ''}{instructorName} · {LESSON_LABEL[lessonType]}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0 pt-0.5">

@@ -1,0 +1,77 @@
+'use server'
+
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getCurrentUser } from '@/lib/auth'
+import { revalidatePath } from 'next/cache'
+import { getRiderScope } from '../../_lib/riderScope'
+
+export async function updateMyHorse(horseId: string, formData: FormData) {
+  const user = await getCurrentUser()
+  if (!user?.personId) throw new Error('Not signed in')
+
+  const supabase = createAdminClient()
+
+  const riderIds = await getRiderScope(user.personId)
+  const { data: connection } = await supabase
+    .from('horse_contact')
+    .select('id')
+    .eq('horse_id', horseId)
+    .in('person_id', riderIds)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle()
+
+  if (!connection && !user.isAdmin) throw new Error('Not authorized')
+
+  const barnName       = (formData.get('barn_name') as string).trim()
+  const registeredName = (formData.get('registered_name') as string | null)?.trim() || null
+  const breed          = (formData.get('breed') as string | null)?.trim() || null
+  const gender         = (formData.get('gender') as string | null)?.trim() || null
+  const color          = (formData.get('color') as string | null)?.trim() || null
+  const heightRaw      = formData.get('height') as string | null
+  const weightRaw      = formData.get('weight') as string | null
+  const dob            = (formData.get('date_of_birth') as string | null) || null
+  const microchip      = (formData.get('microchip') as string | null)?.trim() || null
+  const notes          = (formData.get('notes') as string | null)?.trim() || null
+  const turnoutNotes   = (formData.get('turnout_notes') as string | null)?.trim() || null
+  const ownershipNotes = (formData.get('ownership_notes') as string | null)?.trim() || null
+
+  const usefId               = (formData.get('usef_id') as string | null)?.trim() || null
+  const breedRecordingNumber = (formData.get('breed_recording_number') as string | null)?.trim() || null
+  const passportNumber       = (formData.get('passport_number') as string | null)?.trim() || null
+
+  const { error } = await supabase
+    .from('horse')
+    .update({
+      barn_name:       barnName,
+      registered_name: registeredName,
+      breed,
+      gender,
+      color,
+      height:          heightRaw ? parseFloat(heightRaw) : null,
+      weight:          weightRaw ? parseInt(weightRaw, 10) : null,
+      date_of_birth:   dob,
+      microchip,
+      notes,
+      turnout_notes:   turnoutNotes,
+      ownership_notes: ownershipNotes,
+    })
+    .eq('id', horseId)
+
+  if (error) throw error
+
+  if (usefId || breedRecordingNumber || passportNumber) {
+    const { error: ridError } = await supabase
+      .from('horse_recording_ids')
+      .upsert({
+        horse_id:               horseId,
+        usef_id:                usefId,
+        breed_recording_number: breedRecordingNumber,
+        passport_number:        passportNumber,
+      }, { onConflict: 'horse_id' })
+
+    if (ridError) throw ridError
+  }
+
+  revalidatePath(`/my/horses/${horseId}`)
+}

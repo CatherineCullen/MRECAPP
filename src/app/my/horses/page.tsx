@@ -2,8 +2,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { getRiderScope } from '../_lib/riderScope'
 
-export const metadata = { title: 'Horses — Marlboro Ridge' }
+export const metadata = { title: 'Horses — Marlboro Ridge Equestrian Center' }
 
 export default async function MyHorsesPage() {
   const user = await getCurrentUser()
@@ -11,30 +12,38 @@ export default async function MyHorsesPage() {
 
   const db = createAdminClient()
 
+  const riderIds = await getRiderScope(user.personId)
+
   const { data: connections } = await db
     .from('horse_contact')
     .select('horse_id, role')
-    .eq('person_id', user.personId)
+    .in('person_id', riderIds)
     .is('deleted_at', null)
 
-  const horseIds = (connections ?? []).map(c => c.horse_id)
-
-  const { data: horseRows } = horseIds.length > 0
-    ? await db
-        .from('horse')
-        .select(`
-          id, barn_name, status,
-          care_plan ( id, content, is_active, deleted_at )
-        `)
-        .in('id', horseIds)
-        .is('deleted_at', null)
-        .neq('status', 'archived')
-    : { data: [] }
-
+  const connectedIds = (connections ?? []).map(c => c.horse_id)
   const roleMap = new Map((connections ?? []).map(c => [c.horse_id, c.role]))
+
+  // Admins see every active horse so they can pull up any record from mobile.
+  // Non-admins are scoped to horses they're explicitly connected to.
+  const horseQuery = db
+    .from('horse')
+    .select(`
+      id, barn_name, status,
+      care_plan ( id, content, is_active, deleted_at )
+    `)
+    .is('deleted_at', null)
+    .neq('status', 'archived')
+    .order('barn_name', { ascending: true })
+
+  const { data: horseRows } = user.isAdmin
+    ? await horseQuery
+    : connectedIds.length > 0
+      ? await horseQuery.in('id', connectedIds)
+      : { data: [] }
+
   const horses = (horseRows ?? []).map(h => ({ ...h, role: roleMap.get(h.id) }))
 
-  if (horses.length === 1) {
+  if (!user.isAdmin && horses.length === 1) {
     redirect(`/my/horses/${horses[0].id}`)
   }
 

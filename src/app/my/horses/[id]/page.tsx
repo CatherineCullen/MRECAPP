@@ -1,15 +1,16 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
+import HorseHeaderCard from './_components/HorseHeaderCard'
+import CogginsCard from './_components/CogginsCard'
+import MyCarePlansSection from './_components/MyCarePlansSection'
+import MyHealthItemsSection from './_components/MyHealthItemsSection'
+import MyServicesSection from './_components/MyServicesSection'
+import MyDietSection from './_components/MyDietSection'
+import MyDocumentsSection from './_components/MyDocumentsSection'
+import { getRiderScope } from '../../_lib/riderScope'
 
-export const metadata = { title: 'Horse — Marlboro Ridge' }
-
-function formatDate(iso: string | null) {
-  if (!iso) return null
-  return new Date(iso + (iso.length === 10 ? 'T12:00:00' : '')).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  })
-}
+export const metadata = { title: 'Horse — Marlboro Ridge Equestrian Center' }
 
 export default async function MyHorsePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -18,39 +19,53 @@ export default async function MyHorsePage({ params }: { params: Promise<{ id: st
 
   const db = createAdminClient()
 
-  // Verify access
+  // Verify access (via rider scope so guardians see their minors' horses)
+  const riderIds = await getRiderScope(user.personId)
   const { data: connection } = await db
     .from('horse_contact')
     .select('role')
     .eq('horse_id', id)
-    .eq('person_id', user.personId)
+    .in('person_id', riderIds)
     .is('deleted_at', null)
+    .limit(1)
     .maybeSingle()
 
   if (!connection && !user.isAdmin) notFound()
 
   const { data: horse } = await db
     .from('horse')
-    .select('id, barn_name, registered_name, breed, color, gender, notes, status')
+    .select('id, barn_name, registered_name, breed, color, gender, date_of_birth, height, weight, microchip, solo_turnout, notes, turnout_notes, ownership_notes, status')
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle()
 
   if (!horse) notFound()
 
-  // Active care plans
-  const { data: carePlans } = await db
-    .from('care_plan')
-    .select('id, content, is_active, deleted_at, ends_on, created_at')
+  const { data: recordingIds } = await db
+    .from('horse_recording_ids')
+    .select('usef_id, breed_recording_number, passport_number')
     .eq('horse_id', id)
-    .eq('is_active', true)
+    .maybeSingle()
+
+  // Care plans — active + resolved, with person joins for "Added by" / "Resolved by"
+  const { data: allCarePlans } = await db
+    .from('care_plan')
+    .select(`
+      id, content, starts_on, ends_on, is_active, resolved_at, resolution_note, source_quote, created_at,
+      person:person!care_plan_created_by_fkey (first_name, last_name),
+      resolved_by_person:person!care_plan_resolved_by_fkey (first_name, last_name)
+    `)
+    .eq('horse_id', id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  const activeCarePlans   = (allCarePlans ?? []).filter((p: any) => p.is_active && !p.resolved_at)
+  const resolvedCarePlans = (allCarePlans ?? []).filter((p: any) => p.resolved_at)
 
   // Latest coggins
   const { data: cogginsRows } = await db
     .from('coggins')
-    .select('id, date_drawn, expiry_date')
+    .select('id, date_drawn, expiry_date, document_id')
     .eq('horse_id', id)
     .is('deleted_at', null)
     .order('date_drawn', { ascending: false })
@@ -58,102 +73,128 @@ export default async function MyHorsePage({ params }: { params: Promise<{ id: st
 
   const latestCoggins = cogginsRows?.[0] ?? null
 
-  // Upcoming essential health events
-  const { data: healthEvents } = await db
-    .from('health_event')
+  // Latest diet record (supersession model — newest non-deleted row wins)
+  const { data: dietRows } = await db
+    .from('diet_record')
+    .select('id, am_feed, am_supplements, am_hay, pm_feed, pm_supplements, pm_hay, notes, version, updated_at')
+    .eq('horse_id', id)
+    .is('deleted_at', null)
+    .order('version', { ascending: false })
+    .limit(1)
+
+  const latestDiet = dietRows?.[0] ?? null
+
+  // Documents linked to this horse (non-deleted). Coggins PDFs are also
+  // stored as documents; surface them all in one place.
+  const { data: documents } = await db
+    .from('document')
+    .select('id, document_type, filename, uploaded_at, signed_at, expires_at')
+    .eq('horse_id', id)
+    .is('deleted_at', null)
+    .order('uploaded_at', { ascending: false })
+
+  // Health program items (scheduled recurring health items per horse)
+  const { data: healthItems } = await db
+    .from('health_program_item')
     .select(`
-      id, next_due, administered_on,
-      health_item_type!health_item_type_id ( name, is_essential )
+      id, last_done, next_due,
+      type:health_item_type!health_item_type_id ( id, name, is_essential, show_in_herd_dashboard )
     `)
     .eq('horse_id', id)
     .is('deleted_at', null)
-    .not('next_due', 'is', null)
-    .order('next_due', { ascending: true })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const healthItemsFiltered = (healthItems ?? [])
+    .filter((i: any) => i.type?.name !== 'Coggins')
 
-  const essentialItems = (healthEvents ?? [])
-    .filter((e: any) => (e.health_item_type as any)?.is_essential)
+  const { data: catalog } = await db
+    .from('health_item_type')
+    .select('id, name, is_essential, show_in_herd_dashboard, is_active')
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  const catalogFiltered = (catalog ?? []).filter((t: any) => t.name !== 'Coggins')
+
+  // Services log — last 12 months. Includes logged board services + logged
+  // training rides (lessons are excluded; they live on My Schedule). Rides
+  // are billed via invoice line items downstream, so they have no inline
+  // price here — just the activity.
+  const svcCutoff = new Date(); svcCutoff.setMonth(svcCutoff.getMonth() - 12)
+  const svcCutoffDate = svcCutoff.toISOString().slice(0, 10)
+
+  const [{ data: serviceRows }, { data: rideRows }] = await Promise.all([
+    db
+      .from('board_service_log')
+      .select(`
+        id, logged_at, status, unit_price, is_billable, notes,
+        service:service_id ( name )
+      `)
+      .eq('horse_id', id)
+      .neq('status', 'voided')
+      .gte('logged_at', svcCutoff.toISOString()),
+    db
+      .from('training_ride')
+      .select(`
+        id, ride_date, notes,
+        provider:rider_id ( first_name, last_name, preferred_name, is_organization, organization_name )
+      `)
+      .eq('horse_id', id)
+      .eq('status', 'logged')
+      .is('deleted_at', null)
+      .gte('ride_date', svcCutoffDate),
+  ])
+
+  const serviceEntries = [
+    ...(serviceRows ?? []).map((r: any) => ({
+      id:           `svc:${r.id}`,
+      logged_at:    r.logged_at,
+      unit_price:   r.unit_price,
+      is_billable:  r.is_billable,
+      notes:        r.notes,
+      service_name: r.service?.name ?? 'Service',
+    })),
+    ...(rideRows ?? []).map((r: any) => {
+      const p = r.provider
+      const providerName = p?.is_organization
+        ? (p.organization_name ?? 'Training provider')
+        : [p?.preferred_name ?? p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Training provider'
+      return {
+        id:           `ride:${r.id}`,
+        logged_at:    `${r.ride_date}T12:00:00.000Z`,
+        unit_price:   null,
+        is_billable:  true,
+        notes:        r.notes,
+        service_name: `Training ride — ${providerName}`,
+      }
+    }),
+  ].sort((a, b) => (a.logged_at < b.logged_at ? 1 : a.logged_at > b.logged_at ? -1 : 0))
 
   return (
     <div className="space-y-3">
       {/* Back link */}
       <a href="/my/horses" className="text-xs font-semibold text-on-secondary-container">← All horses</a>
 
-      {/* Header */}
-      <div className="bg-surface-lowest rounded-lg px-4 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-bold text-on-surface">{horse.barn_name}</h1>
-          {connection?.role && (
-            <span className="text-[10px] font-semibold bg-primary-fixed text-primary px-1.5 py-0.5 rounded uppercase tracking-wide">
-              {connection.role}
-            </span>
-          )}
-        </div>
-        {horse.registered_name && horse.registered_name !== horse.barn_name && (
-          <p className="text-sm text-on-surface-muted mt-0.5">{horse.registered_name}</p>
-        )}
-        {(horse.breed || horse.color || horse.gender) && (
-          <p className="text-sm text-on-surface-muted mt-0.5">
-            {[horse.breed, horse.color, horse.gender].filter(Boolean).join(' · ')}
-          </p>
-        )}
-      </div>
+      <HorseHeaderCard horse={horse} recordingIds={recordingIds} role={connection?.role ?? null} />
 
-      {/* Active care plans */}
-      {(carePlans?.length ?? 0) > 0 && (
-        <div className="bg-surface-lowest rounded-lg px-4 py-3">
-          <h2 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide mb-2">
-            Active Care Plans
-          </h2>
-          <div className="space-y-2">
-            {(carePlans ?? []).map((plan: any) => (
-              <div key={plan.id}>
-                <p className="text-sm font-semibold text-on-surface">{plan.content}</p>
-                {plan.ends_on && (
-                  <p className="text-xs text-on-surface-muted mt-0.5">Until {formatDate(plan.ends_on)}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <CogginsCard horseId={id} coggins={latestCoggins} />
 
-      {/* Health summary */}
-      {(latestCoggins || essentialItems.length > 0) && (
-        <div className="bg-surface-lowest rounded-lg px-4 py-3">
-          <h2 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide mb-2">
-            Health
-          </h2>
-          <div className="space-y-1.5">
-            {latestCoggins && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-on-surface">Coggins</span>
-                <span className={`text-xs font-semibold ${
-                  latestCoggins.expiry_date && latestCoggins.expiry_date < today
-                    ? 'text-error'
-                    : 'text-on-surface-muted'
-                }`}>
-                  {latestCoggins.expiry_date
-                    ? `Expires ${formatDate(latestCoggins.expiry_date)}`
-                    : `Drawn ${formatDate(latestCoggins.date_drawn)}`}
-                </span>
-              </div>
-            )}
-            {essentialItems.map((item: any) => {
-              const isOverdue = item.next_due < today
-              return (
-                <div key={item.id} className="flex items-center justify-between">
-                  <span className="text-sm text-on-surface">{(item.health_item_type as any)?.name}</span>
-                  <span className={`text-xs font-semibold ${isOverdue ? 'text-error' : 'text-on-surface-muted'}`}>
-                    Due {formatDate(item.next_due)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <MyCarePlansSection
+        horseId={id}
+        activePlans={activeCarePlans as any}
+        resolvedPlans={resolvedCarePlans as any}
+      />
+
+      <MyHealthItemsSection
+        horseId={id}
+        items={healthItemsFiltered as any}
+        catalog={catalogFiltered as any}
+      />
+
+      <MyDietSection horseId={id} diet={latestDiet as any} />
+
+      <MyServicesSection entries={serviceEntries} />
+
+      <MyDocumentsSection documents={(documents ?? []) as any} />
 
       {/* Notes */}
       {horse.notes && (

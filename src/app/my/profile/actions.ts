@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { generateIcalToken } from '@/lib/ical'
 
 export async function updateMyProfile(data: {
   phone?:                    string
@@ -69,4 +70,26 @@ export async function toggleNotificationPref(
 
   revalidatePath('/my/profile')
   return {}
+}
+
+/**
+ * Issue or rotate the rider's iCal token. Called on first "Show link" and
+ * whenever the user clicks "Reset link" — rotating invalidates the old feed
+ * URL immediately (the API route 404s on unknown tokens).
+ */
+export async function rotateIcalToken(): Promise<{ token?: string; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.personId) return { error: 'Not signed in.' }
+
+  const db = createAdminClient()
+  const token = generateIcalToken()
+  const { error } = await db
+    .from('person')
+    .update({ ical_token: token, updated_at: new Date().toISOString() })
+    .eq('id', user.personId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/my/profile')
+  return { token }
 }
