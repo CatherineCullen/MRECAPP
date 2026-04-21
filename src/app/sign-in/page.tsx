@@ -25,7 +25,7 @@ export default function SignInPage() {
       return
     }
 
-    router.push('/chia')
+    router.push('/my/schedule')
     router.refresh()
   }
 
