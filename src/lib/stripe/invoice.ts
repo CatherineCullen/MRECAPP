@@ -3,7 +3,6 @@ import { stripe } from './server'
 import { ensureStripeCustomer } from './customer'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { assertStripeOutboundAllowed } from '@/lib/outbound'
-import { notify } from '@/lib/notifications'
 
 /**
  * Thin wrappers around Stripe Invoicing for CHIA's billing pipeline.
@@ -154,6 +153,7 @@ export async function createAndSendInvoice(params: {
       status: 'sent',
       due_date: new Date(Date.now() + daysUntilDue * 86400_000).toISOString().slice(0, 10),
       stripe_invoice_id: finalized.id,
+      hosted_invoice_url: sent.hosted_invoice_url ?? null,
       notes: notes ?? null,
       sent_at: new Date().toISOString(),
     })
@@ -205,24 +205,9 @@ export async function createAndSendInvoice(params: {
     throw new Error(`Stripe invoice sent but line-item mirror failed: ${lineErr.message}`)
   }
 
-  // SMS notification — Stripe already emails the invoice link, so we send
-  // an SMS nudge only (email_enabled=false in notification_config by default).
-  void (async () => {
-    const { data: person } = await db
-      .from('person')
-      .select('id, first_name, email, phone')
-      .eq('id', personId)
-      .maybeSingle()
-    if (!person) return
-    await notify({
-      personId:    person.id,
-      type:        'invoice',
-      referenceId: chiaInvoice.id,
-      email:       person.email,
-      phone:       person.phone,
-      vars: { first_name: person.first_name ?? '' },
-    })
-  })().catch(e => console.error('[invoice] notify error', e))
+  // No CHIA-side notification — Stripe delivers the invoice email itself,
+  // which is the canonical channel. We intentionally don't duplicate with
+  // our own email, and SMS isn't appropriate for billing.
 
   return {
     stripeInvoiceId: finalized.id,

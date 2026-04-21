@@ -23,12 +23,12 @@ values
 
   -- lesson_reminder
   ('lesson_reminder', 'email',
-   'Reminder: Your lesson tomorrow at Marlboro Ridge',
+   'Reminder: Your lesson tomorrow at Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Just a reminder — you have a <strong>{{lesson_type}}</strong> scheduled for
 <strong>{{lesson_time}}</strong> at Marlboro Ridge Equestrian Center.</p>
 <p style="color:#666;font-size:14px">Need to cancel? Please let us know at least 24 hours in advance.</p>',
-   'Reminder: Your lesson tomorrow at Marlboro Ridge',
+   'Reminder: Your lesson tomorrow at Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Just a reminder — you have a <strong>{{lesson_type}}</strong> scheduled for
 <strong>{{lesson_time}}</strong> at Marlboro Ridge Equestrian Center.</p>
@@ -43,11 +43,11 @@ values
   -- lesson_cancellation
   -- {{token_note}} renders as '' or ' A makeup token has been added to your account.'
   ('lesson_cancellation', 'email',
-   'Your lesson has been cancelled — Marlboro Ridge',
+   'Your lesson has been cancelled — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Your lesson on <strong>{{lesson_time}}</strong> has been cancelled.</p>
 {{token_note}}',
-   'Your lesson has been cancelled — Marlboro Ridge',
+   'Your lesson has been cancelled — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Your lesson on <strong>{{lesson_time}}</strong> has been cancelled.</p>
 {{token_note}}'),
@@ -77,10 +77,10 @@ Check your email for the payment link.</p>'),
 
   -- makeup_token
   ('makeup_token', 'email',
-   'Makeup token issued — Marlboro Ridge',
+   'Makeup token issued — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>A makeup token has been added to your account. Contact the barn to schedule your makeup lesson.</p>',
-   'Makeup token issued — Marlboro Ridge',
+   'Makeup token issued — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>A makeup token has been added to your account. Contact the barn to schedule your makeup lesson.</p>'),
 
@@ -92,11 +92,11 @@ Check your email for the payment link.</p>'),
 
   -- lesson_confirmation (not yet wired)
   ('lesson_confirmation', 'email',
-   'Lesson confirmed — Marlboro Ridge',
+   'Lesson confirmed — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Your <strong>{{lesson_type}}</strong> has been scheduled for
 <strong>{{lesson_time}}</strong> at Marlboro Ridge Equestrian Center.</p>',
-   'Lesson confirmed — Marlboro Ridge',
+   'Lesson confirmed — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Your <strong>{{lesson_type}}</strong> has been scheduled for
 <strong>{{lesson_time}}</strong> at Marlboro Ridge Equestrian Center.</p>'),
@@ -109,11 +109,11 @@ Check your email for the payment link.</p>'),
 
   -- lesson_type_change (not yet wired)
   ('lesson_type_change', 'email',
-   'Lesson update — Marlboro Ridge',
+   'Lesson update — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Your lesson on <strong>{{lesson_time}}</strong> has been updated to a
 <strong>{{lesson_type}}</strong>.</p>',
-   'Lesson update — Marlboro Ridge',
+   'Lesson update — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p>Your lesson on <strong>{{lesson_time}}</strong> has been updated to a
 <strong>{{lesson_type}}</strong>.</p>'),
@@ -126,11 +126,11 @@ Check your email for the payment link.</p>'),
 
   -- health_alert (not yet wired)
   ('health_alert', 'email',
-   'Health alert — Marlboro Ridge',
+   'Health alert — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p><strong>{{horse_name}}</strong> has a <strong>{{health_item}}</strong> due on
 <strong>{{due_date}}</strong>. Please schedule this with your vet.</p>',
-   'Health alert — Marlboro Ridge',
+   'Health alert — Marlboro Ridge Equestrian Center',
    '<p>Hi {{first_name}},</p>
 <p><strong>{{horse_name}}</strong> has a <strong>{{health_item}}</strong> due on
 <strong>{{due_date}}</strong>. Please schedule this with your vet.</p>'),
@@ -143,12 +143,12 @@ Check your email for the payment link.</p>'),
 
   -- renewal_notice (not yet wired)
   ('renewal_notice', 'email',
-   'Next quarter at Marlboro Ridge — action needed',
+   'Next quarter at Marlboro Ridge Equestrian Center — action needed',
    '<p>Hi {{first_name}},</p>
 <p>The next quarter at Marlboro Ridge Equestrian Center is coming up. Your current lesson
 subscription will continue unless you let us know otherwise.</p>
 <p>Please contact the barn office if you have any changes for next quarter.</p>',
-   'Next quarter at Marlboro Ridge — action needed',
+   'Next quarter at Marlboro Ridge Equestrian Center — action needed',
    '<p>Hi {{first_name}},</p>
 <p>The next quarter at Marlboro Ridge Equestrian Center is coming up. Your current lesson
 subscription will continue unless you let us know otherwise.</p>

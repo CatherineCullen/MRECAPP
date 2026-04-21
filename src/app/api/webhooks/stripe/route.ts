@@ -111,7 +111,14 @@ async function handleInvoiceEvent(event: Stripe.Event) {
     paid_at?: string | null
     sent_at?: string | null
     paid_method?: string | null
+    hosted_invoice_url?: string | null
   } = {}
+
+  // Keep hosted_invoice_url fresh — Stripe occasionally regenerates it, and
+  // the customer-facing /my/invoices page renders a "Pay now" button off it.
+  if (invoice.hosted_invoice_url) {
+    update.hosted_invoice_url = invoice.hosted_invoice_url
+  }
 
   switch (event.type) {
     case 'invoice.finalized':

@@ -1864,6 +1864,7 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           due_date: string | null
+          hosted_invoice_url: string | null
           id: string
           notes: string | null
           paid_at: string | null
@@ -1881,6 +1882,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           due_date?: string | null
+          hosted_invoice_url?: string | null
           id?: string
           notes?: string | null
           paid_at?: string | null
@@ -1898,6 +1900,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           due_date?: string | null
+          hosted_invoice_url?: string | null
           id?: string
           notes?: string | null
           paid_at?: string | null

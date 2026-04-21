@@ -80,8 +80,9 @@ export async function sendDraftInvoice(params: {
   const { error: updErr } = await db
     .from('invoice')
     .update({
-      status:  'sent',
-      sent_at: new Date().toISOString(),
+      status:             'sent',
+      sent_at:            new Date().toISOString(),
+      hosted_invoice_url: hostedInvoiceUrl,
     })
     .eq('id', inv.id)
 

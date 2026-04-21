@@ -36,10 +36,11 @@ type Card = {
 export default async function QrPrintPage({
   searchParams,
 }: {
-  searchParams: Promise<{ keys?: string }>
+  searchParams: Promise<{ keys?: string; title?: string }>
 }) {
-  const { keys } = await searchParams
+  const { keys, title } = await searchParams
   const parsed   = parseKeys(keys)
+  const pageTitle = title?.trim() || null
   const supabase = createAdminClient()
   const origin   = await getAppOrigin()
 
@@ -111,6 +112,12 @@ export default async function QrPrintPage({
   return (
     <div className="qr-print-root min-h-screen bg-white">
       <PrintTriggerBar count={cards.length} />
+
+      {pageTitle && (
+        <h1 className="text-center text-xl font-bold text-[#191c1e] pt-6 pb-2 print:pt-0 print:pb-1">
+          {pageTitle}
+        </h1>
+      )}
 
       {/* 6-up grid, letter portrait. Each card is a labelled box. CSS
           `print:` utilities hide the toolbar and clean up spacing at print. */}

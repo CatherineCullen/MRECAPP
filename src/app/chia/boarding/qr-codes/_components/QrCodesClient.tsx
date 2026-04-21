@@ -30,6 +30,7 @@ const keyOf = (r: QrRow) => `${r.kind}:${r.id}`
 
 export default function QrCodesClient({ serviceRows, providerRows, providers, services }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [title, setTitle]       = useState('')
 
   function toggle(k: string) {
     setSelected(prev => {
@@ -42,7 +43,7 @@ export default function QrCodesClient({ serviceRows, providerRows, providers, se
 
   // Build print URL: comma-separated namespaced keys. Keeps it one round-trip.
   const printHref = selected.size > 0
-    ? `/print/qr?keys=${encodeURIComponent(Array.from(selected).join(','))}`
+    ? `/print/qr?keys=${encodeURIComponent(Array.from(selected).join(','))}${title.trim() ? `&title=${encodeURIComponent(title.trim())}` : ''}`
     : null
 
   return (
@@ -53,6 +54,13 @@ export default function QrCodesClient({ serviceRows, providerRows, providers, se
           Select which codes to include on a printable grid. Deactivated codes cannot be selected.
         </p>
         <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Page title (optional)"
+            className="text-xs border border-[#c4c6d1] rounded px-2 py-1.5 w-48 focus:outline-none focus:border-[#002058] bg-white"
+          />
           {selected.size > 0 && (
             <button
               onClick={() => setSelected(new Set())}
