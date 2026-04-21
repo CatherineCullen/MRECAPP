@@ -104,7 +104,7 @@ export default async function MyInvoicesPage() {
                   </span>
                 </div>
 
-                {inv.status !== 'paid' && inv.status !== 'void' && (
+                {inv.status !== 'voided' && (
                   <div className="mt-2 flex items-center gap-3">
                     {inv.hosted_invoice_url ? (
                       <a
