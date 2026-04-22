@@ -137,7 +137,7 @@ export default function HorsesTable({ horses }: Props) {
                       if (!p) return null
                       const name = contactDisplay(hc)
                       return (
-                        <span key={hc.person_id}>
+                        <span key={`${hc.person_id}-${i}`}>
                           {i > 0 && ', '}
                           <Link href={`/chia/people/${p.id}`} className="hover:text-[#002058] hover:underline">
                             {name}
