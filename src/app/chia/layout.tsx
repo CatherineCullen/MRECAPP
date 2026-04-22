@@ -9,7 +9,7 @@ export default async function ChiaLayout({ children }: { children: React.ReactNo
   if (!user.isAdmin) redirect('/my/schedule')
 
   return (
-    <div className="flex h-screen bg-[#f7f9fc] overflow-hidden">
+    <div className="flex h-screen bg-[#f7f9fc] overflow-hidden" style={{ zoom: 1.08 }}>
       <ChiaSidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <ChiaTopBar user={user} />

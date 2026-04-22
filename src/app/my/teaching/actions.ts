@@ -69,6 +69,7 @@ export async function addAvailabilityWindow(
   if (error) return { error: 'Failed to add availability' }
 
   revalidatePath('/my/teaching')
+  revalidatePath('/chia/lessons-events')
   return {}
 }
 
@@ -97,6 +98,7 @@ export async function removeAvailabilityWindow(id: string): Promise<{ error?: st
   if (error) return { error: 'Failed to remove availability' }
 
   revalidatePath('/my/teaching')
+  revalidatePath('/chia/lessons-events')
   return {}
 }
 

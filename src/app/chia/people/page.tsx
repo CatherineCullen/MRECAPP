@@ -25,7 +25,7 @@ export default async function PeoplePage({
         id, first_name, last_name, preferred_name, email, phone,
         is_minor, is_organization, organization_name, is_training_ride_provider,
         person_role!person_role_person_id_fkey ( role, deleted_at ),
-        horse_contact ( id, horse_id, horse ( barn_name ) )
+        horse_contact ( id, horse_id, deleted_at, horse ( barn_name ) )
       `)
       .is('deleted_at', null)
       .order('last_name')
@@ -62,7 +62,7 @@ export default async function PeoplePage({
       .map((r: any) => r.role as string)
     const isActive =
       roles.some(r => STAFF_ROLES.has(r))
-      || (p.horse_contact?.length ?? 0) > 0
+      || (p.horse_contact ?? []).some((hc: any) => !hc.deleted_at)
       || activeRiderIds.has(p.id)
       || p.is_training_ride_provider === true
       || guardianIds.has(p.id)
@@ -109,7 +109,7 @@ export default async function PeoplePage({
               email:                     person.email ?? null,
               phone:                     person.phone ?? null,
               roles,
-              horse_contact:             (person.horse_contact as PersonRow['horse_contact']) ?? [],
+              horse_contact:             ((person.horse_contact ?? []) as any[]).filter(hc => !hc.deleted_at) as PersonRow['horse_contact'],
             }
           })} />
         )}

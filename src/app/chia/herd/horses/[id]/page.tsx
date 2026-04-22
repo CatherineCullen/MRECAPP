@@ -52,8 +52,8 @@ export default async function HorseRecordPage({
         resolved_by_person:person!care_plan_resolved_by_fkey (first_name, last_name)
       ),
       horse_contact (
-        id, role, can_log_in, is_billing_contact, receives_health_alerts, receives_lesson_notifications,
-        person!horse_contact_person_id_fkey (id, first_name, last_name, email, phone)
+        id, role, can_log_in, is_billing_contact, receives_health_alerts, receives_lesson_notifications, deleted_at,
+        person!horse_contact_person_id_fkey (id, first_name, last_name, email, phone, deleted_at)
       ),
       vet_visit (
         id, visit_date, vet_name, findings,
@@ -141,7 +141,7 @@ export default async function HorseRecordPage({
     ?.filter((p: any) => !p.is_active && !p.deleted_at && p.resolved_at)
     .sort((a: any, b: any) => new Date(b.resolved_at).getTime() - new Date(a.resolved_at).getTime()) ?? []
   const contacts = (horse.horse_contact as any[])
-    ?.filter((c: any) => !c.deleted_at) ?? []
+    ?.filter((c: any) => !c.deleted_at && !c.person?.deleted_at) ?? []
   const vetVisits = (horse.vet_visit as any[])
     ?.filter((v: any) => !v.deleted_at)
     .sort((a: any, b: any) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()) ?? []

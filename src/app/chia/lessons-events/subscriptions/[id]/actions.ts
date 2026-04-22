@@ -167,7 +167,7 @@ export async function cancelRemainingLessons(args: {
   const affectedLessonIds = Array.from(new Set(eligible.map(r => r.lesson_id)))
   const { data: lessons } = await supabase
     .from('lesson')
-    .select('id, status, lesson_rider ( id, cancelled_at )')
+    .select('id, status, lesson_rider ( id, cancelled_at, deleted_at )')
     .in('id', affectedLessonIds)
 
   const lessonsToCancel: string[] = []
@@ -178,7 +178,7 @@ export async function cancelRemainingLessons(args: {
 
   for (const l of lessons ?? []) {
     // Count active riders AFTER our cancellation (the update above is committed)
-    const activeRemaining = (l.lesson_rider ?? []).filter(r => !r.cancelled_at).length
+    const activeRemaining = (l.lesson_rider ?? []).filter(r => !r.cancelled_at && !r.deleted_at).length
     if (activeRemaining === 0) {
       lessonsToCancel.push(l.id)
     } else {
@@ -256,6 +256,7 @@ async function maybeFlipSubscriptionToCancelled(
     .select('id, lesson:lesson!inner ( status, scheduled_at )')
     .eq('subscription_id', subscriptionId)
     .is('cancelled_at', null)
+    .is('deleted_at', null)
     .gte('lesson.scheduled_at', nowIso)
 
   const stillActive = (remaining ?? []).some(r => (r.lesson as any)?.status === 'scheduled')

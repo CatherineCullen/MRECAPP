@@ -7,14 +7,16 @@ import { INSTRUCTOR_PALETTE } from '../_lib/instructorColor'
 import type { InstructorKey } from './WeekGrid'
 
 type Props = {
-  instructors: InstructorKey[]
+  instructors:       InstructorKey[]
+  hiddenIds:         Set<string>
+  onToggleVisibility:(id: string) => void
 }
 
 // The "Unassigned" pseudo-entry isn't editable — it represents lessons with
 // no instructor assigned, not a real person row.
 const UNASSIGNED_ID = '__unassigned'
 
-export default function InstructorLegend({ instructors }: Props) {
+export default function InstructorLegend({ instructors, hiddenIds, onToggleVisibility }: Props) {
   const [openId, setOpenId] = useState<string | null>(null)
 
   // Close on outside click / Escape — shared across all instructor popovers
@@ -40,11 +42,26 @@ export default function InstructorLegend({ instructors }: Props) {
       <span className="font-semibold uppercase tracking-wide text-[#444650]">Instructors</span>
       {instructors.map(i => {
         const editable = i.id !== UNASSIGNED_ID
+        const hidden   = hiddenIds.has(i.id)
+        const checked  = !hidden
         return (
-          <span key={i.id} className="relative flex items-center gap-1.5">
+          <label
+            key={i.id}
+            className="relative flex items-center gap-1.5 cursor-pointer select-none"
+            title={checked ? 'Uncheck to hide on the grid' : 'Check to show on the grid'}
+          >
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => onToggleVisibility(i.id)}
+              className="w-3.5 h-3.5 accent-[#002058] cursor-pointer"
+            />
             <button
               type="button"
-              onClick={() => editable && setOpenId(openId === i.id ? null : i.id)}
+              onClick={(e) => {
+                e.preventDefault()   // don't let the click toggle the checkbox
+                if (editable) setOpenId(openId === i.id ? null : i.id)
+              }}
               disabled={!editable}
               title={editable ? 'Click to change color' : 'Lessons with no instructor'}
               className={`inline-flex items-center justify-center text-white font-bold rounded-sm transition-opacity ${
@@ -60,7 +77,7 @@ export default function InstructorLegend({ instructors }: Props) {
             >
               {i.initials}
             </button>
-            <span>{i.name}</span>
+            <span className="text-[#444650]">{i.name}</span>
 
             {openId === i.id && editable && (
               <ColorPicker
@@ -70,7 +87,7 @@ export default function InstructorLegend({ instructors }: Props) {
                 onDone={() => setOpenId(null)}
               />
             )}
-          </span>
+          </label>
         )
       })}
     </div>

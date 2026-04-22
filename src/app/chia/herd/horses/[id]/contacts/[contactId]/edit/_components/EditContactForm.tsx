@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
-import { updateHorseContact } from '../actions'
+import { updateHorseContact, removeHorseContact } from '../actions'
 
 const ROLE_SUGGESTIONS = ['Owner', 'Co-Owner', 'Lessee', 'Parent/Guardian']
 
@@ -21,6 +21,7 @@ export default function EditContactForm({
   }
 }) {
   const [role, setRole] = useState(initial.role ?? '')
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   const [, action, pending] = useActionState(
     async (_prev: null, formData: FormData) => {
@@ -29,6 +30,8 @@ export default function EditContactForm({
     },
     null,
   )
+
+  const removeAction = removeHorseContact.bind(null, horseId, contactId)
 
   return (
     <form action={action} className="px-5 py-4 space-y-4">
@@ -101,6 +104,37 @@ export default function EditContactForm({
         <Link href={`/chia/herd/horses/${horseId}`} className="text-sm text-[#444650] hover:text-[#191c1e]">
           Cancel
         </Link>
+
+        <div className="ml-auto">
+          {confirmRemove ? (
+            <span className="inline-flex items-center gap-2 text-xs">
+              <span className="text-[#444650]">Remove this connection?</span>
+              <button
+                type="submit"
+                formAction={removeAction}
+                className="font-semibold text-red-700 hover:text-red-900 disabled:opacity-40"
+              >
+                Yes, remove
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmRemove(false)}
+                className="font-semibold text-[#444650] hover:text-[#191c1e]"
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmRemove(true)}
+              className="text-xs font-semibold text-red-700 hover:text-red-900"
+              title="Remove this person from the horse's contacts"
+            >
+              Remove connection
+            </button>
+          )}
+        </div>
       </div>
     </form>
   )

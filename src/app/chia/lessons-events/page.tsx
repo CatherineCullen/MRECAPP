@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import WeekPicker from './_components/WeekPicker'
-import WeekGrid, { type GridDay, type GridLesson, type GridLessonStatus, type GridEvent, type InstructorKey } from './_components/WeekGrid'
+import WeekGrid, { type GridDay, type GridLesson, type GridLessonStatus, type GridEvent, type InstructorKey, type GridAvailability } from './_components/WeekGrid'
 import NewLessonMenu from './_components/NewLessonMenu'
 import { toISODate, startOfWeek, weekDays, parseISODate } from './_lib/weekRange'
 import { effectiveStatus, type RawStatus } from './_lib/effectiveLessonStatus'
@@ -25,7 +25,12 @@ export default async function LessonsCalendarPage({
   const windowEnd   = `${sundayIso}T23:59:59`
 
   const supabase = createAdminClient()
-  const [{ data: lessons, error }, { data: calDays, error: calErr }, { data: events, error: evtErr }] = await Promise.all([
+  const [
+    { data: lessons, error },
+    { data: calDays, error: calErr },
+    { data: events, error: evtErr },
+    { data: availRows, error: availErr },
+  ] = await Promise.all([
     supabase
       .from('lesson')
       .select(`
@@ -58,11 +63,24 @@ export default async function LessonsCalendarPage({
       .gte('scheduled_at', windowStart)
       .lte('scheduled_at', windowEnd)
       .order('scheduled_at'),
+    // Instructor availability windows that overlap the displayed week.
+    // We pull any window whose effective range touches the week, then expand
+    // into per-day grid items client-side in the layout logic below.
+    supabase
+      .from('instructor_availability')
+      .select(`
+        id, day_of_week, start_time, end_time, effective_from, effective_until,
+        person:person!person_id ( id, first_name, last_name, preferred_name, calendar_color )
+      `)
+      .is('deleted_at', null)
+      .lte('effective_from', sundayIso)
+      .or(`effective_until.is.null,effective_until.gte.${mondayIso}`),
   ])
 
   if (error)   throw error
   if (calErr)  throw calErr
   if (evtErr)  throw evtErr
+  if (availErr) throw availErr
 
   // Waiver check — any rider on this week's lessons who has no non-deleted
   // Waiver document on file. Surfaces as part of the "pending" badge alongside
@@ -147,6 +165,7 @@ export default async function LessonsCalendarPage({
       // Short form used for 2+ column cards where horizontal room runs out.
       // "Cat" (preferred name) or "Alice S." — matches how staff refer to people.
       riderNamesShort:     riders.map(r => shortName(r.rider)).join(', '),
+      instructorId:        l.instructor?.id ?? '__unassigned',
       instructorName:      displayName(l.instructor),
       instructorInitials:  personInitials(l.instructor),
       // Admin-picked color wins; fall through to deterministic hash.
@@ -155,6 +174,48 @@ export default async function LessonsCalendarPage({
       horseName:           riders[0]?.horse?.barn_name ?? null,
     }
   })
+
+  // Shape availability for the grid. Each stored window (day_of_week +
+  // start/end) expands into one grid item per matching day in the displayed
+  // week where the window's effective range covers that date. Purely passive
+  // information — doesn't block scheduling, just shows when an instructor has
+  // declared themselves free. Toggled on/off in WeekGrid.
+  const DAY_ENUM = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'] as const
+  const gridAvailability: GridAvailability[] = []
+  for (const row of availRows ?? []) {
+    const instr = Array.isArray(row.person) ? row.person[0] : row.person
+    if (!instr?.id) continue
+    const dowName = row.day_of_week as (typeof DAY_ENUM)[number]
+    // Translate stored day-of-week into the Monday-first dayIdx 0..6.
+    const jsDow = DAY_ENUM.indexOf(dowName)       // 0=Sun..6=Sat
+    if (jsDow < 0) continue
+    const dayIdx = jsDow === 0 ? 6 : jsDow - 1
+
+    // We already filtered at the query level for windows whose effective range
+    // overlaps the displayed week. Skip the per-day gate — standing weekly
+    // windows should render on every matching weekday in the view, even if
+    // the specific date is in the past (the band is a recurring visual hint,
+    // not a claim about history). If we later need "don't show before eff
+    // date" precision, it goes back here.
+    if (!days[dayIdx]) continue
+
+    const [sh, sm] = (row.start_time as string).split(':').map(Number)
+    const [eh, em] = (row.end_time   as string).split(':').map(Number)
+    const startMin = sh * 60 + sm
+    const endMin   = eh * 60 + em
+    if (endMin <= startMin) continue
+
+    gridAvailability.push({
+      id:                  row.id,
+      dayIdx,
+      minutesFromMidnight: startMin,
+      durationMinutes:     endMin - startMin,
+      instructorId:        instr.id,
+      instructorName:      displayName(instr),
+      instructorInitials:  personInitials(instr),
+      instructorColor:     instr.calendar_color ?? instructorColor(instr.id),
+    })
+  }
 
   // Shape events for the grid — independent of lesson layout; events render
   // as full-column-width cards underneath lessons so both are visible on a
@@ -229,7 +290,7 @@ export default async function LessonsCalendarPage({
         </div>
       </div>
 
-      <WeekGrid days={gridDays} lessons={gridLessons} events={gridEvents} instructors={instructorLegend} />
+      <WeekGrid days={gridDays} lessons={gridLessons} events={gridEvents} availability={gridAvailability} instructors={instructorLegend} />
     </div>
   )
 }

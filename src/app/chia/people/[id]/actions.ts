@@ -12,6 +12,82 @@ import { getAppOrigin } from '@/lib/appUrl'
 const TOKEN_TTL_DAYS = 30
 
 /**
+ * Soft-delete a person. Meant for dupes and truly-no-longer-relevant people
+ * — NOT for inactive riders (set subscription end date instead) or former
+ * staff (remove the role). Refuses if the person has any meaningful data
+ * attached, so admin has to clean that up first.
+ */
+export async function archivePerson(
+  personId: string,
+): Promise<{ error?: string; blockers?: string[] }> {
+  const user = await getCurrentUser()
+  if (!user?.isAdmin) return { error: 'Admin only.' }
+
+  const db = createAdminClient()
+
+  const { data: person } = await db
+    .from('person')
+    .select('id, auth_user_id')
+    .eq('id', personId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (!person) return { error: 'Person not found.' }
+
+  const blockers: string[] = []
+
+  if (person.auth_user_id) blockers.push('has a login account')
+
+  const [subsRider, subsBill, subsInstr, lessonsInstr, lessonRiders, horseContacts, minors, invoices] = await Promise.all([
+    db.from('lesson_subscription').select('id', { count: 'exact', head: true })
+      .eq('rider_id', personId).is('deleted_at', null),
+    db.from('lesson_subscription').select('id', { count: 'exact', head: true })
+      .eq('billed_to_id', personId).is('deleted_at', null),
+    db.from('lesson_subscription').select('id', { count: 'exact', head: true })
+      .eq('instructor_id', personId).is('deleted_at', null),
+    db.from('lesson').select('id', { count: 'exact', head: true })
+      .eq('instructor_id', personId).is('deleted_at', null),
+    db.from('lesson_rider').select('id', { count: 'exact', head: true })
+      .eq('rider_id', personId).is('deleted_at', null),
+    db.from('horse_contact').select('id', { count: 'exact', head: true })
+      .eq('person_id', personId).is('deleted_at', null),
+    db.from('person').select('id', { count: 'exact', head: true })
+      .eq('guardian_id', personId).is('deleted_at', null),
+    db.from('invoice').select('id', { count: 'exact', head: true })
+      .eq('billed_to_id', personId).is('deleted_at', null),
+  ])
+
+  if ((subsRider.count ?? 0) > 0)    blockers.push('is a rider on active lesson subscriptions')
+  if ((subsBill.count ?? 0) > 0)     blockers.push('is the billing contact on active subscriptions')
+  if ((subsInstr.count ?? 0) > 0)    blockers.push('is the instructor on active subscriptions')
+  if ((lessonsInstr.count ?? 0) > 0) blockers.push('is the instructor on existing lessons')
+  if ((lessonRiders.count ?? 0) > 0) blockers.push('has lesson history as a rider')
+  if ((horseContacts.count ?? 0) > 0) blockers.push('is linked to one or more horses')
+  if ((minors.count ?? 0) > 0)       blockers.push('is a guardian for one or more minors')
+  if ((invoices.count ?? 0) > 0)     blockers.push('has invoices on file')
+
+  if (blockers.length) return { blockers }
+
+  // Soft-delete person + their active role rows so they drop from staff lists.
+  const now = new Date().toISOString()
+  const { error } = await db
+    .from('person')
+    .update({ deleted_at: now })
+    .eq('id', personId)
+  if (error) return { error: error.message }
+
+  await db
+    .from('person_role')
+    .update({ deleted_at: now })
+    .eq('person_id', personId)
+    .is('deleted_at', null)
+
+  revalidatePath('/chia/people')
+  revalidatePath(`/chia/people/${personId}`)
+  return {}
+}
+
+/**
  * Create an enrollment token for a person who already exists in the DB but
  * has no Supabase account yet. Sends an invite email if they have one on file.
  * Used from the person detail page for existing boarders / riders.

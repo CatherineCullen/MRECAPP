@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const tabs = [
-  { label: 'Catalog',  href: '/chia/lessons-events/configuration/catalog'  },
-  { label: 'Quarters', href: '/chia/lessons-events/configuration/quarters' },
+  { label: 'Catalog',                  href: '/chia/lessons-events/configuration/catalog'      },
+  { label: 'Quarters',                 href: '/chia/lessons-events/configuration/quarters'     },
+  { label: 'Instructor availability',  href: '/chia/lessons-events/configuration/availability' },
 ]
 
 export default function ConfigurationTabs() {

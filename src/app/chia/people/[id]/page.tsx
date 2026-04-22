@@ -8,6 +8,7 @@ import PersonStripeSection from './_components/PersonStripeSection'
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
 import SendInviteButton from './_components/SendInviteButton'
+import ArchivePersonButton from './_components/ArchivePersonButton'
 
 const ROLE_LABELS: Record<string, string> = {
   rider: 'Rider', owner: 'Owner', instructor: 'Instructor',
@@ -142,6 +143,7 @@ export default async function PersonPage({
           >
             Edit
           </Link>
+          {currentUser?.isAdmin && <ArchivePersonButton personId={id} />}
         </div>
       </div>
 

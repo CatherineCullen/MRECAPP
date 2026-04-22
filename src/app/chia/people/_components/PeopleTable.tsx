@@ -149,7 +149,7 @@ export default function PeopleTable({ people }: Props) {
             <td className="px-4 py-2.5 text-[#444650] text-xs">
               {person.horse_contact.length > 0
                 ? person.horse_contact.map((hc, i) => hc.horse ? (
-                    <span key={hc.horse_id}>
+                    <span key={hc.id}>
                       {i > 0 && ', '}
                       <Link href={`/chia/herd/horses/${hc.horse_id}`} className="hover:text-[#002058] hover:underline">
                         {hc.horse.barn_name}

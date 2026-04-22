@@ -66,9 +66,6 @@ export default function HorseContactsSection({ contacts, horseId }: { contacts: 
                 </div>
 
                 <div className="shrink-0 flex flex-col items-end gap-1">
-                  {hc.can_log_in && (
-                    <span className="text-[10px] font-semibold text-[#444650]">Has login</span>
-                  )}
                   <Link
                     href={`/chia/herd/horses/${horseId}/contacts/${hc.id}/edit`}
                     className="text-[11px] text-[#056380] hover:text-[#002058] hover:underline"

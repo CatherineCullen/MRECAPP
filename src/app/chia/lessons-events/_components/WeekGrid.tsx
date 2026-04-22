@@ -31,6 +31,7 @@ export type GridLesson = {
   cancelled:           boolean
   riderNames:          string    // full form, used at totalCols === 1
   riderNamesShort:     string    // compact form for 2+ columns
+  instructorId:        string    // person id, or '__unassigned' for no-instructor lessons
   instructorName:      string    // full name, for tooltip only (stripe carries it visually)
   instructorInitials:  string    // "PM" — shown inside the colored stripe
   instructorColor:     string    // hex color for the stripe
@@ -42,6 +43,22 @@ export type GridLesson = {
 // the event_type.calendar_color, topped with the calendar_badge pill. They're
 // drawn BEFORE lessons so lesson cards paint on top on overlap — keeping the
 // rider/instructor-focused lesson view readable.
+// Instructor availability windows — declared positive availability. Render
+// as full-column-width faint bands so they tuck behind lessons and events.
+// When multiple instructors have overlapping windows on the same day we just
+// stack them (tinting blends); admin said they rarely overlap and the split-
+// column behaviour can come later if it becomes a problem.
+export type GridAvailability = {
+  id:                  string
+  dayIdx:              number    // 0 = Mon .. 6 = Sun
+  minutesFromMidnight: number
+  durationMinutes:     number
+  instructorId:        string
+  instructorName:      string
+  instructorInitials:  string
+  instructorColor:     string    // hex — used for band fill (faint) + label
+}
+
 export type GridEvent = {
   id:                  string
   dayIdx:              number    // 0 = Mon .. 6 = Sun
@@ -73,11 +90,15 @@ export type GridDay = {
 }
 
 type Props = {
-  days:        GridDay[]      // length 7, Monday-first
-  lessons:     GridLesson[]
-  events:      GridEvent[]
-  instructors: InstructorKey[]
+  days:         GridDay[]      // length 7, Monday-first
+  lessons:      GridLesson[]
+  events:       GridEvent[]
+  availability: GridAvailability[]
+  instructors:  InstructorKey[]
 }
+
+const AVAIL_STORAGE_KEY  = 'chia.lessonsGrid.showAvailability'
+const HIDDEN_STORAGE_KEY = 'chia.lessonsGrid.hiddenInstructorIds'
 
 // Card body style by status. Pending is deliberately the SAME as scheduled —
 // color on the body is reserved for other signals (cancelled, completed). The
@@ -190,10 +211,60 @@ type Popover = {
   yPx:    number   // y-offset within the day column's grid body
 }
 
-export default function WeekGrid({ days, lessons, events, instructors }: Props) {
+export default function WeekGrid({ days, lessons, events, availability, instructors }: Props) {
   const router = useRouter()
   const [popover, setPopover] = useState<Popover | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
+
+  // Availability overlay toggle — persisted in localStorage so admin's choice
+  // survives navigation. Initial render is false (SSR-safe); we hydrate from
+  // storage on mount. Minor flash-on-load is acceptable since this is an
+  // opt-in power-user overlay.
+  const [showAvailability, setShowAvailability] = useState(false)
+  useEffect(() => {
+    try {
+      setShowAvailability(window.localStorage.getItem(AVAIL_STORAGE_KEY) === '1')
+    } catch {}
+  }, [])
+  function toggleAvailability() {
+    setShowAvailability(prev => {
+      const next = !prev
+      try { window.localStorage.setItem(AVAIL_STORAGE_KEY, next ? '1' : '0') } catch {}
+      return next
+    })
+  }
+
+  // Per-instructor visibility toggle — hides that instructor's lessons AND
+  // availability bands from the grid. Persisted as a comma-separated ID list
+  // in localStorage so the choice sticks across navigation.
+  const [hiddenInstructorIds, setHiddenInstructorIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(HIDDEN_STORAGE_KEY) ?? ''
+      const ids = raw.split(',').map(s => s.trim()).filter(Boolean)
+      setHiddenInstructorIds(new Set(ids))
+    } catch {}
+  }, [])
+  function toggleInstructorVisibility(id: string) {
+    setHiddenInstructorIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else              next.add(id)
+      try {
+        window.localStorage.setItem(HIDDEN_STORAGE_KEY, [...next].join(','))
+      } catch {}
+      return next
+    })
+  }
+
+  // Lesson + availability visibility filter. Lessons with no instructor use
+  // the '__unassigned' sentinel so "hide Unassigned" works the same way.
+  const visibleLessons = lessons.filter(
+    l => !hiddenInstructorIds.has(l.instructorId),
+  )
+  const visibleAvailability = availability.filter(
+    a => !hiddenInstructorIds.has(a.instructorId),
+  )
 
   // Dismiss the popover on outside click / Escape
   useEffect(() => {
@@ -271,8 +342,11 @@ export default function WeekGrid({ days, lessons, events, instructors }: Props) 
         {/* Day columns */}
         <div className="flex-1 grid grid-cols-7">
           {days.map((day, dayIdx) => {
-            const dayLessons = layoutDay(lessons.filter(l => l.dayIdx === dayIdx))
+            const dayLessons = layoutDay(visibleLessons.filter(l => l.dayIdx === dayIdx))
             const dayEvents  = events.filter(e => e.dayIdx === dayIdx)
+            const dayAvail   = showAvailability
+              ? visibleAvailability.filter(a => a.dayIdx === dayIdx)
+              : []
             return (
               <div
                 key={day.iso}
@@ -314,6 +388,37 @@ export default function WeekGrid({ days, lessons, events, instructors }: Props) 
                       style={{ top: i * PIXELS_PER_HOUR + PIXELS_PER_HOUR / 2 }}
                     />
                   ))}
+
+                  {/* Availability bands — drawn before events + lessons so both
+                      paint on top. Full column width, no click target (pointer
+                      events disabled), tinted by the instructor's color with a
+                      small initials label. Purely passive information. */}
+                  {dayAvail.map(a => {
+                    const top    = ((a.minutesFromMidnight - START_HOUR * 60) / 60) * PIXELS_PER_HOUR
+                    const height = (a.durationMinutes / 60) * PIXELS_PER_HOUR
+                    return (
+                      <div
+                        key={`avail-${a.id}`}
+                        className="absolute pointer-events-none"
+                        style={{
+                          top,
+                          height,
+                          left:            0,
+                          right:           0,
+                          backgroundColor: `${a.instructorColor}14`,   // ~8% alpha
+                          borderLeft:      `2px solid ${a.instructorColor}66`,
+                        }}
+                        aria-label={`${a.instructorName} available`}
+                      >
+                        <span
+                          className="absolute top-0.5 right-1 text-[8px] font-bold tracking-wide"
+                          style={{ color: `${a.instructorColor}` }}
+                        >
+                          {a.instructorInitials}
+                        </span>
+                      </div>
+                    )
+                  })}
 
                   {/* Event cards — drawn first so lessons render on top on overlap.
                       Full column width, colored by event_type.calendar_color. */}
@@ -521,7 +626,13 @@ export default function WeekGrid({ days, lessons, events, instructors }: Props) 
       {/* Legend */}
       <div className="border-t border-[#c4c6d1]/30 bg-[#f7f9fc] px-3 py-1.5 text-[10px] text-[#444650]">
         {/* Instructor key — click a badge to change that instructor's color */}
-        {instructors.length > 0 && <InstructorLegend instructors={instructors} />}
+        {instructors.length > 0 && (
+          <InstructorLegend
+            instructors={instructors}
+            hiddenIds={hiddenInstructorIds}
+            onToggleVisibility={toggleInstructorVisibility}
+          />
+        )}
 
         {/* Status key */}
         <div className="flex items-center gap-4 flex-wrap">
@@ -547,6 +658,26 @@ export default function WeekGrid({ days, lessons, events, instructors }: Props) 
             <span className="inline-block w-3 h-3 rounded bg-[#ffd6d6]/50" />
             Closed
           </span>
+          <button
+            type="button"
+            onClick={toggleAvailability}
+            className={`ml-auto flex items-center gap-1 px-2 py-0.5 rounded font-semibold border transition-colors ${
+              showAvailability
+                ? 'bg-[#002058] text-white border-[#002058]'
+                : 'text-[#444650] border-[#c4c6d1]/60 hover:bg-[#e8eaf0]'
+            }`}
+            title="Toggle instructor availability overlay"
+          >
+            <span
+              className="inline-block w-3 h-3 rounded"
+              style={{
+                background: showAvailability
+                  ? 'rgba(255,255,255,0.3)'
+                  : 'repeating-linear-gradient(45deg,#c4c6d1 0 2px,transparent 2px 4px)',
+              }}
+            />
+            Availability
+          </button>
         </div>
       </div>
     </div>
