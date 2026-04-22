@@ -17,6 +17,7 @@ type PersonData = {
   last_name?:                string | null
   preferred_name?:           string | null
   email?:                    string | null
+  auth_user_id?:             string | null
   phone?:                    string | null
   address?:                  string | null
   date_of_birth?:            string | null
@@ -204,12 +205,22 @@ export default function PersonForm({
         <legend className="text-[10px] font-semibold text-[#444650] uppercase tracking-wider pb-1">Contact</legend>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[#444650] mb-1">Email</label>
+            <label className="block text-xs font-semibold text-[#444650] mb-1">
+              Email
+              {person?.auth_user_id && (
+                <span className="ml-1 text-[10px] font-normal text-[#444650] normal-case tracking-normal">
+                  (login — use "Change login email" below to update)
+                </span>
+              )}
+            </label>
             <input
               name="email"
               type="email"
               defaultValue={person?.email ?? ''}
-              className="w-full border border-[#c4c6d1] rounded px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:border-[#056380]"
+              readOnly={!!person?.auth_user_id}
+              className={`w-full border border-[#c4c6d1] rounded px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:border-[#056380] ${
+                person?.auth_user_id ? 'bg-[#f2f4f7] cursor-not-allowed' : ''
+              }`}
             />
           </div>
           <div>

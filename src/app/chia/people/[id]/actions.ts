@@ -12,6 +12,73 @@ import { getAppOrigin } from '@/lib/appUrl'
 const TOKEN_TTL_DAYS = 30
 
 /**
+ * Admin "Change login email" — lockout-recovery path for when a person
+ * can't access their old inbox (typo, lost access, etc).
+ *
+ * Updates Supabase auth user and person.email atomically-ish: auth first,
+ * then person row. If auth fails we don't touch person; if person update
+ * fails after auth succeeded we still return an error but the login email
+ * is already changed (acceptable — next page load will show the new email
+ * on the profile anyway, and the auth swap is the harder-to-reverse half).
+ *
+ * Best practice (post-outbound launch) is user-initiated change with
+ * verification email to the new address. This bypass exists because admins
+ * need a recovery tool. Intentional friction: separate button, confirmation
+ * dialog in the UI.
+ */
+export async function changeLoginEmail(
+  personId: string,
+  newEmail: string,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.isAdmin) return { error: 'Admin only.' }
+
+  const trimmed = newEmail.trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    return { error: 'Please enter a valid email address.' }
+  }
+
+  const db = createAdminClient()
+
+  const { data: person } = await db
+    .from('person')
+    .select('id, auth_user_id, email')
+    .eq('id', personId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (!person)                return { error: 'Person not found.' }
+  if (!person.auth_user_id)   return { error: 'This person does not have a login yet. Use "Send Invite" instead.' }
+  if (person.email === trimmed) return { error: 'That is already their email.' }
+
+  // Check for collision — another person in this barn already using it?
+  const { data: collision } = await db
+    .from('person')
+    .select('id')
+    .eq('email', trimmed)
+    .neq('id', personId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (collision) return { error: 'Another person is already using that email.' }
+
+  // Auth first — harder to reverse, so if this fails we bail before touching person.
+  const { error: authErr } = await db.auth.admin.updateUserById(
+    person.auth_user_id,
+    { email: trimmed, email_confirm: true },
+  )
+  if (authErr) return { error: `Failed to update login: ${authErr.message}` }
+
+  const { error: pErr } = await db
+    .from('person')
+    .update({ email: trimmed })
+    .eq('id', personId)
+  if (pErr) return { error: `Login updated but failed to save email on profile: ${pErr.message}` }
+
+  revalidatePath(`/chia/people/${personId}`)
+  return {}
+}
+
+/**
  * Soft-delete a person. Meant for dupes and truly-no-longer-relevant people
  * — NOT for inactive riders (set subscription end date instead) or former
  * staff (remove the role). Refuses if the person has any meaningful data

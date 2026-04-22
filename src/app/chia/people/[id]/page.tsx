@@ -8,6 +8,7 @@ import PersonStripeSection from './_components/PersonStripeSection'
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import { getCurrentUser } from '@/lib/auth'
 import SendInviteButton from './_components/SendInviteButton'
+import ChangeLoginEmailButton from './_components/ChangeLoginEmailButton'
 import ArchivePersonButton from './_components/ArchivePersonButton'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -136,6 +137,9 @@ export default async function PersonPage({
         <div className="flex items-center gap-3">
           {!person.auth_user_id && !person.is_minor && !person.is_organization && (
             <SendInviteButton personId={id} hasEmail={!!person.email} />
+          )}
+          {person.auth_user_id && currentUser?.isAdmin && (
+            <ChangeLoginEmailButton personId={id} currentEmail={person.email} />
           )}
           <Link
             href={`/chia/people/${id}/edit`}

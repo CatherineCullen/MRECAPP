@@ -18,7 +18,7 @@ export default async function EnrollPage({
     .from('enrollment_token')
     .select(`
       *,
-      rider:person!enrollment_token_rider_person_id_fkey    ( id, first_name, last_name, date_of_birth ),
+      rider:person!enrollment_token_rider_person_id_fkey    ( id, first_name, last_name, date_of_birth, email, phone ),
       guardian:person!enrollment_token_guardian_person_id_fkey ( id, first_name, last_name, email, phone )
     `)
     .eq('token', token)
@@ -43,7 +43,7 @@ export default async function EnrollPage({
     return <ErrorShell title="Not ready" message="The barn hasn't finished setting up this document yet. Please check back later or contact the office." />
   }
 
-  const rider = tok.rider as { first_name: string | null; last_name: string | null; date_of_birth: string | null } | null
+  const rider = tok.rider as { first_name: string | null; last_name: string | null; date_of_birth: string | null; email: string | null; phone: string | null } | null
   const guardian = tok.guardian as { first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null
 
   return (
@@ -66,6 +66,8 @@ export default async function EnrollPage({
             riderFirstName: rider?.first_name ?? '',
             riderLastName:  rider?.last_name  ?? '',
             riderDob:       rider?.date_of_birth ?? '',
+            riderEmail:     rider?.email ?? '',
+            riderPhone:     rider?.phone ?? '',
             parentFirstName: guardian?.first_name ?? '',
             parentLastName:  guardian?.last_name  ?? '',
             parentEmail:     guardian?.email ?? '',

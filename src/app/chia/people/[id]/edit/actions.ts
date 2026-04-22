@@ -8,13 +8,26 @@ export async function updatePerson(personId: string, formData: FormData) {
   const isOrg    = formData.get('is_organization') === 'on'
   const isMinor  = formData.get('is_minor') === 'on'
 
+  // Email is a credential once a person has a login — protect it from being
+  // edited via the generic person form. Admins use the explicit "Change login
+  // email" flow instead (auth + person.email atomically). See
+  // src/app/chia/people/[id]/_components/ChangeLoginEmailButton.tsx.
+  const { data: existing } = await supabase
+    .from('person')
+    .select('auth_user_id, email')
+    .eq('id', personId)
+    .maybeSingle()
+  const hasAccount = !!existing?.auth_user_id
+  const submittedEmail = (formData.get('email') as string | null)?.trim() || null
+  const safeEmail = hasAccount ? (existing?.email ?? null) : submittedEmail
+
   const { error } = await supabase
     .from('person')
     .update({
       first_name:               isOrg ? 'Org' : (formData.get('first_name') as string).trim(),
       last_name:                isOrg ? 'Org' : (formData.get('last_name') as string).trim(),
       preferred_name:           (formData.get('preferred_name') as string | null)?.trim() || null,
-      email:                    (formData.get('email') as string | null)?.trim() || null,
+      email:                    safeEmail,
       phone:                    (formData.get('phone') as string | null)?.trim() || null,
       address:                  (formData.get('address') as string | null)?.trim() || null,
       date_of_birth:            (formData.get('date_of_birth') as string | null) || null,

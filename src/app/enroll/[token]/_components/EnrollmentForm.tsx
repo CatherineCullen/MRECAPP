@@ -14,6 +14,8 @@ type Prefill = {
   riderFirstName:  string
   riderLastName:   string
   riderDob:        string
+  riderEmail:      string
+  riderPhone:      string
   parentFirstName: string
   parentLastName:  string
   parentEmail:     string
@@ -37,8 +39,8 @@ export default function EnrollmentForm({
   const [riderLast,  setRiderLast]  = useState(prefill.riderLastName)
   const [riderDob,   setRiderDob]   = useState(prefill.riderDob)
   const [address,    setAddress]    = useState('')
-  const [phone,      setPhone]      = useState('')
-  const [email,      setEmail]      = useState('')
+  const [phone,      setPhone]      = useState(prefill.riderPhone)
+  const [email,      setEmail]      = useState(prefill.riderEmail)
   const [emgName,    setEmgName]    = useState('')
   const [emgPhone,   setEmgPhone]   = useState('')
 
