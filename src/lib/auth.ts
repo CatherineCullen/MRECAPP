@@ -14,6 +14,7 @@ export interface CurrentUser {
   roles: PersonRole[]
   isAdmin: boolean
   isBarnWorker: boolean
+  isInstructor: boolean
   isStaff: boolean   // admin, barn_owner, instructor, barn_worker, or training ride provider
   isTrainingRideProvider: boolean
 }
@@ -51,6 +52,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const isAdmin = roles.includes('admin') || roles.includes('barn_owner')
   const isBarnWorker = roles.includes('barn_worker')
+  const isInstructor = roles.includes('instructor')
   const isStaff =
     isAdmin ||
     roles.includes('instructor') ||
@@ -66,6 +68,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     roles,
     isAdmin,
     isBarnWorker,
+    isInstructor,
     isStaff,
     isTrainingRideProvider: person.is_training_ride_provider,
   }

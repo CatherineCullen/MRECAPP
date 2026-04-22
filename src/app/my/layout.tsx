@@ -35,6 +35,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         hasHorses={hasHorses}
         hasInvoices={hasInvoices}
         isAdmin={user.isAdmin}
+        isInstructor={user.isInstructor || user.isAdmin}
         canLogServices={user.isAdmin || user.isBarnWorker}
         canLogTrainingRides={user.isTrainingRideProvider || user.isAdmin}
       />

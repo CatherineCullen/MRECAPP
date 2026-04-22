@@ -8,6 +8,7 @@ export default function MyNav({
   hasHorses,
   hasInvoices,
   isAdmin,
+  isInstructor,
   canLogServices,
   canLogTrainingRides,
 }: {
@@ -15,12 +16,14 @@ export default function MyNav({
   hasHorses: boolean
   hasInvoices: boolean
   isAdmin: boolean
+  isInstructor: boolean
   canLogServices: boolean
   canLogTrainingRides: boolean
 }) {
   const pathname = usePathname()
 
   const tabs = [
+    ...(isInstructor ? [{ label: 'Teaching', href: '/my/teaching' }] : []),
     { label: 'Schedule',  href: '/my/schedule'  },
     ...(hasHorses   ? [{ label: 'Horses',   href: '/my/horses'   }] : []),
     ...(canLogTrainingRides ? [{ label: 'Training', href: '/my/training-rides' }] : []),
