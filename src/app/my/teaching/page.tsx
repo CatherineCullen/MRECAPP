@@ -34,10 +34,19 @@ function toDateParam(d: Date): string {
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit',
-    timeZone: 'America/New_York',
-  })
+  // Parse HH:mm directly from the ISO string rather than going through Date(),
+  // because scheduled_at is a naive timestamp (no TZ offset) and new Date()
+  // on a bare "YYYY-MM-DDTHH:mm:ss" string uses the server's local TZ — which
+  // is UTC on Vercel and Eastern on a dev Mac, causing a 4-hour skew in prod.
+  // The barn is always Eastern; the stored time IS the displayed time.
+  const m = iso.match(/T(\d{2}):(\d{2})/)
+  if (!m) return ''
+  let h = parseInt(m[1], 10)
+  const mm = m[2]
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  if (h > 12) h -= 12
+  if (h === 0) h = 12
+  return `${h}:${mm} ${ampm}`
 }
 
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']

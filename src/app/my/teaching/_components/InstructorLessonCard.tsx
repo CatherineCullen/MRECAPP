@@ -28,10 +28,16 @@ export type InstructorLesson = {
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric', minute: '2-digit',
-    timeZone: 'America/New_York',
-  })
+  // See note in ../page.tsx — scheduled_at is stored naive, so new Date()
+  // shifts by server TZ offset. Parse HH:mm directly.
+  const m = iso.match(/T(\d{2}):(\d{2})/)
+  if (!m) return ''
+  let h = parseInt(m[1], 10)
+  const mm = m[2]
+  const ampm = h >= 12 ? 'PM' : 'AM'
+  if (h > 12) h -= 12
+  if (h === 0) h = 12
+  return `${h}:${mm} ${ampm}`
 }
 
 const LESSON_LABEL = {
