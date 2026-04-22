@@ -4,92 +4,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
-export async function cancelInstructorLesson(lessonId: string): Promise<{ error?: string }> {
-  const user = await getCurrentUser()
-  if (!user?.personId) return { error: 'Not signed in' }
-  if (!user.isInstructor && !user.isAdmin) return { error: 'Not authorized' }
-
-  const db = createAdminClient()
-  const now = new Date()
-
-  // Fetch the lesson — verify it belongs to this instructor and is in the future
-  const { data: lesson, error: fetchErr } = await db
-    .from('lesson')
-    .select('id, scheduled_at, status, instructor_id')
-    .eq('id', lessonId)
-    .is('deleted_at', null)
-    .single()
-
-  if (fetchErr || !lesson) return { error: 'Lesson not found' }
-  if (lesson.instructor_id !== user.personId && !user.isAdmin)
-    return { error: 'You can only cancel your own lessons' }
-  if (new Date(lesson.scheduled_at) <= now)
-    return { error: 'Past lessons can only be cancelled by an admin' }
-  if (lesson.status !== 'scheduled')
-    return { error: 'Lesson is not scheduled' }
-
-  // Cancel the lesson as barn-cancel
-  const { error: cancelErr } = await db
-    .from('lesson')
-    .update({
-      status:          'cancelled_barn',
-      cancelled_at:    now.toISOString(),
-      cancelled_by_id: user.personId,
-    })
-    .eq('id', lessonId)
-
-  if (cancelErr) return { error: 'Failed to cancel lesson' }
-
-  // Stamp cancelled_at on active lesson_riders
-  const { data: riders } = await db
-    .from('lesson_rider')
-    .select('id, rider_id, subscription_id')
-    .eq('lesson_id', lessonId)
-    .is('cancelled_at', null)
-    .is('deleted_at', null)
-
-  if (riders?.length) {
-    await db
-      .from('lesson_rider')
-      .update({ cancelled_at: now.toISOString() })
-      .in('id', riders.map(r => r.id))
-
-    // Create makeup tokens for subscription riders (barn cancel = always a token)
-    const subscriptionRiders = riders.filter(r => r.subscription_id)
-    if (subscriptionRiders.length) {
-      // Get quarter info from the subscriptions to set expiry
-      const subIds = subscriptionRiders.map(r => r.subscription_id).filter(Boolean) as string[]
-      const { data: subs } = await db
-        .from('lesson_subscription')
-        .select('id, quarter_id, quarter:quarter!quarter_id(end_date)')
-        .in('id', subIds)
-
-      const subQuarterMap = new Map<string, { quarterId: string; endDate: string }>()
-      for (const s of subs ?? []) {
-        const q = Array.isArray(s.quarter) ? s.quarter[0] : s.quarter as any
-        if (q?.end_date) subQuarterMap.set(s.id, { quarterId: s.quarter_id, endDate: q.end_date })
-      }
-
-      for (const r of subscriptionRiders) {
-        const quarterInfo = r.subscription_id ? subQuarterMap.get(r.subscription_id) : null
-        if (!quarterInfo) continue
-        await db.from('makeup_token').insert({
-          rider_id:            r.rider_id,
-          original_lesson_id:  lessonId,
-          status:              'available',
-          reason:              'barn_cancel',
-          quarter_id:          quarterInfo.quarterId,
-          official_expires_at: quarterInfo.endDate,
-          created_by:          user.personId,
-        })
-      }
-    }
-  }
-
-  revalidatePath('/my/teaching')
-  return {}
-}
-
 export async function updateHorseAssignment(
   lessonRiderId: string,
   horseId: string | null,
@@ -100,7 +14,6 @@ export async function updateHorseAssignment(
 
   const db = createAdminClient()
 
-  // Verify this lesson_rider belongs to a lesson taught by this instructor
   const { data: lr } = await db
     .from('lesson_rider')
     .select('id, lesson:lesson!lesson_id(instructor_id)')
@@ -119,6 +32,102 @@ export async function updateHorseAssignment(
     .eq('id', lessonRiderId)
 
   if (error) return { error: 'Failed to update horse assignment' }
+
+  revalidatePath('/my/teaching')
+  return {}
+}
+
+const DAY_OF_WEEK = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] as const
+type DayOfWeek = typeof DAY_OF_WEEK[number]
+
+export async function addAvailabilityWindow(
+  day: DayOfWeek,
+  startTime: string,   // 'HH:MM'
+  endTime: string,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.personId) return { error: 'Not signed in' }
+  if (!user.isInstructor && !user.isAdmin) return { error: 'Not authorized' }
+  if (!DAY_OF_WEEK.includes(day)) return { error: 'Invalid day' }
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime))
+    return { error: 'Invalid time' }
+  if (endTime <= startTime) return { error: 'End time must be after start time' }
+
+  const db = createAdminClient()
+  const today = new Date().toISOString().slice(0, 10)
+
+  const { error } = await db.from('instructor_availability').insert({
+    person_id:       user.personId,
+    day_of_week:     day,
+    start_time:      startTime,
+    end_time:        endTime,
+    effective_from:  today,
+    effective_until: null,
+    created_by:      user.personId,
+  })
+
+  if (error) return { error: 'Failed to add availability' }
+
+  revalidatePath('/my/teaching')
+  return {}
+}
+
+export async function removeAvailabilityWindow(id: string): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.personId) return { error: 'Not signed in' }
+  if (!user.isInstructor && !user.isAdmin) return { error: 'Not authorized' }
+
+  const db = createAdminClient()
+  const { data: row } = await db
+    .from('instructor_availability')
+    .select('id, person_id')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single()
+
+  if (!row) return { error: 'Not found' }
+  if (row.person_id !== user.personId && !user.isAdmin)
+    return { error: 'You can only edit your own availability' }
+
+  const { error } = await db
+    .from('instructor_availability')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return { error: 'Failed to remove availability' }
+
+  revalidatePath('/my/teaching')
+  return {}
+}
+
+export async function updateLessonNote(
+  lessonId: string,
+  note: string,
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user?.personId) return { error: 'Not signed in' }
+  if (!user.isInstructor && !user.isAdmin) return { error: 'Not authorized' }
+
+  const db = createAdminClient()
+
+  const { data: lesson } = await db
+    .from('lesson')
+    .select('id, instructor_id')
+    .eq('id', lessonId)
+    .is('deleted_at', null)
+    .single()
+
+  if (!lesson) return { error: 'Lesson not found' }
+  if (lesson.instructor_id !== user.personId && !user.isAdmin)
+    return { error: 'You can only add notes to your own lessons' }
+
+  const trimmed = note.trim()
+  const { error } = await db
+    .from('lesson')
+    .update({ notes: trimmed || null })
+    .eq('id', lessonId)
+
+  if (error) return { error: 'Failed to save note' }
 
   revalidatePath('/my/teaching')
   return {}
