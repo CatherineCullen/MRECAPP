@@ -15,7 +15,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from './_env.mjs'
 
 const COMMIT = process.argv.includes('--commit')
 const IMPORT_TAG = 'legacy_visibook_import'
@@ -24,10 +24,7 @@ const IMPORT_FILE = path.resolve(
   'lessonimportfromvisibook04222026.txt',
 )
 
-const supabase = createClient(
-  'https://adtgvzxuvvbszcmhvgqs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdGd2enh1dnZic3pjbWh2Z3FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5ODY1MCwiZXhwIjoyMDkxODc0NjUwfQ.qJqzPliQfo-sitJaQK5GObmOGQs2q08FvSW_dZVrpSA',
-)
+const supabase = supabaseAdmin()
 
 // ---- Parse concatenated JSON chunks ---------------------------------------
 

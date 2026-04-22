@@ -2,12 +2,8 @@
 // Catherine (instructor) + Gilda (rider) + Jasper (some lessons)
 // All billing skipped. Hard-delete via delete-test-lessons.mjs when done.
 
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'https://adtgvzxuvvbszcmhvgqs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdGd2enh1dnZic3pjbWh2Z3FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5ODY1MCwiZXhwIjoyMDkxODc0NjUwfQ.qJqzPliQfo-sitJaQK5GObmOGQs2q08FvSW_dZVrpSA'
-)
+import { supabaseAdmin } from './_env.mjs'
+const supabase = supabaseAdmin()
 
 const CATHERINE_ID = 'faf14e5d-53b6-4b1c-9b4a-479eba3ddd39'
 const GILDA_ID     = '80b9539a-3873-41b5-930a-d6c414ef4623'

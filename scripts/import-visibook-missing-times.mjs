@@ -10,16 +10,13 @@
 // Usage: node app/scripts/import-visibook-missing-times.mjs         (dry run)
 //        node app/scripts/import-visibook-missing-times.mjs --commit
 
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from './_env.mjs'
 
 const COMMIT = process.argv.includes('--commit')
 const IMPORT_TAG = 'legacy_visibook_import'
 const CATHERINE_ID = 'faf14e5d-53b6-4b1c-9b4a-479eba3ddd39'
 
-const supabase = createClient(
-  'https://adtgvzxuvvbszcmhvgqs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdGd2enh1dnZic3pjbWh2Z3FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5ODY1MCwiZXhwIjoyMDkxODc0NjUwfQ.qJqzPliQfo-sitJaQK5GObmOGQs2q08FvSW_dZVrpSA',
-)
+const supabase = supabaseAdmin()
 
 // ---- Data -----------------------------------------------------------------
 

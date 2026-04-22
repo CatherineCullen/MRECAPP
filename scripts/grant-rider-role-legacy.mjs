@@ -2,11 +2,8 @@
 // lesson_package (notes='legacy_visibook_import'). The normal subscription +
 // product flows auto-grant this role, but the direct import bypassed them.
 // Idempotent — skips anyone who already has the role.
-import { createClient } from '@supabase/supabase-js'
-const s = createClient(
-  'https://adtgvzxuvvbszcmhvgqs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdGd2enh1dnZic3pjbWh2Z3FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5ODY1MCwiZXhwIjoyMDkxODc0NjUwfQ.qJqzPliQfo-sitJaQK5GObmOGQs2q08FvSW_dZVrpSA',
-)
+import { supabaseAdmin } from './_env.mjs'
+const s = supabaseAdmin()
 
 const { data: pkgs, error: pErr } = await s
   .from('lesson_package')

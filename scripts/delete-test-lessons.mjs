@@ -1,12 +1,8 @@
 // Cleanup script: hard-deletes all test lessons created by seed-test-lessons.mjs
 // Removes lesson_riders, lessons, and the lesson_package tagged TEST_INSTRUCTOR_DEV
 
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  'https://adtgvzxuvvbszcmhvgqs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdGd2enh1dnZic3pjbWh2Z3FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5ODY1MCwiZXhwIjoyMDkxODc0NjUwfQ.qJqzPliQfo-sitJaQK5GObmOGQs2q08FvSW_dZVrpSA'
-)
+import { supabaseAdmin } from './_env.mjs'
+const supabase = supabaseAdmin()
 
 const TEST_TAG = 'TEST_INSTRUCTOR_DEV'
 

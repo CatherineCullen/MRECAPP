@@ -1,11 +1,8 @@
 // Mark all legacy Visibook lesson_packages as billing-skipped.
 // These were paid in the old system and will never be invoiced in CHIA.
 // Effect: the lessons-events grid stops flagging their lessons as "pending."
-import { createClient } from '@supabase/supabase-js'
-const s = createClient(
-  'https://adtgvzxuvvbszcmhvgqs.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkdGd2enh1dnZic3pjbWh2Z3FzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjI5ODY1MCwiZXhwIjoyMDkxODc0NjUwfQ.qJqzPliQfo-sitJaQK5GObmOGQs2q08FvSW_dZVrpSA',
-)
+import { supabaseAdmin } from './_env.mjs'
+const s = supabaseAdmin()
 const { data, error } = await s
   .from('lesson_package')
   .update({
