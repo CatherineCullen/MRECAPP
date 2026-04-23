@@ -14,8 +14,6 @@ import { createClient } from '@/lib/supabase/client'
 // We intentionally show the same success message whether or not the email
 // matches an account, so this isn't a probe for "is X a user here?"
 
-export const metadata = { title: 'Reset password — Marlboro Ridge Equestrian Center' }
-
 export default function ForgotPasswordPage() {
   const [email,   setEmail]   = useState('')
   const [sent,    setSent]    = useState(false)
