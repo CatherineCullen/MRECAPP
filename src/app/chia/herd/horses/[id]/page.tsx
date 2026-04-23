@@ -111,6 +111,7 @@ export default async function HorseRecordPage({
       .from('health_item_type')
       .select('id, name, is_essential, show_in_herd_dashboard')
       .is('deleted_at', null)
+      .eq('is_active', true)
       .order('name'),
     getCurrentUser(),
   ])
