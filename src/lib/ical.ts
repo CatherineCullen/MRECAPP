@@ -51,6 +51,14 @@ export type IcalEvent = {
   summary:     string
   description: string
   location?:   string
+  /**
+   * When true, emit as an all-day event (RFC 5545 DATE value) instead of a
+   * timed one. `start` is read as the local calendar date (YYYY-MM-DD from its
+   * ISO form); `end` is exclusive per the spec — for a single-day event, pass
+   * start+1 day. Used for training rides, which are loosely scheduled and
+   * shouldn't look like a noon appointment on a rider's calendar.
+   */
+  allDay?:     boolean
 }
 
 export function renderIcal(events: IcalEvent[], calendarName: string): string {
@@ -73,8 +81,22 @@ export function renderIcal(events: IcalEvent[], calendarName: string): string {
       'BEGIN:VEVENT',
       `UID:${ev.uid}`,
       `DTSTAMP:${now}`,
-      `DTSTART:${formatUtc(ev.start)}`,
-      `DTEND:${formatUtc(ev.end)}`,
+    )
+    if (ev.allDay) {
+      // All-day events use DATE (not DATE-TIME). DTEND is exclusive.
+      const startDate = ev.start.toISOString().slice(0, 10).replace(/-/g, '')
+      const endDate   = ev.end.toISOString().slice(0, 10).replace(/-/g, '')
+      lines.push(
+        `DTSTART;VALUE=DATE:${startDate}`,
+        `DTEND;VALUE=DATE:${endDate}`,
+      )
+    } else {
+      lines.push(
+        `DTSTART:${formatUtc(ev.start)}`,
+        `DTEND:${formatUtc(ev.end)}`,
+      )
+    }
+    lines.push(
       `SUMMARY:${escapeText(ev.summary)}`,
       `DESCRIPTION:${escapeText(ev.description)}`,
     )

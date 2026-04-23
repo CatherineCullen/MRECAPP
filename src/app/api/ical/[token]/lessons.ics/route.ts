@@ -114,7 +114,7 @@ export async function GET(
       start,
       end,
       summary:     riderName ? `${typeLabel} — ${riderName}` : typeLabel,
-      description: `Instructor: ${instr}\n\nTo cancel or reschedule, open the Marlboro Ridge Equestrian Center app.`,
+      description: `Instructor: ${instr}\n\nTo cancel or reschedule, log in to https://www.mrecapp.com.`,
       location:    'Marlboro Ridge Equestrian Center',
     })
   }
@@ -125,14 +125,18 @@ export async function GET(
     const providerName = provider?.is_organization
       ? (provider.organization_name ?? 'Training provider')
       : [provider?.preferred_name ?? provider?.first_name, provider?.last_name].filter(Boolean).join(' ') || 'Training provider'
-    const start = new Date(`${r.ride_date}T12:00:00-04:00`)
-    const end = new Date(start.getTime() + 60 * 60_000)
+    // All-day event — training rides are loosely scheduled within the day,
+    // and a noon timed event reads as "noon appointment" on a rider's calendar.
+    // Parse ride_date as UTC so toISOString().slice(0,10) round-trips correctly.
+    const start = new Date(`${r.ride_date}T00:00:00Z`)
+    const end   = new Date(start.getTime() + 24 * 60 * 60_000) // DTEND is exclusive
     events.push({
       uid:         `mrec-ride-${r.id}@marlbororidgeequestriancenter.com`,
       start,
       end,
+      allDay:      true,
       summary:     `Training ride — ${horse?.barn_name ?? 'Horse'}`,
-      description: `Provider: ${providerName}${r.notes ? `\n\nNotes: ${r.notes}` : ''}\n\nTo reschedule, open the Marlboro Ridge Equestrian Center app.`,
+      description: `Provider: ${providerName}${r.notes ? `\n\nNotes: ${r.notes}` : ''}\n\nTo reschedule, log in to https://www.mrecapp.com.`,
       location:    'Marlboro Ridge Equestrian Center',
     })
   }
