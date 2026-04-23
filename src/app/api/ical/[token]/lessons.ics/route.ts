@@ -6,6 +6,29 @@ import { getRiderScope } from '@/app/my/_lib/riderScope'
 export const dynamic = 'force-dynamic'
 
 /**
+ * Add minutes to a naive wall-clock string ("YYYY-MM-DDTHH:MM:SS") without
+ * going through a timezone-aware Date. Uses `Date.UTC` purely for arithmetic
+ * rollover (e.g. "23:45" + 30min = next day 00:15) — the resulting instant is
+ * discarded; we only read back the wall-clock components via UTC getters.
+ */
+function addMinutesToNaive(naive: string, minutes: number): string {
+  const m = naive.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/)
+  if (!m) return naive
+  const utc = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5] + minutes, +(m[6] ?? '0')))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())}T${pad(utc.getUTCHours())}:${pad(utc.getUTCMinutes())}:${pad(utc.getUTCSeconds())}`
+}
+
+/** Add whole days to a "YYYY-MM-DD" string. Same UTC-arithmetic trick. */
+function addDaysToDate(date: string, days: number): string {
+  const m = date.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return date
+  const utc = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] + days))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${utc.getUTCFullYear()}-${pad(utc.getUTCMonth() + 1)}-${pad(utc.getUTCDate())}`
+}
+
+/**
  * Read-only iCal feed for a rider. Token is the credential — it's per-person,
  * unguessable, rotatable. Path is `.ics`-suffixed so Google/Apple correctly
  * identify the content type from the URL alone.
@@ -103,16 +126,28 @@ export async function GET(
     const rider = Array.isArray((lr as any).rider) ? (lr as any).rider[0] : (lr as any).rider
     const riderName = rider?.preferred_name ?? rider?.first_name ?? null
     const instr = instructorName.get(l.instructor_id) ?? 'Instructor'
-    const start = new Date(l.scheduled_at)
-    const end = new Date(start.getTime() + (l.duration_minutes ?? 30) * 60_000)
     const typeLabel =
       l.lesson_type === 'private' ? 'Private lesson'
       : l.lesson_type === 'semi_private' ? 'Semi-private lesson'
       : 'Group lesson'
+
+    // `scheduled_at` is a naive timestamp — no offset — meaning Eastern wall
+    // clock. Do NOT parse it with `new Date()` on the server because:
+    //   - on Vercel (UTC) it'd be interpreted as UTC, emitting 4pm lessons as
+    //     4pm UTC (= noon Eastern in Google Cal — the bug we're fixing).
+    //   - on a dev Mac (Eastern) it'd be interpreted as Eastern, working by
+    //     coincidence in dev but silently breaking in prod.
+    // Instead: read the wall-clock components from the string and emit as
+    // TZID=America/New_York local time. Calendar clients resolve the offset
+    // via the VTIMEZONE block, so DST is handled correctly year-round.
+    const startLocal = l.scheduled_at.slice(0, 19)      // "YYYY-MM-DDTHH:MM:SS"
+    const endLocal = addMinutesToNaive(startLocal, l.duration_minutes ?? 30)
     events.push({
       uid:         `mrec-lesson-${l.id}@marlbororidgeequestriancenter.com`,
-      start,
-      end,
+      kind:        'local',
+      tzid:        'America/New_York',
+      startLocal,
+      endLocal,
       summary:     riderName ? `${typeLabel} — ${riderName}` : typeLabel,
       description: `Instructor: ${instr}\n\nTo cancel or reschedule, log in to https://www.mrecapp.com.`,
       location:    'Marlboro Ridge Equestrian Center',
@@ -127,14 +162,12 @@ export async function GET(
       : [provider?.preferred_name ?? provider?.first_name, provider?.last_name].filter(Boolean).join(' ') || 'Training provider'
     // All-day event — training rides are loosely scheduled within the day,
     // and a noon timed event reads as "noon appointment" on a rider's calendar.
-    // Parse ride_date as UTC so toISOString().slice(0,10) round-trips correctly.
-    const start = new Date(`${r.ride_date}T00:00:00Z`)
-    const end   = new Date(start.getTime() + 24 * 60 * 60_000) // DTEND is exclusive
+    // DTEND is exclusive per RFC 5545, so a single-day event ends the next day.
     events.push({
       uid:         `mrec-ride-${r.id}@marlbororidgeequestriancenter.com`,
-      start,
-      end,
-      allDay:      true,
+      kind:        'allDay',
+      startDate:   r.ride_date,
+      endDate:     addDaysToDate(r.ride_date, 1),
       summary:     `Training ride — ${horse?.barn_name ?? 'Horse'}`,
       description: `Provider: ${providerName}${r.notes ? `\n\nNotes: ${r.notes}` : ''}\n\nTo reschedule, log in to https://www.mrecapp.com.`,
       location:    'Marlboro Ridge Equestrian Center',
