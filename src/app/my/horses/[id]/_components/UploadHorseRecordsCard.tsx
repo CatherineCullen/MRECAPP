@@ -60,9 +60,7 @@ export default function UploadHorseRecordsCard({ horseId }: { horseId: string })
       {open && (
         <div className="mt-2 space-y-2">
           <p className="text-sm text-on-surface">
-            Upload PDFs to add them to Documents and send them to the barn admin
-            to update or add recurring health items, Coggins records, and
-            temporary care plans.
+            Send PDFs to the admin for AI-assisted import to health records.
           </p>
 
           <label
