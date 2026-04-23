@@ -283,9 +283,12 @@ function EditForm({
   onCancel: () => void
   onDone:   () => void
 }) {
-  const [typeId,   setTypeId]   = useState<string>(initial?.type.id ?? catalog[0]?.id ?? '')
-  const [lastDone, setLastDone] = useState<string>(initial?.last_done ?? '')
-  const [nextDue,  setNextDue]  = useState<string>(initial?.next_due ?? '')
+  const NEW_TYPE = '__new__'
+  const [typeId,      setTypeId]      = useState<string>(initial?.type.id ?? catalog[0]?.id ?? NEW_TYPE)
+  const [newTypeName, setNewTypeName] = useState<string>('')
+  const [lastDone,    setLastDone]    = useState<string>(initial?.last_done ?? '')
+  const [nextDue,     setNextDue]     = useState<string>(initial?.next_due ?? '')
+  const isNew = typeId === NEW_TYPE
   // Notes start blank on every open — each save logs a new health_event, so
   // the textarea isn't the "standing note for this row," it's the "note for
   // this new dose I'm recording right now."
@@ -297,21 +300,32 @@ function EditForm({
     e.preventDefault()
     setError(null)
     startTransition(async () => {
-      const input = {
-        typeId,
-        lastDone: lastDone || null,
-        nextDue:  nextDue  || null,
-        notes:    notes.trim() || null,
-      }
       const r = initial
-        ? await updateHorseHealthItem(horseId, initial.id, input)
-        : await addHorseHealthItem(horseId, input)
+        ? await updateHorseHealthItem(horseId, initial.id, {
+            typeId,
+            lastDone: lastDone || null,
+            nextDue:  nextDue  || null,
+            notes:    notes.trim() || null,
+          })
+        : await addHorseHealthItem(horseId, {
+            typeId:      isNew ? null : typeId,
+            newTypeName: isNew ? newTypeName.trim() : null,
+            lastDone:    lastDone || null,
+            nextDue:     nextDue  || null,
+            notes:       notes.trim() || null,
+          })
       if (r.error) { setError(r.error); return }
       onDone()
     })
   }
 
-  const canSubmit = !!typeId && !pending
+  const canSubmit =
+    !pending &&
+    (initial
+      ? !!typeId && typeId !== NEW_TYPE
+      : isNew
+        ? !!newTypeName.trim()
+        : !!typeId)
 
   return (
     <form onSubmit={onSubmit} className="py-2 border-b border-[#f2f4f7] last:border-0 bg-[#f7f9fc] -mx-4 px-4">
@@ -332,18 +346,29 @@ function EditForm({
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-          ) : catalog.length === 0 ? (
-            <div className="text-[11px] text-[#7c4b00]">All catalog items are already recorded for this horse.</div>
           ) : (
-            <select
-              value={typeId}
-              onChange={e => setTypeId(e.target.value)}
-              className="w-full border border-[#c4c6d1] rounded px-2 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380]"
-            >
-              {catalog.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <>
+              <select
+                value={typeId}
+                onChange={e => setTypeId(e.target.value)}
+                className="w-full border border-[#c4c6d1] rounded px-2 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380]"
+              >
+                {catalog.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+                <option value={NEW_TYPE}>+ Add new type…</option>
+              </select>
+              {isNew && (
+                <input
+                  type="text"
+                  value={newTypeName}
+                  onChange={e => setNewTypeName(e.target.value)}
+                  placeholder="e.g. Pergolide"
+                  className="w-full mt-1 border border-[#c4c6d1] rounded px-2 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380]"
+                  autoFocus
+                />
+              )}
+            </>
           )}
         </div>
         <div>

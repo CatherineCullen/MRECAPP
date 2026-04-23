@@ -29,6 +29,54 @@ type EditInput = {
   notes:    string | null
 }
 
+type AddInput = {
+  typeId:      string | null
+  newTypeName: string | null
+  lastDone:    string | null
+  nextDue:     string | null
+  notes:       string | null
+}
+
+// Resolve or create a health_item_type by name. Mirrors the rider-side helper
+// in my/horses/[id]/health/actions.ts — case-insensitive name match, reactivate
+// if deactivated, else insert. Keeps us safe against the partial-unique index
+// on lower(name) WHERE deleted_at IS NULL.
+async function resolveTypeId(
+  supabase: ReturnType<typeof createAdminClient>,
+  name:     string,
+  personId: string | null,
+): Promise<{ typeId?: string; error?: string }> {
+  const trimmed = name.trim()
+  if (!trimmed) return { error: 'Pick a type or enter a new name.' }
+
+  const { data: match, error: matchErr } = await supabase
+    .from('health_item_type')
+    .select('id, is_active')
+    .ilike('name', trimmed)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (matchErr) return { error: matchErr.message }
+
+  if (match) {
+    if (!match.is_active) {
+      const { error: reactErr } = await supabase
+        .from('health_item_type')
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq('id', match.id)
+      if (reactErr) return { error: reactErr.message }
+    }
+    return { typeId: match.id }
+  }
+
+  const { data: created, error: insErr } = await supabase
+    .from('health_item_type')
+    .insert({ name: trimmed, is_active: true, created_by: personId })
+    .select('id')
+    .single()
+  if (insErr || !created) return { error: insErr?.message ?? 'Failed to create type.' }
+  return { typeId: created.id }
+}
+
 async function insertHealthEvent(
   supabase: ReturnType<typeof createAdminClient>,
   horseId:  string,
@@ -51,12 +99,17 @@ async function insertHealthEvent(
 
 export async function addHorseHealthItem(
   horseId: string,
-  input:   EditInput,
+  input:   AddInput,
 ): Promise<{ error?: string }> {
   const user = await getCurrentUser()
   const supabase = createAdminClient()
 
-  if (!input.typeId) return { error: 'Pick a health item type.' }
+  let typeId = input.typeId
+  if (!typeId) {
+    const r = await resolveTypeId(supabase, input.newTypeName ?? '', user?.personId ?? null)
+    if (r.error || !r.typeId) return { error: r.error ?? 'Failed to resolve type.' }
+    typeId = r.typeId
+  }
 
   // Block if an active row already exists for this (horse, type). Admin
   // should Edit it instead — we don't silently merge.
@@ -64,7 +117,7 @@ export async function addHorseHealthItem(
     .from('health_program_item')
     .select('id')
     .eq('horse_id', horseId)
-    .eq('health_item_type_id', input.typeId)
+    .eq('health_item_type_id', typeId)
     .is('deleted_at', null)
     .maybeSingle()
   if (selErr) return { error: selErr.message }
@@ -74,13 +127,15 @@ export async function addHorseHealthItem(
     .from('health_program_item')
     .insert({
       horse_id:            horseId,
-      health_item_type_id: input.typeId,
+      health_item_type_id: typeId,
       last_done:           input.lastDone,
       next_due:            input.nextDue,
     })
   if (error) return { error: error.message }
 
-  await insertHealthEvent(supabase, horseId, input.typeId, input, user?.personId ?? null)
+  await insertHealthEvent(supabase, horseId, typeId, {
+    typeId, lastDone: input.lastDone, nextDue: input.nextDue, notes: input.notes,
+  }, user?.personId ?? null)
 
   revalidatePath(`/chia/herd/horses/${horseId}`)
   return {}
