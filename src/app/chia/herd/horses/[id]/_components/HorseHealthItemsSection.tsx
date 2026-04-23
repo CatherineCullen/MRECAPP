@@ -11,6 +11,7 @@ export type HorseHealthItem = {
   id:                   string
   last_done:            string | null
   next_due:             string | null
+  current_note:         string | null
   type: {
     id:                      string
     name:                    string
@@ -182,6 +183,8 @@ function Row({
 }) {
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [showNote, setShowNote] = useState(false)
+  const hasNote = !!item.current_note
 
   const b = bucketFor(item.next_due)
   const pillClass =
@@ -207,6 +210,18 @@ function Row({
     <div className="py-2 border-b border-[#f2f4f7] last:border-0">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+          {hasNote ? (
+            <button
+              onClick={() => setShowNote(v => !v)}
+              className="text-[10px] text-[#444650] hover:text-[#191c1e] w-3 text-left"
+              aria-label={showNote ? 'Hide note' : 'Show note'}
+              title={showNote ? 'Hide note' : 'Show note'}
+            >
+              {showNote ? '▾' : '▸'}
+            </button>
+          ) : (
+            <span className="w-3" />
+          )}
           <span className="text-xs font-semibold text-[#191c1e]">{item.type.name}</span>
           {item.type.is_essential && (
             <span className="text-[9px] font-semibold bg-[#dae2ff] text-[#002058] px-1.5 py-0.5 rounded uppercase tracking-wider">
@@ -243,6 +258,11 @@ function Row({
           </button>
         </div>
       </div>
+      {hasNote && showNote && (
+        <div className="mt-1 ml-5 text-[11px] text-[#444650] whitespace-pre-wrap">
+          {item.current_note}
+        </div>
+      )}
       {error && (
         <div className="mt-1 text-[10px] text-[#b00020]">{error}</div>
       )}
@@ -266,6 +286,10 @@ function EditForm({
   const [typeId,   setTypeId]   = useState<string>(initial?.type.id ?? catalog[0]?.id ?? '')
   const [lastDone, setLastDone] = useState<string>(initial?.last_done ?? '')
   const [nextDue,  setNextDue]  = useState<string>(initial?.next_due ?? '')
+  // Notes start blank on every open — each save logs a new health_event, so
+  // the textarea isn't the "standing note for this row," it's the "note for
+  // this new dose I'm recording right now."
+  const [notes,    setNotes]    = useState<string>('')
   const [error,    setError]    = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -277,6 +301,7 @@ function EditForm({
         typeId,
         lastDone: lastDone || null,
         nextDue:  nextDue  || null,
+        notes:    notes.trim() || null,
       }
       const r = initial
         ? await updateHorseHealthItem(horseId, initial.id, input)
@@ -337,6 +362,16 @@ function EditForm({
             value={nextDue}
             onChange={e => setNextDue(e.target.value)}
             className="border border-[#c4c6d1] rounded px-2 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380]"
+          />
+        </div>
+        <div className="flex-1 min-w-[14rem]">
+          <label className="block text-[10px] font-semibold text-[#444650] uppercase tracking-wider mb-0.5">Notes</label>
+          <input
+            type="text"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder="e.g. Quest Plus"
+            className="w-full border border-[#c4c6d1] rounded px-2 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380]"
           />
         </div>
         <div className="flex items-center gap-2 pb-0.5">

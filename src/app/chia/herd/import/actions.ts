@@ -261,8 +261,11 @@ type AddVetRecordPayload = {
     item_name:       string
     administered_on: string
     next_due:        string | null
-    result:          string | null
-    lot_number:      string | null
+    // Freeform — product name, lot #, administrator, result, any extras
+    // the AI extracted or the admin typed. Only field on the event row
+    // that surfaces in the horse-profile UI; the structured fields below
+    // are deprecated in favor of notes.
+    notes:           string | null
     // Set by the Review UI's per-event picker. A UUID means "link to
     // this existing health_item_type — do not create a new one".
     // null means "no existing match selected — create a new type
@@ -359,11 +362,9 @@ export async function addVetRecord(horseId: string, payload: AddVetRecordPayload
         .insert({
           horse_id:            horseId,
           health_item_type_id: typeId,
-          item_name:           event.item_name,
           administered_on:     event.administered_on,
           next_due:            event.next_due,
-          result:              event.result,
-          lot_number:          event.lot_number,
+          notes:               event.notes,
           source_vet_visit_id: vetVisit.id,
           recorded_by:         user?.personId ?? null,
         })

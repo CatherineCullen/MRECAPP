@@ -115,8 +115,35 @@ export default async function HorseRecordPage({
     getCurrentUser(),
   ])
 
-  const healthItems: HorseHealthItem[] = (healthItemsRaw ?? [])
-    .filter((r: any) => r.type && !r.type.deleted_at) as HorseHealthItem[]
+  const healthItemsBase = (healthItemsRaw ?? [])
+    .filter((r: any) => r.type && !r.type.deleted_at)
+
+  // Attach the most recent health_event note per (horse, type). One extra
+  // query, filter to just the types this horse has, then pick the newest
+  // per type in JS. Used for the expand-to-show-note disclosure on each row.
+  const typeIds = healthItemsBase.map((i: any) => i.type.id)
+  const latestNoteByType = new Map<string, string>()
+  if (typeIds.length > 0) {
+    const { data: events } = await supabase
+      .from('health_event')
+      .select('health_item_type_id, notes, administered_on, created_at')
+      .eq('horse_id', id)
+      .in('health_item_type_id', typeIds)
+      .is('deleted_at', null)
+      .not('notes', 'is', null)
+      .order('administered_on', { ascending: false })
+      .order('created_at',      { ascending: false })
+    for (const e of events ?? []) {
+      if (!latestNoteByType.has(e.health_item_type_id) && e.notes) {
+        latestNoteByType.set(e.health_item_type_id, e.notes)
+      }
+    }
+  }
+
+  const healthItems: HorseHealthItem[] = healthItemsBase.map((i: any) => ({
+    ...i,
+    current_note: latestNoteByType.get(i.type.id) ?? null,
+  })) as HorseHealthItem[]
   const healthCatalog: HealthItemTypeOption[] = (healthCatalogRaw ?? []) as HealthItemTypeOption[]
   const logs: HorseBoardLog[] = (boardLogs ?? []) as HorseBoardLog[]
   const serviceOptions: BoardServiceOption[] = (boardServices ?? []) as BoardServiceOption[]

@@ -24,6 +24,27 @@ async function assertAccess(horseId: string) {
   return { user, supabase }
 }
 
+// Mirrors chia/.../healthItemActions.ts: on every add/edit we also log a
+// companion health_event with the freeform `notes` field, so the per-dose
+// note stays accessible from the expanded row in the profile UI.
+async function insertHealthEvent(
+  supabase: Awaited<ReturnType<typeof assertAccess>>['supabase'],
+  horseId:  string,
+  typeId:   string,
+  input:    { lastDone: string | null; nextDue: string | null; notes: string | null },
+  personId: string | null,
+) {
+  if (!input.lastDone && !input.notes) return
+  await supabase.from('health_event').insert({
+    horse_id:            horseId,
+    health_item_type_id: typeId,
+    administered_on:     input.lastDone ?? new Date().toISOString().slice(0, 10),
+    next_due:            input.nextDue,
+    notes:               input.notes,
+    recorded_by:         personId,
+  })
+}
+
 export async function addMyHorseHealthItem(
   horseId: string,
   input: {
@@ -31,6 +52,7 @@ export async function addMyHorseHealthItem(
     newTypeName: string | null
     lastDone:    string | null
     nextDue:     string | null
+    notes:       string | null
   },
 ): Promise<{ error?: string }> {
   const { user, supabase } = await assertAccess(horseId)
@@ -96,6 +118,8 @@ export async function addMyHorseHealthItem(
     })
   if (error) return { error: error.message }
 
+  await insertHealthEvent(supabase, horseId, typeId, input, user?.personId ?? null)
+
   revalidatePath(`/my/horses/${horseId}`)
   return {}
 }
@@ -103,11 +127,11 @@ export async function addMyHorseHealthItem(
 export async function updateMyHorseHealthItem(
   horseId: string,
   itemId:  string,
-  input: { typeId: string; lastDone: string | null; nextDue: string | null },
+  input: { typeId: string; lastDone: string | null; nextDue: string | null; notes: string | null },
 ): Promise<{ error?: string }> {
   if (!input.typeId) return { error: 'Pick a health item type.' }
 
-  const { supabase } = await assertAccess(horseId)
+  const { user, supabase } = await assertAccess(horseId)
 
   const { data: current, error: curErr } = await supabase
     .from('health_program_item')
@@ -139,6 +163,8 @@ export async function updateMyHorseHealthItem(
     })
     .eq('id', itemId)
   if (error) return { error: error.message }
+
+  await insertHealthEvent(supabase, horseId, input.typeId, input, user?.personId ?? null)
 
   revalidatePath(`/my/horses/${horseId}`)
   return {}

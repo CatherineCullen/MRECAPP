@@ -22,8 +22,9 @@ type HealthEvent = {
   item_name:           string
   administered_on:     string
   next_due:            string | null
-  result:              string | null
-  lot_number:          string | null
+  // Freeform catch-all — everything the AI extracts (product name, lot
+  // #, administrator, result) goes here. Admin can edit before save.
+  notes:               string | null
   // Client-side: which catalog type the admin has selected. UUID = use
   // existing; CREATE_NEW = create from item_name on save.
   health_item_type_id: string | null
@@ -145,7 +146,14 @@ function ReviewCards({
       (matchKey && catalogByName.get(matchKey)) ||
       catalogByName.get(e.item_name.toLowerCase()) ||
       null
-    return { ...e, health_item_type_id: matched?.id ?? CREATE_NEW }
+    return {
+      catalog_match:       e.catalog_match ?? null,
+      item_name:           e.item_name,
+      administered_on:     e.administered_on,
+      next_due:            e.next_due ?? null,
+      notes:               e.notes ?? null,
+      health_item_type_id: matched?.id ?? CREATE_NEW,
+    }
   })
 
   // Horse auto-match from the AI's horse hint. initialHorseId (from the
@@ -362,8 +370,9 @@ function ReviewCards({
                     <Field label="Item"            value={ev.item_name       ?? ''} onChange={v => updateEvent(i, 'item_name', v)} />
                     <Field label="Administered on" type="date" value={ev.administered_on ?? ''} onChange={v => updateEvent(i, 'administered_on', v)} />
                     <Field label="Next due"        type="date" value={ev.next_due        ?? ''} onChange={v => updateEvent(i, 'next_due', v)} />
-                    <Field label="Result"          value={ev.result          ?? ''} onChange={v => updateEvent(i, 'result', v)} />
-                    <Field label="Lot number"      value={ev.lot_number      ?? ''} onChange={v => updateEvent(i, 'lot_number', v)} />
+                  </div>
+                  <div className="mt-3">
+                    <TextArea label="Notes" value={ev.notes ?? ''} onChange={v => updateEvent(i, 'notes', v)} rows={2} />
                   </div>
                   <button onClick={() => removeEvent(i)} className="mt-2 text-xs text-[#b00020] hover:underline">
                     Remove

@@ -14,8 +14,7 @@ type HealthEvent = {
   item_name:           string
   administered_on:     string
   next_due:            string
-  result:              string
-  lot_number:          string
+  notes:               string
   health_item_type_id: string  // UUID or CREATE_NEW
 }
 
@@ -26,7 +25,7 @@ type CarePlan = {
 }
 
 function emptyEvent(): HealthEvent {
-  return { item_name: '', administered_on: '', next_due: '', result: '', lot_number: '', health_item_type_id: CREATE_NEW }
+  return { item_name: '', administered_on: '', next_due: '', notes: '', health_item_type_id: CREATE_NEW }
 }
 function emptyPlan(): CarePlan {
   return { content: '', starts_on: '', ends_on: '' }
@@ -136,8 +135,7 @@ export default function VetRecordManualForm({
             item_name:           ev.item_name,
             administered_on:     ev.administered_on,
             next_due:            ev.next_due || null,
-            result:              ev.result   || null,
-            lot_number:          ev.lot_number || null,
+            notes:               ev.notes    || null,
             health_item_type_id: ev.health_item_type_id === CREATE_NEW ? null : ev.health_item_type_id,
           })),
           care_plans: plans.map(cp => ({
@@ -275,8 +273,9 @@ export default function VetRecordManualForm({
                     <Field label="Item"            required value={ev.item_name}       onChange={v => updateEvent(i, 'item_name', v)} />
                     <Field label="Administered on" required type="date" value={ev.administered_on} onChange={v => updateEvent(i, 'administered_on', v)} />
                     <Field label="Next due"        type="date" value={ev.next_due}        onChange={v => updateEvent(i, 'next_due', v)} />
-                    <Field label="Result"          value={ev.result}          onChange={v => updateEvent(i, 'result', v)} />
-                    <Field label="Lot number"      value={ev.lot_number}      onChange={v => updateEvent(i, 'lot_number', v)} />
+                  </div>
+                  <div className="mt-3">
+                    <TextArea label="Notes" value={ev.notes} onChange={v => updateEvent(i, 'notes', v)} rows={2} />
                   </div>
                   <button onClick={() => setEvents(prev => prev.filter((_, idx) => idx !== i))} className="mt-2 text-xs text-[#b00020] hover:underline">
                     Remove

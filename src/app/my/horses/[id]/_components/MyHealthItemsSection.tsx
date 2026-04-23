@@ -9,9 +9,10 @@ import {
 } from '../health/actions'
 
 export type HorseHealthItem = {
-  id:        string
-  last_done: string | null
-  next_due:  string | null
+  id:           string
+  last_done:    string | null
+  next_due:     string | null
+  current_note: string | null
   type: {
     id:                     string
     name:                   string
@@ -182,6 +183,8 @@ function Row({
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [showNote, setShowNote] = useState(false)
+  const hasNote = !!item.current_note
 
   const b = bucketFor(item.next_due)
   const dueClass =
@@ -209,6 +212,17 @@ function Row({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
+            {hasNote ? (
+              <button
+                onClick={() => setShowNote(v => !v)}
+                className="text-xs text-on-surface-muted"
+                aria-label={showNote ? 'Hide note' : 'Show note'}
+              >
+                {showNote ? '▾' : '▸'}
+              </button>
+            ) : (
+              <span className="w-3" />
+            )}
             <span className="text-sm font-semibold text-on-surface">{item.type.name}</span>
             {item.type.is_essential && (
               <span className="text-[9px] font-semibold bg-secondary-container text-on-secondary-container px-1.5 py-0.5 rounded uppercase tracking-wider">
@@ -222,6 +236,11 @@ function Row({
               <span className="text-on-surface-muted">Last {formatDate(item.last_done)}</span>
             )}
           </div>
+          {hasNote && showNote && (
+            <p className="mt-1.5 text-[11px] text-on-surface-muted whitespace-pre-wrap">
+              {item.current_note}
+            </p>
+          )}
         </div>
         <div className="shrink-0 flex items-center gap-3">
           <button
@@ -264,6 +283,7 @@ function EditForm({
   const [newTypeName, setNewTypeName] = useState<string>('')
   const [lastDone,    setLastDone]    = useState<string>(initial?.last_done ?? '')
   const [nextDue,     setNextDue]     = useState<string>(initial?.next_due  ?? '')
+  const [notes,       setNotes]       = useState<string>('')
   const [error,       setError]       = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -278,12 +298,14 @@ function EditForm({
             typeId,
             lastDone: lastDone || null,
             nextDue:  nextDue  || null,
+            notes:    notes.trim() || null,
           })
         : await addMyHorseHealthItem(horseId, {
             typeId:      isNew ? null : typeId,
             newTypeName: isNew ? newTypeName.trim() : null,
             lastDone:    lastDone || null,
             nextDue:     nextDue  || null,
+            notes:       notes.trim() || null,
           })
       if (r.error) { setError(r.error); return }
       router.refresh()
@@ -349,6 +371,19 @@ function EditForm({
             className={inputCls}
           />
         </label>
+      </div>
+
+      <div>
+        <label className="block text-[10px] font-semibold text-on-surface-muted uppercase tracking-wider mb-1">
+          Notes {initial && <span className="font-normal normal-case tracking-normal">(for this dose)</span>}
+        </label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="e.g. Ivermectin paste, 1 tube"
+          className={inputCls}
+          rows={2}
+        />
       </div>
 
       <div className="flex items-center gap-3">

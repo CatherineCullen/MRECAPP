@@ -104,8 +104,34 @@ export default async function MyHorsePage({ params }: { params: Promise<{ id: st
     .eq('horse_id', id)
     .is('deleted_at', null)
 
-  const healthItemsFiltered = (healthItems ?? [])
+  const healthItemsBase = (healthItems ?? [])
     .filter((i: any) => i.type?.name !== 'Coggins')
+
+  // Attach the most recent health_event note per type — see the CHIA
+  // horse page for the same pattern and the rationale.
+  const typeIds = healthItemsBase.map((i: any) => i.type.id)
+  const latestNoteByType = new Map<string, string>()
+  if (typeIds.length > 0) {
+    const { data: events } = await db
+      .from('health_event')
+      .select('health_item_type_id, notes, administered_on, created_at')
+      .eq('horse_id', id)
+      .in('health_item_type_id', typeIds)
+      .is('deleted_at', null)
+      .not('notes', 'is', null)
+      .order('administered_on', { ascending: false })
+      .order('created_at',      { ascending: false })
+    for (const e of events ?? []) {
+      if (!latestNoteByType.has(e.health_item_type_id) && e.notes) {
+        latestNoteByType.set(e.health_item_type_id, e.notes)
+      }
+    }
+  }
+
+  const healthItemsFiltered = healthItemsBase.map((i: any) => ({
+    ...i,
+    current_note: latestNoteByType.get(i.type.id) ?? null,
+  }))
 
   const { data: catalog } = await db
     .from('health_item_type')

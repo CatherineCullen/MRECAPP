@@ -1,13 +1,20 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 
 /**
  * Actions for the per-horse Health Items section — add / edit / soft-delete
- * a `health_program_item` row. The import flows still own the sync path from
- * vet + Coggins JSON; these actions are for admins fixing or manually adding
- * schedule rows directly on a horse.
+ * a `health_program_item` row, *and* log a companion `health_event` row on
+ * every add/edit so the per-dose note sticks around in history.
+ *
+ * Why two tables on every save:
+ *   - health_program_item  = the schedule (last_done, next_due). One per
+ *                            (horse, type). Overwritten in place.
+ *   - health_event         = the immutable log. New row per save. Carries
+ *                            the freeform `notes` that the UI surfaces on
+ *                            the current row's expand disclosure.
  *
  * Partial-index note: the unique index on (horse_id, health_item_type_id) is
  * WHERE deleted_at IS NULL. supabase.upsert can't target a partial index, so
@@ -15,10 +22,38 @@ import { revalidatePath } from 'next/cache'
  * `syncHealthProgramItem` for the full story.
  */
 
+type EditInput = {
+  typeId:   string
+  lastDone: string | null
+  nextDue:  string | null
+  notes:    string | null
+}
+
+async function insertHealthEvent(
+  supabase: ReturnType<typeof createAdminClient>,
+  horseId:  string,
+  typeId:   string,
+  input:    EditInput,
+  personId: string | null,
+) {
+  // Only log an event if there's *something* to log — at minimum a date or
+  // a note. Otherwise a trivial "type changed" edit would leave ghost rows.
+  if (!input.lastDone && !input.notes) return
+  await supabase.from('health_event').insert({
+    horse_id:            horseId,
+    health_item_type_id: typeId,
+    administered_on:     input.lastDone ?? new Date().toISOString().slice(0, 10),
+    next_due:            input.nextDue,
+    notes:               input.notes,
+    recorded_by:         personId,
+  })
+}
+
 export async function addHorseHealthItem(
   horseId: string,
-  input: { typeId: string; lastDone: string | null; nextDue: string | null },
+  input:   EditInput,
 ): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
   const supabase = createAdminClient()
 
   if (!input.typeId) return { error: 'Pick a health item type.' }
@@ -45,6 +80,8 @@ export async function addHorseHealthItem(
     })
   if (error) return { error: error.message }
 
+  await insertHealthEvent(supabase, horseId, input.typeId, input, user?.personId ?? null)
+
   revalidatePath(`/chia/herd/horses/${horseId}`)
   return {}
 }
@@ -52,8 +89,9 @@ export async function addHorseHealthItem(
 export async function updateHorseHealthItem(
   horseId: string,
   itemId:  string,
-  input: { typeId: string; lastDone: string | null; nextDue: string | null },
+  input:   EditInput,
 ): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
   const supabase = createAdminClient()
 
   if (!input.typeId) return { error: 'Pick a health item type.' }
@@ -62,7 +100,7 @@ export async function updateHorseHealthItem(
   // another active row for the new type on the same horse.
   const { data: current, error: curErr } = await supabase
     .from('health_program_item')
-    .select('health_item_type_id')
+    .select('health_item_type_id, last_done')
     .eq('id', itemId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -90,6 +128,8 @@ export async function updateHorseHealthItem(
     })
     .eq('id', itemId)
   if (error) return { error: error.message }
+
+  await insertHealthEvent(supabase, horseId, input.typeId, input, user?.personId ?? null)
 
   revalidatePath(`/chia/herd/horses/${horseId}`)
   return {}
