@@ -7,6 +7,7 @@ import WeekPicker from './_components/WeekPicker'
 import ViewToggle from './_components/ViewToggle'
 import FullDayLessonRow, { type FullDayLesson } from './_components/FullDayLessonRow'
 import AvailabilityEditor, { type AvailabilityWindow } from './_components/AvailabilityEditor'
+import { displayName } from '@/lib/displayName'
 
 export const metadata = { title: 'My Teaching — Marlboro Ridge Equestrian Center' }
 
@@ -84,7 +85,7 @@ export default async function TeachingPage({
       lesson_rider (
         id, cancelled_at, deleted_at,
         horse:horse!horse_id ( id, barn_name ),
-        rider:person!rider_id ( id, first_name, preferred_name, phone, is_minor, guardian_id ),
+        rider:person!rider_id ( id, first_name, last_name, preferred_name, phone, is_minor, guardian_id ),
         subscription:lesson_subscription!subscription_id ( id, subscription_type, lesson_day, lesson_time )
       )
     `)
@@ -110,12 +111,12 @@ export default async function TeachingPage({
   )) : []
 
   const { data: guardians } = guardianIds.length
-    ? await db.from('person').select('id, first_name, preferred_name, phone').in('id', guardianIds)
+    ? await db.from('person').select('id, first_name, last_name, preferred_name, phone').in('id', guardianIds)
     : { data: [] }
 
   const guardianMap = new Map((guardians ?? []).map(g => [
     g.id,
-    { name: g.preferred_name ?? g.first_name, phone: g.phone },
+    { name: displayName(g as any), phone: g.phone },
   ]))
 
   const riderIds = view === 'mine' ? Array.from(new Set(
@@ -163,7 +164,7 @@ export default async function TeachingPage({
           const guardian = r?.guardian_id ? guardianMap.get(r.guardian_id) : null
           return {
             lrId:             lr.id,
-            name:             r?.preferred_name ?? r?.first_name ?? 'Rider',
+            name:             r ? displayName(r as any) : 'Rider',
             phone:            r?.phone ?? null,
             isMinor:          r?.is_minor ?? false,
             guardianName:     guardian?.name ?? null,
@@ -187,7 +188,7 @@ export default async function TeachingPage({
           const r = Array.isArray(lr.rider) ? lr.rider[0] : lr.rider
           const h = Array.isArray(lr.horse) ? lr.horse[0] : lr.horse
           return {
-            name:      r?.preferred_name ?? r?.first_name ?? 'Rider',
+            name:      r ? displayName(r as any) : 'Rider',
             horseName: h?.barn_name ?? null,
           }
         }),
