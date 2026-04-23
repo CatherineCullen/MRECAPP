@@ -3458,6 +3458,7 @@ export type Database = {
         | "invoice"
         | "makeup_token"
         | "renewal_notice"
+        | "enrollment_invite"
       person_preferred_language: "english" | "spanish"
       person_riding_level: "beginner" | "intermediate" | "advanced"
       person_role_type:
@@ -3677,6 +3678,7 @@ export const Constants = {
         "invoice",
         "makeup_token",
         "renewal_notice",
+        "enrollment_invite",
       ],
       person_preferred_language: ["english", "spanish"],
       person_riding_level: ["beginner", "intermediate", "advanced"],

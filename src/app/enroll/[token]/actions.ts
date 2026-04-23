@@ -56,7 +56,7 @@ function dataUrlToBytes(dataUrl: string): Uint8Array | null {
 const EMAIL_COLLISION_MSG =
   'An account already exists for that email. Please contact the barn — we can link this waiver to your existing account.'
 
-export async function submitEnrollment(input: EnrollInput): Promise<{ error?: string; ok?: boolean }> {
+export async function submitEnrollment(input: EnrollInput): Promise<{ error?: string; ok?: boolean; signInEmail?: string | null }> {
   const db = createAdminClient()
 
   // ── 1. Validate token ────────────────────────────────────────────────
@@ -257,5 +257,9 @@ export async function submitEnrollment(input: EnrollInput): Promise<{ error?: st
   // ── 7. Mark token used ───────────────────────────────────────────────
   await db.from('enrollment_token').update({ used_at: new Date().toISOString() }).eq('id', tok.id)
 
-  return { ok: true }
+  // Return the signer email so the form can sign them in client-side with
+  // the password they just set. (Minor case: this is the guardian's email;
+  // adult case: the rider's own email. Either way, the one we just attached
+  // to the auth account.)
+  return { ok: true, signInEmail: signerEmail }
 }

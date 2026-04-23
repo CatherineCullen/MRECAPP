@@ -1,14 +1,16 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import SignatureCanvas from 'react-signature-canvas'
 import ReactMarkdown from 'react-markdown'
 import { submitEnrollment } from '../actions'
+import { createClient } from '@/lib/supabase/client'
 
 // Public-facing enrollment form. Rider reads the waiver, fills in their own
-// info, signs on the canvas, sets a password, submits. On success the page
-// swaps to a "done" state — we do NOT redirect them anywhere (the rider
-// app doesn't exist yet; there's nowhere to send them).
+// info, signs on the canvas, sets a password, submits. On success we sign
+// them in with the just-set credentials and drop them on /my/schedule so
+// they land inside the app instead of a dead-end "thanks" page.
 
 type Prefill = {
   riderFirstName:  string
@@ -55,6 +57,7 @@ export default function EnrollmentForm({
   const [password2, setPassword2] = useState('')
   const [agreed, setAgreed] = useState(false)
 
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [done, setDone]   = useState(false)
@@ -92,6 +95,21 @@ export default function EnrollmentForm({
       })
       if (res.error) { setError(res.error); return }
       setDone(true)
+
+      // Sign them in with the just-set credentials and drop them on their
+      // schedule. If the silent sign-in fails for any reason, the success
+      // screen stays up with a manual "Go to sign-in" fallback link.
+      if (res.signInEmail) {
+        const supabase = createClient()
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email:    res.signInEmail,
+          password,
+        })
+        if (!signInErr) {
+          router.push('/my/schedule')
+          router.refresh()
+        }
+      }
     })
   }
 
@@ -101,8 +119,10 @@ export default function EnrollmentForm({
         <div className="text-2xl">✓</div>
         <h2 className="text-lg font-bold text-[#191c1e]">Thank you — you're all set</h2>
         <p className="text-sm text-[#444650]">
-          Your {templateKind === 'waiver' ? 'waiver' : 'boarding agreement'} has been recorded and your account has been created.
-          The barn will be in touch with next steps. You can close this window.
+          Your {templateKind === 'waiver' ? 'waiver' : 'boarding agreement'} has been recorded and your account has been created. Signing you in…
+        </p>
+        <p className="text-xs text-[#444650]">
+          If you aren't redirected, <a href="/sign-in" className="text-[#056380] font-semibold">go to sign-in</a>.
         </p>
       </div>
     )

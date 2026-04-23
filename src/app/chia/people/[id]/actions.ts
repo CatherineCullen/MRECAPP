@@ -8,6 +8,7 @@ import { createAndSendInvoice } from '@/lib/stripe/invoice'
 import { getCurrentUser } from '@/lib/auth'
 import { sendEmail } from '@/lib/email'
 import { getAppOrigin } from '@/lib/appUrl'
+import { renderTemplate, wrapEmailBody } from '@/lib/renderTemplate'
 
 const TOKEN_TTL_DAYS = 30
 
@@ -204,22 +205,27 @@ export async function sendInviteToExistingPerson(
   const enrollLink = `${origin}/enroll/${token}`
 
   if (person.email) {
-    sendEmail({
-      to:      person.email,
-      subject: 'Enrollment invitation — Marlboro Ridge Equestrian Center',
-      html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-        <p>Hi ${person.first_name},</p>
-        <p>You've been invited to enroll at <strong>Marlboro Ridge Equestrian Center</strong>.
-        Please click the button below to complete your enrollment and sign your waiver.</p>
-        <p style="margin:32px 0">
-          <a href="${enrollLink}" style="background:#0f3460;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">
-            Complete Enrollment
-          </a>
-        </p>
-        <p style="color:#666;font-size:14px">This link expires in 30 days.</p>
-        <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
-      </div>`,
-    }).catch(e => console.error('[sendInviteToExistingPerson] email failed', personId, e))
+    // Pull subject/body from the editable notification_template row so
+    // admin can tweak invite copy at /chia/settings/notifications/templates
+    // without a deploy. Respect the email toggle in notification_config —
+    // but NOT the per-user preference table (invitee has no prefs yet).
+    const [{ data: config }, { data: tmpl }] = await Promise.all([
+      db.from('notification_config').select('email_enabled').eq('notification_type', 'enrollment_invite').maybeSingle(),
+      db.from('notification_template').select('subject, body').eq('notification_type', 'enrollment_invite').eq('channel', 'email').maybeSingle(),
+    ])
+
+    if (config?.email_enabled && tmpl) {
+      const vars = {
+        first_name:    person.first_name ?? 'there',
+        enroll_link:   enrollLink,
+        expires_days:  String(TOKEN_TTL_DAYS),
+      }
+      sendEmail({
+        to:      person.email,
+        subject: renderTemplate(tmpl.subject ?? 'Enrollment invitation', vars),
+        html:    wrapEmailBody(renderTemplate(tmpl.body, vars)),
+      }).catch(e => console.error('[sendInviteToExistingPerson] email failed', personId, e))
+    }
   }
 
   revalidatePath(`/chia/people/${personId}`)

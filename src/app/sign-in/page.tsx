@@ -84,6 +84,10 @@ export default function SignInPage() {
             >
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
+
+            <p className="text-xs text-[#444650] text-center pt-1">
+              <a href="/forgot-password" className="font-semibold text-[#056380]">Forgot password?</a>
+            </p>
           </form>
         </div>
       </div>
