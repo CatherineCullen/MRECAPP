@@ -9,8 +9,20 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "CHIA",
-  description: "Marlboro Ridge Equestrian Center — Barn Management",
+  // Root metadata is rider-facing by default. The /chia/* admin layout
+  // overrides `title` so those tabs read "CHIA" — useful when an admin has
+  // both rider-side and admin-side tabs open at once.
+  title: {
+    default: "Marlboro Ridge Equestrian Center",
+    template: "%s — Marlboro Ridge Equestrian Center",
+  },
+  description: "Marlboro Ridge Equestrian Center — lessons, boarding, and training.",
+  openGraph: {
+    title:       "Marlboro Ridge Equestrian Center",
+    description: "Marlboro Ridge Equestrian Center — lessons, boarding, and training.",
+    siteName:    "Marlboro Ridge Equestrian Center",
+    type:        "website",
+  },
 };
 
 export default function RootLayout({

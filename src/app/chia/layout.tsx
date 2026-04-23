@@ -1,7 +1,17 @@
+import type { Metadata } from 'next'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import ChiaSidebar from './_components/ChiaSidebar'
 import ChiaTopBar from './_components/ChiaTopBar'
+
+// Admin-side branding: tabs read "CHIA" so admins can distinguish them from
+// rider-facing tabs ("Marlboro Ridge Equestrian Center") when both are open.
+export const metadata: Metadata = {
+  title: {
+    default:  'CHIA',
+    template: '%s — CHIA',
+  },
+}
 
 export default async function ChiaLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
