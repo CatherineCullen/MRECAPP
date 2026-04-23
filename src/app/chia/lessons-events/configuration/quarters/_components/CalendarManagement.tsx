@@ -159,6 +159,28 @@ function QuarterPanel({ quarter }: { quarter: Quarter }) {
   const makeupDays = quarter.days.filter(d => d.is_makeup_day).length
   const regularDays = quarter.days.length - closedDays
 
+  // Open occurrences per day-of-week. A standard lesson subscription generates
+  // 12 occurrences per weekly slot over the quarter, so <12 opens for any
+  // weekday means a subscription on that day will short-bill (red signal).
+  // Closed days don't count; makeup days do (they're open lesson days).
+  const openByDow = [0, 0, 0, 0, 0, 0, 0] // Sun..Sat
+  for (const d of quarter.days) {
+    if (d.barn_closed) continue
+    const [y, m, day] = d.date.split('-').map(Number)
+    const dow = new Date(y, m - 1, day).getDay()
+    openByDow[dow]++
+  }
+  // Display Mon..Sun to match how the barn thinks about the week.
+  const dowDisplay: Array<{ label: string; count: number }> = [
+    { label: 'Mon', count: openByDow[1] },
+    { label: 'Tue', count: openByDow[2] },
+    { label: 'Wed', count: openByDow[3] },
+    { label: 'Thu', count: openByDow[4] },
+    { label: 'Fri', count: openByDow[5] },
+    { label: 'Sat', count: openByDow[6] },
+    { label: 'Sun', count: openByDow[0] },
+  ]
+
   function handleSetActive() {
     startTransition(() => setQuarterActive(quarter.id))
   }
@@ -201,6 +223,29 @@ function QuarterPanel({ quarter }: { quarter: Quarter }) {
       {/* Day list */}
       {open && (
         <div className="border-t border-[#c4c6d1]/30">
+          {/* Open-occurrences-per-weekday counter. 12 is the target for a
+              standard subscription quarter; <12 shows red as a warning. */}
+          <div className="flex items-center gap-4 px-3 py-2 bg-white border-b border-[#c4c6d1]/30">
+            <span className="text-[10px] font-semibold text-[#444650] uppercase tracking-wide">
+              Open occurrences
+            </span>
+            <div className="flex gap-3">
+              {dowDisplay.map(d => (
+                <div key={d.label} className="flex items-baseline gap-1">
+                  <span className="text-[10px] font-semibold text-[#444650] uppercase tracking-wide">
+                    {d.label}
+                  </span>
+                  <span
+                    className={`text-xs font-bold tabular-nums ${
+                      d.count < 12 ? 'text-red-600' : 'text-[#191c1e]'
+                    }`}
+                  >
+                    {d.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
           {/* Column headers */}
           <div className="flex text-[10px] font-semibold text-[#444650] uppercase tracking-wide px-3 py-1.5 bg-[#f7f9fc] border-b border-[#c4c6d1]/30">
             <span className="w-36">Date</span>
