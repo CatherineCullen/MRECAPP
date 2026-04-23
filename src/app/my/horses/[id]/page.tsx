@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import HorseHeaderCard from './_components/HorseHeaderCard'
+import UploadHorseRecordsCard from './_components/UploadHorseRecordsCard'
 import CogginsCard from './_components/CogginsCard'
 import MyCarePlansSection from './_components/MyCarePlansSection'
 import MyHealthItemsSection from './_components/MyHealthItemsSection'
@@ -175,6 +176,8 @@ export default async function MyHorsePage({ params }: { params: Promise<{ id: st
       <a href="/my/horses" className="text-xs font-semibold text-on-secondary-container">← All horses</a>
 
       <HorseHeaderCard horse={horse} recordingIds={recordingIds} role={connection?.role ?? null} />
+
+      <UploadHorseRecordsCard horseId={id} />
 
       <CogginsCard horseId={id} coggins={latestCoggins} />
 

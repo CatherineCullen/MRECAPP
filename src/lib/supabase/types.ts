@@ -804,9 +804,12 @@ export type Database = {
           id: string
           notes: string | null
           person_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           signature_png_path: string | null
           signed_at: string | null
           signed_by_person_id: string | null
+          submitted_by_owner: boolean
           template_version_id: string | null
           updated_at: string
           uploaded_at: string
@@ -824,9 +827,12 @@ export type Database = {
           id?: string
           notes?: string | null
           person_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signature_png_path?: string | null
           signed_at?: string | null
           signed_by_person_id?: string | null
+          submitted_by_owner?: boolean
           template_version_id?: string | null
           updated_at?: string
           uploaded_at: string
@@ -844,9 +850,12 @@ export type Database = {
           id?: string
           notes?: string | null
           person_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signature_png_path?: string | null
           signed_at?: string | null
           signed_by_person_id?: string | null
+          submitted_by_owner?: boolean
           template_version_id?: string | null
           updated_at?: string
           uploaded_at?: string
@@ -870,6 +879,13 @@ export type Database = {
           {
             foreignKeyName: "document_person_id_fkey"
             columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["id"]
