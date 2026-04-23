@@ -182,6 +182,7 @@ export default function TemplateEditor({ initialTemplates }: { initialTemplates:
   const grouped = groupTemplates(templates)
 
   const order: NotificationType[] = [
+    'enrollment_invite',
     'lesson_reminder', 'lesson_cancellation', 'invoice',
     'makeup_token', 'lesson_confirmation', 'lesson_type_change',
     'health_alert', 'renewal_notice',
