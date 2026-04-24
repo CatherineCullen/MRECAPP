@@ -2,7 +2,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
 import { loadTrainingRidesPageData } from '@/lib/trainingRideLogging'
 import TrainingRidesClient from '@/app/my/training-rides/_components/TrainingRidesClient'
-import { logRideByToken, unlogRideByToken, addLoggedRideByToken } from './actions'
+import {
+  logRideByToken,
+  unlogRideByToken,
+  addLoggedRideByToken,
+  scheduleRideByToken,
+  unscheduleRideByToken,
+} from './actions'
 
 export const metadata = { title: 'Training Rides — Marlboro Ridge Equestrian Center' }
 
@@ -72,9 +78,11 @@ export default async function TrainingRideScanPage({
           basePath={`/tr/${token}`}
           providerName={providerName}
           actions={{
-            logRide:       logRideByToken.bind(null, token),
-            unlogRide:     unlogRideByToken.bind(null, token),
-            addLoggedRide: addLoggedRideByToken.bind(null, token),
+            logRide:        logRideByToken.bind(null, token),
+            unlogRide:      unlogRideByToken.bind(null, token),
+            addLoggedRide:  addLoggedRideByToken.bind(null, token),
+            scheduleRide:   scheduleRideByToken.bind(null, token),
+            unscheduleRide: unscheduleRideByToken.bind(null, token),
           }}
         />
       </main>
