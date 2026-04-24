@@ -13,7 +13,7 @@ import { headers } from 'next/headers'
  */
 export async function getAppOrigin(): Promise<string> {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL
-  if (envUrl) return envUrl.replace(/\/+$/, '')
+  if (envUrl) return envUrl.trim().replace(/\/+$/, '')
 
   const h = await headers()
   const host  = h.get('x-forwarded-host') ?? h.get('host')
