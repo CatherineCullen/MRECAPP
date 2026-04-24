@@ -48,19 +48,68 @@ export async function updatePerson(personId: string, formData: FormData) {
 
   if (error) throw error
 
-  // Sync roles: soft-delete all active, then upsert new set
-  const newRoles = formData.getAll('roles') as string[]
+  // Sync roles by diff, not by blow-it-away-and-rebuild.
+  //
+  // The naïve "soft-delete all active, re-insert desired" approach churned a
+  // person's role rows on every edit — even edits that didn't touch roles.
+  // That left a growing trail of soft-deleted duplicates behind, which then
+  // leaked into any query that forgot to filter `deleted_at IS NULL` (e.g.
+  // the provider QR picker: see chia/boarding/qr-codes/page.tsx).
+  //
+  // Now: compute current active roles, desired roles, and only touch the
+  // diff. Roles to remove → soft-delete. Roles to add → if there's a
+  // pre-existing soft-deleted row for that (person, role) pair, resurrect
+  // it (clear deleted_at); otherwise insert fresh. Unchanged roles are
+  // left untouched — no churn, no new rows, no duplicate-key warnings.
+  const desired = new Set(formData.getAll('roles') as string[])
 
-  await supabase
+  const { data: existingRoles } = await supabase
     .from('person_role')
-    .update({ deleted_at: new Date().toISOString() })
+    .select('id, role, deleted_at')
     .eq('person_id', personId)
-    .is('deleted_at', null)
 
-  if (newRoles.length > 0) {
+  const active  = new Map<string, string>() // role -> id
+  const deleted = new Map<string, string>() // role -> id (most recent)
+  for (const r of existingRoles ?? []) {
+    if (r.deleted_at === null) {
+      active.set(r.role, r.id)
+    } else {
+      deleted.set(r.role, r.id)
+    }
+  }
+
+  const nowIso = new Date().toISOString()
+
+  // Remove: roles that are active but not desired.
+  const toRemove = [...active.entries()]
+    .filter(([role]) => !desired.has(role))
+    .map(([, id]) => id)
+  if (toRemove.length > 0) {
     await supabase
       .from('person_role')
-      .insert(newRoles.map(role => ({ person_id: personId, role: role as any })))
+      .update({ deleted_at: nowIso })
+      .in('id', toRemove)
+  }
+
+  // Add: desired roles that aren't currently active.
+  const toResurrect: string[] = []
+  const toInsert:    string[] = []
+  for (const role of desired) {
+    if (active.has(role)) continue
+    const resurrectId = deleted.get(role)
+    if (resurrectId) toResurrect.push(resurrectId)
+    else             toInsert.push(role)
+  }
+  if (toResurrect.length > 0) {
+    await supabase
+      .from('person_role')
+      .update({ deleted_at: null, assigned_at: nowIso })
+      .in('id', toResurrect)
+  }
+  if (toInsert.length > 0) {
+    await supabase
+      .from('person_role')
+      .insert(toInsert.map(role => ({ person_id: personId, role: role as any })))
   }
 
   redirect(`/chia/people/${personId}`)

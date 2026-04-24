@@ -37,13 +37,18 @@ export default async function QrCodesPage() {
       `)
       .order('is_active', { ascending: false })
       .order('created_at'),
-    // Everyone with the service_provider role — candidate list for new codes
+    // Everyone with the service_provider role — candidate list for new codes.
+    // Filter deleted_at on person_role (soft-delete leaves the row) and also
+    // dedupe by person.id client-side — the partial unique index allows one
+    // deleted row + one active row per person, which would otherwise produce
+    // duplicate <option> entries and a React duplicate-key warning.
     supabase
       .from('person_role')
       .select(`
-        person:person!person_role_person_id_fkey ( id, first_name, last_name, preferred_name )
+        person:person!person_role_person_id_fkey ( id, first_name, last_name, preferred_name, deleted_at )
       `)
-      .eq('role', 'service_provider'),
+      .eq('role', 'service_provider')
+      .is('deleted_at', null),
     supabase
       .from('training_ride_provider_qr')
       .select(`
@@ -82,10 +87,17 @@ export default async function QrCodesPage() {
     canToggle: true,
   }))
 
-  const providers: PersonOption[] = (providerRoles ?? [])
-    .map(r => r.person)
-    .filter((p): p is NonNullable<typeof p> => !!p)
-    .map(p => ({ id: p.id, name: displayName(p) }))
+  // Dedupe by person.id — defense in depth against a duplicate role grant
+  // sneaking through. Also drops soft-deleted people (deleted_at not null).
+  const providerMap = new Map<string, PersonOption>()
+  for (const r of providerRoles ?? []) {
+    const p = r.person
+    if (!p || p.deleted_at) continue
+    if (!providerMap.has(p.id)) {
+      providerMap.set(p.id, { id: p.id, name: displayName(p) })
+    }
+  }
+  const providers: PersonOption[] = Array.from(providerMap.values())
     .sort((a, b) => a.name.localeCompare(b.name))
 
   const serviceOptions: ServiceOption[] = (services ?? [])
