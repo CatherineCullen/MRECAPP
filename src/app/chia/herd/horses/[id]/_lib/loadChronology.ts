@@ -83,7 +83,7 @@ export async function loadHorseChronology(
     supabase
       .from('training_ride')
       .select(`
-        id, ride_date, status, logged_at,
+        id, ride_date, status, logged_at, notes,
         provider:rider_id ( first_name, last_name, preferred_name, is_organization, organization_name )
       `)
       .eq('horse_id', horseId)
@@ -158,7 +158,11 @@ export async function loadHorseChronology(
       dateKey:  r.ride_date,
       hasTime:  false,
       title:    `Training ride — ${provider}`,
-      subtitle: null,
+      // Surface the provider's notes — this is where the signal lives for
+      // owners/staff scanning chronology ("tight through back right,"
+      // "off on left lead," etc.). Board service logs already use the
+      // subtitle for their notes, so this is consistent.
+      subtitle: r.notes || null,
       status:   isLogged ? 'Logged' : 'Scheduled',
       tone:     isLogged ? 'success' : 'info',
     })

@@ -170,7 +170,7 @@ export default async function MySchedulePage() {
       <div className="pt-2 space-y-2">
         <p className="text-xs text-on-surface-muted">
           Questions about your schedule?{' '}
-          <a href="mailto:marlbororidgeec@gmail.com" className="text-on-secondary-container font-semibold">
+          <a href="mailto:marlbororidgeequestriancenter@gmail.com" className="text-on-secondary-container font-semibold">
             Contact the barn
           </a>
         </p>

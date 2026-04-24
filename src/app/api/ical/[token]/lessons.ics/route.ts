@@ -105,16 +105,21 @@ export async function GET(
     .is('deleted_at', null)
   const myHorseIds = (horseLinks ?? []).map(h => h.horse_id)
 
+  // Include both scheduled and logged rides. Logged rides often carry the
+  // most useful signal (the provider's notes on how the horse went) and
+  // belong on the owner's calendar as completed past events with notes in
+  // the description — same UID as the scheduled version, so a scheduled
+  // ride that gets logged cleanly transitions to the logged form in-place.
   const { data: rides } = myHorseIds.length > 0
     ? await db
         .from('training_ride')
         .select(`
-          id, ride_date, notes,
+          id, ride_date, status, notes,
           horse:horse!horse_id (barn_name),
           provider:person!rider_id (first_name, preferred_name, is_organization, organization_name)
         `)
         .in('horse_id', myHorseIds)
-        .eq('status', 'scheduled')
+        .in('status', ['scheduled', 'logged'])
         .is('deleted_at', null)
         .gte('ride_date', cutoffDate)
     : { data: [] }
