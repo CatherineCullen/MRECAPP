@@ -198,13 +198,13 @@ export default async function PersonPage({
 
         {/* Admin-only fields — hidden for organizations, and when every field is empty */}
         {!person.is_organization && (
-          person.riding_level || person.weight_category || person.height || person.usef_id || person.provider_type || person.notes
+          person.riding_level || person.weight_category || person.height || person.usef_id || person.notes
         ) && (
           <section className="bg-white rounded-lg overflow-hidden">
             <div className="px-4 py-2.5 bg-[#f2f4f7]">
               <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">Admin Notes</h2>
             </div>
-            {(person.riding_level || person.weight_category || person.height || person.usef_id || person.provider_type) && (
+            {(person.riding_level || person.weight_category || person.height || person.usef_id) && (
               <div className="px-4 py-3 grid grid-cols-3 gap-x-6 gap-y-2 text-sm">
                 {person.riding_level && (
                   <div>
@@ -228,12 +228,6 @@ export default async function PersonPage({
                   <div>
                     <div className="text-[10px] font-semibold text-[#444650] uppercase tracking-wider">USEF ID</div>
                     <div className="text-[#191c1e]">{person.usef_id}</div>
-                  </div>
-                )}
-                {person.provider_type && (
-                  <div>
-                    <div className="text-[10px] font-semibold text-[#444650] uppercase tracking-wider">Provider Type</div>
-                    <div className="text-[#191c1e]">{person.provider_type}</div>
                   </div>
                 )}
               </div>

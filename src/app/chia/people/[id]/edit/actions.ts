@@ -35,7 +35,6 @@ export async function updatePerson(personId: string, formData: FormData) {
       guardian_id:              isMinor ? ((formData.get('guardian_id') as string | null) || null) : null,
       is_organization:          isOrg,
       organization_name:        isOrg ? (formData.get('organization_name') as string).trim() : null,
-      provider_type:            (formData.get('provider_type') as string | null)?.trim() || null,
       is_training_ride_provider: formData.get('is_training_ride_provider') === 'on',
       riding_level:             ((formData.get('riding_level') as string | null) || null) as any,
       weight_category:          ((formData.get('weight_category') as string | null) || null) as any,

@@ -25,7 +25,6 @@ type PersonData = {
   guardian_id?:              string | null
   is_organization?:          boolean
   organization_name?:        string | null
-  provider_type?:            string | null
   is_training_ride_provider?: boolean
   riding_level?:             string | null
   weight_category?:          string | null
@@ -325,15 +324,6 @@ export default function PersonForm({
               <input
                 name="usef_id"
                 defaultValue={person?.usef_id ?? ''}
-                className="w-full border border-[#c4c6d1] rounded px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:border-[#056380]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-[#444650] mb-1">Provider Type</label>
-              <input
-                name="provider_type"
-                placeholder="e.g. Farrier, Vet"
-                defaultValue={person?.provider_type ?? ''}
                 className="w-full border border-[#c4c6d1] rounded px-3 py-2 text-sm text-[#191c1e] focus:outline-none focus:border-[#056380]"
               />
             </div>
