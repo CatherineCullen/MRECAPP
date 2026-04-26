@@ -137,36 +137,49 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
       .in('id', activeRiders.map(r => r.id))
   }
 
-  // Token generation
+  // Token generation. Riders without a subscription (legacy / migration-era
+  // lessons) still get tokens — quarter_id is derived from the lesson's
+  // scheduled_at and subscription_id is left null.
   if (args.grantTokens && activeRiders.length > 0) {
-    // Need the quarter end date to stamp official_expires_at
-    const quarterIds = Array.from(new Set(activeRiders.map(r => r.subscription?.quarter_id).filter(Boolean) as string[]))
-    const { data: quarters } = await supabase
-      .from('quarter')
-      .select('id, end_date')
-      .in('id', quarterIds)
+    const fallbackQuarterId = await quarterIdForScheduledAt(supabase, lesson.scheduled_at)
+
+    const quarterIds = Array.from(new Set([
+      ...activeRiders.map(r => r.subscription?.quarter_id).filter(Boolean) as string[],
+      ...(fallbackQuarterId ? [fallbackQuarterId] : []),
+    ]))
+    const { data: quarters } = quarterIds.length > 0
+      ? await supabase.from('quarter').select('id, end_date').in('id', quarterIds)
+      : { data: [] }
     const qEnd = new Map((quarters ?? []).map(q => [q.id, q.end_date]))
 
     const reason: 'barn_cancel' | 'rider_cancel' =
       args.cancelledBy === 'barn' ? 'barn_cancel' : 'rider_cancel'
 
     const tokenRows = activeRiders
-      .filter(r => r.subscription_id && r.subscription?.quarter_id)
-      .map(r => ({
-        rider_id:            r.rider_id,
-        subscription_id:     r.subscription_id,
-        original_lesson_id:  args.lessonId,
-        reason,
-        quarter_id:          r.subscription!.quarter_id,
-        official_expires_at: qEnd.get(r.subscription!.quarter_id)!,
-        status:              'available' as const,
-        created_by:          user?.personId ?? null,
-      }))
+      .map(r => {
+        const quarter_id = r.subscription?.quarter_id ?? fallbackQuarterId
+        if (!quarter_id) return null
+        const expires = qEnd.get(quarter_id)
+        if (!expires) return null
+        return {
+          rider_id:            r.rider_id,
+          subscription_id:     r.subscription_id,
+          original_lesson_id:  args.lessonId,
+          reason,
+          quarter_id,
+          official_expires_at: expires,
+          status:              'available' as const,
+          created_by:          user?.personId ?? null,
+        }
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
 
-    if (tokenRows.length > 0) {
-      const { error: tokenErr } = await supabase.from('makeup_token').insert(tokenRows)
-      if (tokenErr) return { error: `Lesson cancelled but token creation failed: ${tokenErr.message}` }
+    if (tokenRows.length === 0) {
+      return { error: `Lesson cancelled but no token could be created — couldn't determine the quarter for ${lesson.scheduled_at.slice(0, 10)}.` }
     }
+
+    const { error: tokenErr } = await supabase.from('makeup_token').insert(tokenRows)
+    if (tokenErr) return { error: `Lesson cancelled but token creation failed: ${tokenErr.message}` }
   }
 
   // Notify cancelled riders — fire-and-forget, don't block the action
@@ -563,27 +576,42 @@ export async function cancelRider(args: {
       .eq('id', args.lessonId)
   }
 
-  // Grant token if requested (same rules as cancelLesson — caller decides)
-  if (args.grantToken && target.subscription_id && target.subscription?.quarter_id) {
+  // Grant token if requested. Riders without a subscription (legacy / migration-
+  // era lessons) still get tokens — quarter_id is derived from the lesson's
+  // scheduled_at and subscription_id is left null.
+  if (args.grantToken) {
+    const quarter_id =
+      target.subscription?.quarter_id
+      ?? await quarterIdForScheduledAt(supabase, lesson.scheduled_at)
+
+    if (!quarter_id) {
+      return { error: `Rider cancelled but no token could be created — couldn't determine the quarter for ${lesson.scheduled_at.slice(0, 10)}.` }
+    }
+
     const { data: q } = await supabase
       .from('quarter')
       .select('end_date')
-      .eq('id', target.subscription.quarter_id)
+      .eq('id', quarter_id)
       .maybeSingle()
-    if (q?.end_date) {
-      const reason: 'barn_cancel' | 'rider_cancel' =
-        args.cancelledBy === 'barn' ? 'barn_cancel' : 'rider_cancel'
-      await supabase.from('makeup_token').insert({
-        rider_id:            target.rider_id,
-        subscription_id:     target.subscription_id,
-        original_lesson_id:  args.lessonId,
-        reason,
-        quarter_id:          target.subscription.quarter_id,
-        official_expires_at: q.end_date,
-        status:              'available',
-        created_by:          user?.personId ?? null,
-      })
+
+    if (!q?.end_date) {
+      return { error: `Rider cancelled but no token could be created — quarter end date missing.` }
     }
+
+    const reason: 'barn_cancel' | 'rider_cancel' =
+      args.cancelledBy === 'barn' ? 'barn_cancel' : 'rider_cancel'
+
+    const { error: tokenErr } = await supabase.from('makeup_token').insert({
+      rider_id:            target.rider_id,
+      subscription_id:     target.subscription_id,
+      original_lesson_id:  args.lessonId,
+      reason,
+      quarter_id,
+      official_expires_at: q.end_date,
+      status:              'available',
+      created_by:          user?.personId ?? null,
+    })
+    if (tokenErr) return { error: `Rider cancelled but token creation failed: ${tokenErr.message}` }
   }
 
   // Notify the cancelled rider — fire-and-forget

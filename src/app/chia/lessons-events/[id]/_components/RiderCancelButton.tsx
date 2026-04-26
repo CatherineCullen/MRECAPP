@@ -9,7 +9,6 @@ type Props = {
   lessonRiderId: string
   scheduledAt:   string
   hasBoarder:    boolean        // is this rider on a boarder subscription?
-  hasSubscription: boolean      // only subs back tokens; one-off riders can't get one
   /** Rider-cancel tokens already issued to this rider this quarter. Used
    *  to surface a soft warning at count >= 2 (standard-sub allowance is 2).
    *  Upstream passes 0 for boarders so they never see the warning. */
@@ -22,7 +21,7 @@ type Props = {
  * instead — they wrap the same effect with cleaner copy.
  */
 export default function RiderCancelButton({
-  lessonId, lessonRiderId, scheduledAt, hasBoarder, hasSubscription, riderCancelAllowanceUsed = 0,
+  lessonId, lessonRiderId, scheduledAt, hasBoarder, riderCancelAllowanceUsed = 0,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -35,9 +34,9 @@ export default function RiderCancelButton({
     const hoursUntil = (new Date(scheduledAt).getTime() - Date.now()) / (1000 * 60 * 60)
     if (which === 'rider') {
       // Mirror the whole-lesson rule: token if ≥24h out, boarders always
-      setGrantToken(hasSubscription && (hasBoarder || hoursUntil >= 24))
+      setGrantToken(hasBoarder || hoursUntil >= 24)
     } else {
-      setGrantToken(hasSubscription)
+      setGrantToken(true)
     }
     setReason('')
     setMode(which)
@@ -52,7 +51,7 @@ export default function RiderCancelButton({
         lessonRiderId,
         cancelledBy: mode === 'barn' ? 'barn' : 'rider',
         reason,
-        grantToken:  grantToken && hasSubscription,
+        grantToken,
       })
       if (r?.error) setError(r.error)
       else {
@@ -135,21 +134,15 @@ export default function RiderCancelButton({
         placeholder="reason"
         className="text-[10px] border border-[#c4c6d1] rounded px-1 py-0.5 w-24 focus:outline-none focus:border-[#002058]"
       />
-      {hasSubscription ? (
-        <label className="flex items-center gap-1 text-[10px] text-[#191c1e] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={grantToken}
-            onChange={e => setGrantToken(e.target.checked)}
-            className="accent-[#002058]"
-          />
-          token
-        </label>
-      ) : (
-        <span className="text-[10px] text-[#c4c6d1]" title="Only subscription riders can receive tokens">
-          no token
-        </span>
-      )}
+      <label className="flex items-center gap-1 text-[10px] text-[#191c1e] cursor-pointer">
+        <input
+          type="checkbox"
+          checked={grantToken}
+          onChange={e => setGrantToken(e.target.checked)}
+          className="accent-[#002058]"
+        />
+        token
+      </label>
       <button
         type="button"
         onClick={submit}

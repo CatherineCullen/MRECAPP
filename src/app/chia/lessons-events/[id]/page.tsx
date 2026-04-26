@@ -341,7 +341,6 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
                           lessonRiderId={r.id}
                           scheduledAt={lesson.scheduled_at}
                           hasBoarder={r.subscription?.subscription_type === 'boarder'}
-                          hasSubscription={!!r.subscription?.id}
                           riderCancelAllowanceUsed={
                             r.subscription?.subscription_type === 'standard' && r.subscription?.quarter_id && r.rider?.id
                               ? (riderCancelCount.get(allowanceKey(r.rider.id, r.subscription.quarter_id as string)) ?? 0)

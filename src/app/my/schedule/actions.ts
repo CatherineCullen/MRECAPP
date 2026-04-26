@@ -61,6 +61,11 @@ export async function cancelMyLesson(
     // Boarders get unlimited tokens — no allowance check
     outcome    = 'cancelled_with_token'
     grantToken = true
+  } else if (!lr.subscription_id) {
+    // Migration-era / unlinked lesson: no subscription means no allowance
+    // count to enforce. Grant a token unconditionally if in-window.
+    outcome    = 'cancelled_with_token'
+    grantToken = true
   } else {
     // Standard riders: 2 cancellations per quarter that count against allowance
     let cancelCount = 0
@@ -138,25 +143,42 @@ export async function cancelMyLesson(
       .eq('id', lesson.id)
   }
 
-  // Grant makeup token if applicable
-  if (grantToken && lr.subscription_id && sub?.quarter_id) {
-    const { data: q } = await db
-      .from('quarter')
-      .select('end_date')
-      .eq('id', sub.quarter_id)
-      .maybeSingle()
+  // Grant makeup token if applicable. Riders without a subscription (legacy /
+  // migration-era lessons) still get tokens — quarter_id is derived from the
+  // lesson's scheduled_at and subscription_id is left null.
+  if (grantToken) {
+    let quarterId = sub?.quarter_id ?? null
+    if (!quarterId) {
+      const date = lesson.scheduled_at.slice(0, 10)
+      const { data: qRow } = await db
+        .from('quarter')
+        .select('id')
+        .lte('start_date', date)
+        .gte('end_date', date)
+        .is('deleted_at', null)
+        .maybeSingle()
+      quarterId = qRow?.id ?? null
+    }
 
-    if (q?.end_date) {
-      await db.from('makeup_token').insert({
-        rider_id:            user.personId,
-        subscription_id:     lr.subscription_id,
-        original_lesson_id:  lesson.id,
-        reason:              'rider_cancel',
-        quarter_id:          sub.quarter_id,
-        official_expires_at: q.end_date,
-        status:              'available',
-        created_by:          user.personId,
-      })
+    if (quarterId) {
+      const { data: q } = await db
+        .from('quarter')
+        .select('end_date')
+        .eq('id', quarterId)
+        .maybeSingle()
+
+      if (q?.end_date) {
+        await db.from('makeup_token').insert({
+          rider_id:            user.personId,
+          subscription_id:     lr.subscription_id,
+          original_lesson_id:  lesson.id,
+          reason:              'rider_cancel',
+          quarter_id:          quarterId,
+          official_expires_at: q.end_date,
+          status:              'available',
+          created_by:          user.personId,
+        })
+      }
     }
   }
 
