@@ -7,6 +7,7 @@ export default function MyNav({
   firstName,
   hasHorses,
   hasInvoices,
+  showSignUps,
   isAdmin,
   isInstructor,
   canLogServices,
@@ -15,6 +16,7 @@ export default function MyNav({
   firstName: string
   hasHorses: boolean
   hasInvoices: boolean
+  showSignUps: boolean
   isAdmin: boolean
   isInstructor: boolean
   canLogServices: boolean
@@ -26,6 +28,7 @@ export default function MyNav({
     ...(isInstructor ? [{ label: 'Teaching', href: '/my/teaching' }] : []),
     { label: 'Schedule',  href: '/my/schedule'  },
     ...(hasHorses   ? [{ label: 'Horses',   href: '/my/horses'   }] : []),
+    ...(showSignUps ? [{ label: 'Sign-Ups', href: '/my/sign-ups' }] : []),
     ...(canLogTrainingRides ? [{ label: 'Training', href: '/my/training-rides' }] : []),
     ...(canLogServices ? [{ label: 'Services', href: '/my/services' }] : []),
     ...(hasInvoices ? [{ label: 'Invoices', href: '/my/invoices' }] : []),

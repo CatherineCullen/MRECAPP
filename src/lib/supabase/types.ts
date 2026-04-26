@@ -3144,6 +3144,134 @@ export type Database = {
           },
         ]
       }
+      sign_up_sheet: {
+        Row: {
+          created_at: string
+          created_by_id: string | null
+          date: string
+          deleted_at: string | null
+          description: string | null
+          id: string
+          mode: string
+          provider_person_id: string
+          service_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_id?: string | null
+          date: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          mode: string
+          provider_person_id: string
+          service_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_id?: string | null
+          date?: string
+          deleted_at?: string | null
+          description?: string | null
+          id?: string
+          mode?: string
+          provider_person_id?: string
+          service_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sign_up_sheet_created_by_id_fkey"
+            columns: ["created_by_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sign_up_sheet_provider_person_id_fkey"
+            columns: ["provider_person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sign_up_sheet_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "board_service"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sign_up_sheet_slot: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          horse_id: string | null
+          id: string
+          notes: string | null
+          position: number
+          sheet_id: string
+          signed_up_at: string | null
+          signed_up_by_id: string | null
+          start_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          horse_id?: string | null
+          id?: string
+          notes?: string | null
+          position: number
+          sheet_id: string
+          signed_up_at?: string | null
+          signed_up_by_id?: string | null
+          start_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          horse_id?: string | null
+          id?: string
+          notes?: string | null
+          position?: number
+          sheet_id?: string
+          signed_up_at?: string | null
+          signed_up_by_id?: string | null
+          start_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sign_up_sheet_slot_horse_id_fkey"
+            columns: ["horse_id"]
+            isOneToOne: false
+            referencedRelation: "horse"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sign_up_sheet_slot_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "sign_up_sheet"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sign_up_sheet_slot_signed_up_by_id_fkey"
+            columns: ["signed_up_by_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_ride: {
         Row: {
           billing_line_item_id: string | null

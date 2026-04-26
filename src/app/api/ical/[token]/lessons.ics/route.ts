@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { renderIcal, type IcalEvent } from '@/lib/ical'
 import { getRiderScope } from '@/app/my/_lib/riderScope'
+import { displayName } from '@/lib/displayName'
 
 export const dynamic = 'force-dynamic'
 
@@ -124,6 +125,25 @@ export async function GET(
         .gte('ride_date', cutoffDate)
     : { data: [] }
 
+  // Sign-up slots claimed for any of the rider's horses. Timed slots become
+  // real time events (TZID=America/New_York); ordered slots become all-day
+  // events. UID is the slot id so a slot moved or released cleanly updates.
+  const { data: signUpSlots } = myHorseIds.length > 0
+    ? await db
+        .from('sign_up_sheet_slot')
+        .select(`
+          id, start_time, duration_minutes, notes,
+          horse:horse!horse_id (barn_name),
+          sheet:sign_up_sheet!sheet_id (
+            id, title, date, mode, deleted_at,
+            provider:person!sign_up_sheet_provider_person_id_fkey ( first_name, last_name, preferred_name, is_organization, organization_name ),
+            service:board_service!sign_up_sheet_service_id_fkey ( name )
+          )
+        `)
+        .in('horse_id', myHorseIds)
+        .gte('sheet.date', cutoffDate)
+    : { data: [] }
+
   const events: IcalEvent[] = []
 
   for (const lr of liveLessons) {
@@ -177,6 +197,48 @@ export async function GET(
       description: `Provider: ${providerName}${r.notes ? `\n\nNotes: ${r.notes}` : ''}\n\nTo reschedule, log in to https://www.mrecapp.com.`,
       location:    'Marlboro Ridge Equestrian Center',
     })
+  }
+
+  for (const row of (signUpSlots ?? []) as any[]) {
+    const sheet = Array.isArray(row.sheet) ? row.sheet[0] : row.sheet
+    if (!sheet || sheet.deleted_at) continue
+    const horse = Array.isArray(row.horse) ? row.horse[0] : row.horse
+    const provider = Array.isArray(sheet.provider) ? sheet.provider[0] : sheet.provider
+    const service  = Array.isArray(sheet.service)  ? sheet.service[0]  : sheet.service
+    const horseName    = horse?.barn_name ?? 'Horse'
+    const providerName = displayName(provider)
+    const serviceName  = service?.name ?? null
+    const summary = `${sheet.title} — ${horseName}`
+    const description =
+      `Provider: ${providerName}` +
+      (serviceName ? `\nService: ${serviceName}` : '') +
+      (row.notes ? `\nNotes: ${row.notes}` : '') +
+      `\n\nManage at https://www.mrecapp.com/my/sign-ups/${sheet.id}`
+
+    if (sheet.mode === 'timed' && row.start_time && row.duration_minutes) {
+      const startLocal = `${sheet.date}T${row.start_time.slice(0, 8)}`
+      const endLocal   = addMinutesToNaive(startLocal, row.duration_minutes)
+      events.push({
+        uid:         `mrec-signup-${row.id}@marlbororidgeequestriancenter.com`,
+        kind:        'local',
+        tzid:        'America/New_York',
+        startLocal,
+        endLocal,
+        summary,
+        description,
+        location:    'Marlboro Ridge Equestrian Center',
+      })
+    } else {
+      events.push({
+        uid:         `mrec-signup-${row.id}@marlbororidgeequestriancenter.com`,
+        kind:        'allDay',
+        startDate:   sheet.date,
+        endDate:     addDaysToDate(sheet.date, 1),
+        summary,
+        description,
+        location:    'Marlboro Ridge Equestrian Center',
+      })
+    }
   }
 
   const calendarName = `Marlboro Ridge — ${person.preferred_name ?? person.first_name ?? 'Schedule'}`

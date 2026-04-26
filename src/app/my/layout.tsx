@@ -12,7 +12,8 @@ export default async function MyLayout({ children }: { children: React.ReactNode
   const db = createAdminClient()
   const riderIds = await getRiderScope(user.personId)
 
-  const [horsesRes, invoicesRes] = await Promise.all([
+  const today = new Date().toISOString().slice(0, 10)
+  const [horsesRes, invoicesRes, sheetsRes] = await Promise.all([
     db.from('horse_contact')
       .select('id')
       .in('person_id', riderIds)
@@ -23,10 +24,19 @@ export default async function MyLayout({ children }: { children: React.ReactNode
       .in('billed_to_id', riderIds)
       .is('deleted_at', null)
       .limit(1),
+    // Sign-Ups tab is conditional on there being any active sheet to show.
+    // Sheets are barn-wide; the tab appears for anyone connected to any horse.
+    db.from('sign_up_sheet')
+      .select('id')
+      .gte('date', today)
+      .is('deleted_at', null)
+      .limit(1),
   ])
 
-  const hasHorses   = (horsesRes.data?.length   ?? 0) > 0
-  const hasInvoices = (invoicesRes.data?.length ?? 0) > 0
+  const hasHorses    = (horsesRes.data?.length   ?? 0) > 0
+  const hasInvoices  = (invoicesRes.data?.length ?? 0) > 0
+  const hasSheets    = (sheetsRes.data?.length   ?? 0) > 0
+  const showSignUps  = hasHorses && hasSheets
 
   return (
     <div className="min-h-screen bg-surface-low">
@@ -34,6 +44,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         firstName={user.firstName ?? ''}
         hasHorses={hasHorses}
         hasInvoices={hasInvoices}
+        showSignUps={showSignUps}
         isAdmin={user.isAdmin}
         isInstructor={user.isInstructor || user.isAdmin}
         canLogServices={user.isAdmin || user.isBarnWorker}

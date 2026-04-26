@@ -20,6 +20,7 @@ const tabs = [
   { label: 'Invoices',          href: '/chia/boarding/drafts'   },
   { label: 'Service Catalog',   href: '/chia/boarding/services' },
   { label: 'QR Codes',          href: '/chia/boarding/qr-codes' },
+  { label: 'Sign-Up Sheets',    href: '/chia/boarding/sheets'   },
 ]
 
 export default function BoardingTabs() {

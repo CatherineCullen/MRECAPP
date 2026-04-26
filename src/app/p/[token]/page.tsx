@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
 import { recentHorsesForService } from '@/lib/boardServiceLogging'
 import BoardServiceScanForm, { type HorseLite } from '@/components/BoardServiceScanForm'
+import ProviderSheetRoster, { type ProviderSheetData } from './_components/ProviderSheetRoster'
 
 /**
  * Public per-provider scan page — reached by external service providers
@@ -35,6 +36,51 @@ export default async function ProviderScanPage({
   if (pqr.service.is_recurring_monthly) return <Invalid message="Monthly Board is billed automatically and cannot be logged." />
 
   const providerLabel = displayName(pqr.person)
+  const today = new Date().toISOString().slice(0, 10)
+
+  // If there's a sign-up sheet for this (provider, service) on today's date,
+  // show the roster above the scan form so the provider knows who they're
+  // expecting and in what order.
+  const { data: sheetRow } = await supabase
+    .from('sign_up_sheet')
+    .select(`
+      id, title, date, mode, description,
+      slots:sign_up_sheet_slot (
+        id, position, start_time, duration_minutes, notes,
+        horse:horse_id ( id, barn_name ),
+        signed_up_by:signed_up_by_id ( id, first_name, last_name, preferred_name, is_organization, organization_name )
+      )
+    `)
+    .eq('provider_person_id', pqr.person?.id ?? '')
+    .eq('service_id', pqr.service.id)
+    .eq('date', today)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  const todaysSheet: ProviderSheetData | null = sheetRow ? {
+    id:          sheetRow.id,
+    title:       sheetRow.title,
+    date:        sheetRow.date,
+    mode:        sheetRow.mode as 'timed' | 'ordered',
+    description: sheetRow.description,
+    slots: ((sheetRow.slots as any[]) ?? [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(s => ({
+        position:         s.position,
+        start_time:       s.start_time,
+        duration_minutes: s.duration_minutes,
+        horse_name:       s.horse?.barn_name ?? null,
+        signed_up_by:     s.signed_up_by ? {
+          first_name:        s.signed_up_by.first_name,
+          last_name:         s.signed_up_by.last_name,
+          preferred_name:    s.signed_up_by.preferred_name,
+          is_organization:   s.signed_up_by.is_organization,
+          organization_name: s.signed_up_by.organization_name,
+        } : null,
+        notes:            s.notes,
+      })),
+  } : null
 
   // Recent horses filtered to this provider+service pair so farriers see
   // only the horses they've actually worked on, not every horse in the barn.
@@ -62,17 +108,20 @@ export default async function ProviderScanPage({
     }))
 
   return (
-    <BoardServiceScanForm
-      heading={providerLabel}
-      subheading={pqr.service.name}
-      serviceId={pqr.service.id}
-      loggedByLabel={providerLabel}
-      providerQrCodeId={pqr.id}
-      logSource="qr_code"
-      recentHorses={recent}
-      allHorses={allHorses}
-      confirmationCopy={`Logged ${pqr.service.name} by ${providerLabel} for the selected horses.`}
-    />
+    <>
+      {todaysSheet && <ProviderSheetRoster sheet={todaysSheet} />}
+      <BoardServiceScanForm
+        heading={providerLabel}
+        subheading={pqr.service.name}
+        serviceId={pqr.service.id}
+        loggedByLabel={providerLabel}
+        providerQrCodeId={pqr.id}
+        logSource="qr_code"
+        recentHorses={recent}
+        allHorses={allHorses}
+        confirmationCopy={`Logged ${pqr.service.name} by ${providerLabel} for the selected horses.`}
+      />
+    </>
   )
 }
 

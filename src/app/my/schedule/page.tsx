@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import LessonCard from './_components/LessonCard'
 import TrainingRideCard from './_components/TrainingRideCard'
 import MakeupTokenCard from './_components/MakeupTokenCard'
+import SignUpSlotCard from './_components/SignUpSlotCard'
+import { displayName } from '@/lib/displayName'
 import { getRiderScope } from '../_lib/riderScope'
 
 export const metadata = { title: 'My Schedule — Marlboro Ridge Equestrian Center' }
@@ -90,6 +92,31 @@ export default async function MySchedulePage() {
         .order('ride_date', { ascending: true })
     : { data: [] }
 
+  // Sign-up slots claimed for horses this person cares for. Treats horses
+  // they're connected to (any horse_contact link) as "theirs" so e.g. owners
+  // see their horse's chiro slot show up alongside their lessons.
+  const { data: signUpSlots } = myHorseIds.length > 0
+    ? await db
+        .from('sign_up_sheet_slot')
+        .select(`
+          id, start_time, duration_minutes, notes,
+          horse:horse_id ( id, barn_name ),
+          sheet:sheet_id (
+            id, title, date, mode, deleted_at,
+            provider:provider_person_id ( first_name, preferred_name, is_organization, organization_name ),
+            service:service_id ( name )
+          )
+        `)
+        .in('horse_id', myHorseIds)
+    : { data: [] }
+
+  type SignUpRow = NonNullable<typeof signUpSlots>[number]
+  const liveSignUps = (signUpSlots ?? []).filter((row: SignUpRow) => {
+    const sheet = Array.isArray((row as any).sheet) ? (row as any).sheet[0] : (row as any).sheet
+    if (!sheet || sheet.deleted_at) return false
+    return sheet.date >= todayDate
+  })
+
   // Available makeup tokens
   const { data: makeupTokens } = await db
     .from('makeup_token')
@@ -104,6 +131,7 @@ export default async function MySchedulePage() {
   type Item =
     | { kind: 'lesson';   date: string; lr: LessonRiderRow }
     | { kind: 'training'; date: string; ride: NonNullable<typeof trainingRides>[number] }
+    | { kind: 'signup';   date: string; row: SignUpRow }
 
   const items: Item[] = [
     ...upcoming.map((lr: LessonRiderRow): Item => {
@@ -115,6 +143,15 @@ export default async function MySchedulePage() {
       date: ride.ride_date + 'T00:00:00',
       ride,
     })),
+    ...liveSignUps.map((row: SignUpRow): Item => {
+      const sheet = Array.isArray((row as any).sheet) ? (row as any).sheet[0] : (row as any).sheet
+      // Timed slots sort by their start time; ordered slots sort to the start
+      // of the day so they cluster with the day's other items.
+      const date = (sheet.mode === 'timed' && row.start_time)
+        ? `${sheet.date}T${row.start_time}`
+        : `${sheet.date}T00:00:00`
+      return { kind: 'signup', date, row }
+    }),
   ].sort((a, b) => a.date.localeCompare(b.date))
 
   return (
@@ -149,7 +186,7 @@ export default async function MySchedulePage() {
                   riderName={riderName}
                 />
               )
-            } else {
+            } else if (item.kind === 'training') {
               const horse    = Array.isArray(item.ride.horse)    ? item.ride.horse[0]    : item.ride.horse    as any
               const provider = Array.isArray((item.ride as any).provider) ? (item.ride as any).provider[0] : (item.ride as any).provider as any
               const providerName = provider?.preferred_name ?? provider?.first_name ?? null
@@ -159,6 +196,25 @@ export default async function MySchedulePage() {
                   rideDate={item.ride.ride_date}
                   horseName={horse?.barn_name ?? 'Horse'}
                   providerName={providerName}
+                />
+              )
+            } else {
+              const sheet = Array.isArray((item.row as any).sheet) ? (item.row as any).sheet[0] : (item.row as any).sheet
+              const horse = Array.isArray((item.row as any).horse) ? (item.row as any).horse[0] : (item.row as any).horse
+              const provider = Array.isArray(sheet.provider) ? sheet.provider[0] : sheet.provider
+              const service  = Array.isArray(sheet.service)  ? sheet.service[0]  : sheet.service
+              return (
+                <SignUpSlotCard
+                  key={item.row.id}
+                  sheetId={sheet.id}
+                  date={sheet.date}
+                  mode={sheet.mode}
+                  startTime={item.row.start_time ?? null}
+                  duration={item.row.duration_minutes ?? null}
+                  title={sheet.title}
+                  providerName={displayName(provider)}
+                  horseName={horse?.barn_name ?? 'Horse'}
+                  serviceName={service?.name ?? null}
                 />
               )
             }
