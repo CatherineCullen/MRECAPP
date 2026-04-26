@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useRef } from 'react'
 
 export default function MyNav({
   firstName,
@@ -23,6 +24,24 @@ export default function MyNav({
   canLogTrainingRides: boolean
 }) {
   const pathname = usePathname()
+  const tabsRef  = useRef<HTMLDivElement | null>(null)
+
+  // Translate vertical mouse-wheel into horizontal tab scroll on desktop.
+  // Touch swipes on mobile fire scroll events, not wheel events, so this
+  // listener never runs on a phone — mobile UX is unchanged.
+  useEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    function onWheel(e: WheelEvent) {
+      if (!el) return
+      if (el.scrollWidth <= el.clientWidth) return
+      if (e.deltaY === 0) return
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   const tabs = [
     ...(isInstructor ? [{ label: 'Teaching', href: '/my/teaching' }] : []),
@@ -51,7 +70,7 @@ export default function MyNav({
           </div>
         </div>
         {/* Tabs */}
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div ref={tabsRef} className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {tabs.map(tab => {
             const active = pathname.startsWith(tab.href)
             return (
