@@ -954,6 +954,61 @@ export type Database = {
           },
         ]
       }
+      enrollment_acknowledgment: {
+        Row: {
+          acknowledged_at: string
+          enrollment_token_id: string | null
+          id: string
+          ip_address: unknown
+          person_id: string
+          privacy_notice_template_id: string
+          tcpa_sms_consent: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          acknowledged_at?: string
+          enrollment_token_id?: string | null
+          id?: string
+          ip_address?: unknown
+          person_id: string
+          privacy_notice_template_id: string
+          tcpa_sms_consent: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          acknowledged_at?: string
+          enrollment_token_id?: string | null
+          id?: string
+          ip_address?: unknown
+          person_id?: string
+          privacy_notice_template_id?: string
+          tcpa_sms_consent?: boolean
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollment_acknowledgment_enrollment_token_id_fkey"
+            columns: ["enrollment_token_id"]
+            isOneToOne: false
+            referencedRelation: "enrollment_token"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_acknowledgment_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enrollment_acknowledgment_privacy_notice_template_id_fkey"
+            columns: ["privacy_notice_template_id"]
+            isOneToOne: false
+            referencedRelation: "document_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrollment_token: {
         Row: {
           created_at: string

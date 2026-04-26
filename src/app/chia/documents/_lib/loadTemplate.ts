@@ -1,7 +1,7 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-export type TemplateKind = 'waiver' | 'boarding_agreement'
+export type TemplateKind = 'waiver' | 'boarding_agreement' | 'privacy_notice'
 
 export type DocumentTemplate = {
   id:             string

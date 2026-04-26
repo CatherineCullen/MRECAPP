@@ -1,5 +1,6 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { loadCurrentTemplate } from '@/app/chia/documents/_lib/loadTemplate'
 import { renderSignedWaiverPdf } from '@/app/chia/documents/_lib/waiverPdf'
@@ -45,6 +46,7 @@ export type EnrollInput = {
   parentPhone?:        string
   password:            string
   signaturePngDataUrl: string   // "data:image/png;base64,…"
+  smsConsent:          boolean  // TCPA — opt-in for operational SMS
 }
 
 function dataUrlToBytes(dataUrl: string): Uint8Array | null {
@@ -254,7 +256,37 @@ export async function submitEnrollment(input: EnrollInput): Promise<{ error?: st
     if (docErr) return { error: `Document insert failed: ${docErr.message}` }
   }
 
-  // ── 7. Mark token used ───────────────────────────────────────────────
+  // ── 7. Privacy-notice acknowledgment + TCPA receipt ──────────────────
+  // Disclosure (notice) and consent (SMS) are separate from the signed
+  // contract above. We record the version shown + the SMS decision + IP +
+  // user-agent as the verification trail.
+  const privacyNotice = await loadCurrentTemplate('privacy_notice')
+  if (privacyNotice) {
+    const hdrs = await headers()
+    const fwd  = hdrs.get('x-forwarded-for')
+    const ip   = (fwd ? fwd.split(',')[0].trim() : null) || hdrs.get('x-real-ip') || null
+    const ua   = hdrs.get('user-agent') || null
+
+    const { data: existingAck } = await db
+      .from('enrollment_acknowledgment')
+      .select('id')
+      .eq('enrollment_token_id', tok.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (!existingAck) {
+      await db.from('enrollment_acknowledgment').insert({
+        person_id:                   signerPersonId,
+        enrollment_token_id:         tok.id,
+        privacy_notice_template_id:  privacyNotice.id,
+        tcpa_sms_consent:            !!input.smsConsent,
+        ip_address:                  ip,
+        user_agent:                  ua,
+      })
+    }
+  }
+
+  // ── 8. Mark token used ───────────────────────────────────────────────
   await db.from('enrollment_token').update({ used_at: new Date().toISOString() }).eq('id', tok.id)
 
   // Return the signer email so the form can sign them in client-side with

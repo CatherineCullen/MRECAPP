@@ -43,6 +43,11 @@ export default async function EnrollPage({
     return <ErrorShell title="Not ready" message="The barn hasn't finished setting up this document yet. Please check back later or contact the office." />
   }
 
+  const privacyNotice = await loadCurrentTemplate('privacy_notice')
+  if (!privacyNotice) {
+    return <ErrorShell title="Not ready" message="The barn hasn't finished setting up this document yet. Please check back later or contact the office." />
+  }
+
   const rider = tok.rider as { first_name: string | null; last_name: string | null; date_of_birth: string | null; email: string | null; phone: string | null } | null
   const guardian = tok.guardian as { first_name: string | null; last_name: string | null; email: string | null; phone: string | null } | null
 
@@ -62,6 +67,8 @@ export default async function EnrollPage({
           templateKind={tok.template_kind as 'waiver' | 'boarding_agreement'}
           templateBody={template.body_markdown}
           templateVersion={template.version}
+          privacyNoticeBody={privacyNotice.body_markdown}
+          privacyNoticeVersion={privacyNotice.version}
           prefill={{
             riderFirstName: rider?.first_name ?? '',
             riderLastName:  rider?.last_name  ?? '',

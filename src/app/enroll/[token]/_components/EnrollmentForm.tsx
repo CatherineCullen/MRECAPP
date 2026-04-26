@@ -25,15 +25,20 @@ type Prefill = {
 }
 
 export default function EnrollmentForm({
-  token, kind, templateKind, templateBody, templateVersion, prefill,
+  token, kind, templateKind, templateBody, templateVersion,
+  privacyNoticeBody, privacyNoticeVersion, prefill,
 }: {
   token: string
   kind: 'adult' | 'minor'
   templateKind: 'waiver' | 'boarding_agreement'
   templateBody: string
   templateVersion: number
+  privacyNoticeBody: string
+  privacyNoticeVersion: number
   prefill: Prefill
 }) {
+  const [showPrivacy, setShowPrivacy] = useState(false)
+  const [smsConsent,  setSmsConsent]  = useState(false)
   const sigRef = useRef<SignatureCanvas | null>(null)
 
   // Rider fields
@@ -92,6 +97,7 @@ export default function EnrollmentForm({
         parentPhone:     kind === 'minor' ? parentPhone : undefined,
         password,
         signaturePngDataUrl,
+        smsConsent,
       })
       if (res.error) { setError(res.error); return }
       setDone(true)
@@ -215,6 +221,46 @@ export default function EnrollmentForm({
           <Field label="Password *"         value={password}  onChange={setPassword}  type="password" required />
           <Field label="Confirm password *" value={password2} onChange={setPassword2} type="password" required />
         </div>
+      </section>
+
+      {/* Text-message consent (TCPA — separate from privacy notice) */}
+      <section className="bg-white rounded-lg p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-[#444650] uppercase tracking-wider">
+          Text messages (optional)
+        </h2>
+        <label className="flex items-start gap-2 text-xs text-[#191c1e]">
+          <input
+            type="checkbox"
+            checked={smsConsent}
+            onChange={e => setSmsConsent(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            I consent to receive operational text messages from Marlboro Ridge
+            (lesson reminders, schedule changes, billing notices). Reply STOP
+            to opt out at any time. Message and data rates may apply.
+          </span>
+        </label>
+      </section>
+
+      {/* Privacy notice — disclosure, not a contract; no checkbox needed */}
+      <section className="bg-white rounded-lg p-5 space-y-2">
+        <p className="text-xs text-[#444650]">
+          By submitting, you acknowledge you have read our{' '}
+          <button
+            type="button"
+            onClick={() => setShowPrivacy(s => !s)}
+            className="text-[#056380] font-semibold underline"
+          >
+            Privacy Notice
+          </button>
+          {' '}(v{privacyNoticeVersion}).
+        </p>
+        {showPrivacy && (
+          <div className="prose prose-sm max-w-none text-[#191c1e] max-h-[320px] overflow-y-auto border border-[#e0e3e6] rounded p-3 bg-[#fafbfd]">
+            <ReactMarkdown>{privacyNoticeBody}</ReactMarkdown>
+          </div>
+        )}
       </section>
 
       {error && (
