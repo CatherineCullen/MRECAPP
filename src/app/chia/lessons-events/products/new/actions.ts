@@ -77,11 +77,25 @@ export async function createLessonProduct(
     if (token.rider_id !== args.riderId) {
       return { error: 'Token rider does not match the rider on this lesson.' }
     }
+    // lesson_rider requires exactly one of subscription_id or package_id.
+    // Migration-era tokens have no subscription_id — fall back to the
+    // package_id from the original lesson_rider (legacy imports were
+    // package-backed). If neither is available, the token is truly orphaned
+    // and the admin needs a one-off product instead.
+    let fallbackPackageId: string | null = null
     if (!token.subscription_id) {
-      // lesson_rider requires exactly one of subscription_id OR package_id.
-      // Admin-grant tokens that weren't tied to a subscription can't flow
-      // through this path without a schema relaxation — surface cleanly.
-      return { error: 'This token is not linked to a subscription. Use a one-off lesson product instead.' }
+      const { data: origRiders } = await supabase
+        .from('lesson_rider')
+        .select('package_id')
+        .eq('lesson_id', token.original_lesson_id)
+        .eq('rider_id', token.rider_id)
+        .not('package_id', 'is', null)
+        .order('created_at', { ascending: true })
+        .limit(1)
+      fallbackPackageId = origRiders?.[0]?.package_id ?? null
+      if (!fallbackPackageId) {
+        return { error: 'This token has no subscription or package to back the makeup. Use a one-off lesson product instead.' }
+      }
     }
 
     // 1) Create the lesson (is_makeup = true, makeup_for_lesson_id set)
@@ -104,7 +118,8 @@ export async function createLessonProduct(
       return { error: lessonErr?.message ?? 'Failed to create lesson.' }
     }
 
-    // 2) Create the lesson_rider, linked to the original subscription + token
+    // 2) Create the lesson_rider, linked to the original subscription
+    //    (or, for legacy package-backed lessons, the original package) + token
     const { error: riderErr } = await supabase
       .from('lesson_rider')
       .insert({
@@ -112,6 +127,7 @@ export async function createLessonProduct(
         rider_id:        args.riderId,
         horse_id:        args.horseId,
         subscription_id: token.subscription_id,
+        package_id:      token.subscription_id ? null : fallbackPackageId,
         makeup_token_id: token.id,
       })
 
