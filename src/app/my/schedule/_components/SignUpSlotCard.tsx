@@ -28,6 +28,8 @@ function fmtClock(t: string | null) {
 export default function SignUpSlotCard({
   sheetId, date, mode, startTime, duration, title, providerName, horseName, serviceName,
 }: Props) {
+  // Ordered sheets have no time — show date only (matches Training Rides).
+  // The all-day iCal output is just how Google needs it; UI shouldn't say so.
   const timeLabel = mode === 'timed' && startTime
     ? (() => {
         const start = fmtClock(startTime)
@@ -38,7 +40,7 @@ export default function SignUpSlotCard({
         const endMM = String(total % 60).padStart(2, '0')
         return `${start}–${fmtClock(`${endHH}:${endMM}:00`)}`
       })()
-    : 'All day'
+    : null
 
   return (
     <Link
@@ -47,7 +49,7 @@ export default function SignUpSlotCard({
     >
       <div className="min-w-0">
         <p className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide leading-tight">
-          {fmtDate(date)} · {timeLabel}
+          {fmtDate(date)}{timeLabel ? ` · ${timeLabel}` : ''}
         </p>
         <p className="text-base font-bold text-on-surface mt-0.5">{horseName}</p>
         <p className="text-sm text-on-surface-muted mt-0.5">

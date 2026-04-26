@@ -41,9 +41,9 @@ export default async function MySignUpsPage() {
   return (
     <div className="space-y-3">
       <div>
-        <h1 className="text-lg font-bold text-on-surface">Sign-Ups</h1>
+        <h1 className="text-lg font-bold text-on-surface">Boarder Sign-Ups</h1>
         <p className="text-xs text-on-surface-muted mt-0.5">
-          Visiting providers. Claim a slot for your horse if you'd like them seen.
+          Add your horse to the list for visiting providers. Providers and boarders can see these lists.
         </p>
       </div>
 
