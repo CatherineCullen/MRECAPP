@@ -32,8 +32,8 @@ export default async function PersonPage({
       *,
       person_role!person_role_person_id_fkey ( id, role, deleted_at ),
       horse_contact (
-        id, role, is_billing_contact, receives_health_alerts, can_log_in,
-        horse ( id, barn_name, status )
+        id, role, is_billing_contact, receives_health_alerts, can_log_in, deleted_at,
+        horse ( id, barn_name, status, deleted_at )
       ),
       guardian:guardian_id ( id, first_name, last_name, email, phone )
     `)
@@ -96,7 +96,7 @@ export default async function PersonPage({
   const roles      = (person.person_role ?? [])
     .filter((r: any) => !r.deleted_at)
     .map((r: any) => r.role as string)
-  const horseLinks = (person.horse_contact ?? []).filter((hc: any) => hc.horse && !hc.horse.deleted_at)
+  const horseLinks = (person.horse_contact ?? []).filter((hc: any) => !hc.deleted_at && hc.horse && !hc.horse.deleted_at)
   const guardian   = person.guardian as any
   const displayName = person.is_organization
     ? person.organization_name

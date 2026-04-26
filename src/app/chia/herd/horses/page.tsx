@@ -26,7 +26,7 @@ export default async function HorsesPage({
       status,
       lesson_horse,
       color,
-      horse_contact ( person_id, person!horse_contact_person_id_fkey ( id, first_name, last_name, organization_name, is_organization ) )
+      horse_contact ( person_id, deleted_at, person!horse_contact_person_id_fkey ( id, first_name, last_name, organization_name, is_organization, deleted_at ) )
     `)
     .is('deleted_at', null)
     .order('barn_name')
@@ -47,7 +47,9 @@ export default async function HorsesPage({
     gender:          h.gender,
     status:          h.status,
     lesson_horse:    !!h.lesson_horse,
-    horse_contact:   (h.horse_contact as HorseRow['horse_contact']) ?? [],
+    horse_contact:   ((h.horse_contact as any[]) ?? []).filter(
+      hc => !hc.deleted_at && !hc.person?.deleted_at
+    ) as HorseRow['horse_contact'],
   }))
 
   return (
