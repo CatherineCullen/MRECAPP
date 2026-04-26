@@ -84,6 +84,9 @@ export async function createLessonProduct(
     // and the admin needs a one-off product instead.
     let fallbackPackageId: string | null = null
     if (!token.subscription_id) {
+      if (!token.original_lesson_id) {
+        return { error: 'This token has no subscription or original lesson to back the makeup. Use a one-off lesson product instead.' }
+      }
       const { data: origRiders } = await supabase
         .from('lesson_rider')
         .select('package_id')
