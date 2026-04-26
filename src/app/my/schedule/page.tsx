@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
@@ -224,6 +225,12 @@ export default async function MySchedulePage() {
 
       {/* Footer links */}
       <div className="pt-2 space-y-2">
+        <p className="text-xs text-on-surface-muted">
+          Want this on your Google or Apple Calendar?{' '}
+          <Link href="/my/profile" className="text-on-secondary-container font-semibold">
+            Set up calendar sync
+          </Link>
+        </p>
         <p className="text-xs text-on-surface-muted">
           Questions about your schedule?{' '}
           <a href="mailto:marlbororidgeequestriancenter@gmail.com" className="text-on-secondary-container font-semibold">
