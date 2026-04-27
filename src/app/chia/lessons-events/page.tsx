@@ -34,7 +34,7 @@ export default async function LessonsCalendarPage({
     supabase
       .from('lesson')
       .select(`
-        id, scheduled_at, lesson_type, duration_minutes, status, notes,
+        id, scheduled_at, lesson_type, duration_minutes, status, notes, cancellation_reason,
         instructor:person!lesson_instructor_id_fkey ( id, first_name, last_name, preferred_name, calendar_color ),
         lesson_rider (
           id, cancelled_at, rider_id,
@@ -172,6 +172,8 @@ export default async function LessonsCalendarPage({
       instructorColor:     l.instructor?.calendar_color
                              ?? instructorColor(l.instructor?.id ?? null),
       horseName:           riders[0]?.horse?.barn_name ?? null,
+      notes:               l.notes ?? null,
+      cancellationReason:  l.cancellation_reason ?? null,
     }
   })
 

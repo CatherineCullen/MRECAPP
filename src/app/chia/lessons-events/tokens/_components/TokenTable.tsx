@@ -13,6 +13,7 @@ export type TokenRow = {
   quarter_id:          string
   quarter_label:       string
   original_lesson_date: string | null    // ISO date (from originating lesson) or null if admin-grant
+  cancellation_reason:  string | null    // rider's note when they cancelled the origin lesson
   scheduled_lesson_id:  string | null    // present when status='scheduled' (or later 'used')
   scheduled_lesson_date: string | null   // ISO timestamp of the makeup lesson
   reason:              'rider_cancel' | 'barn_cancel' | 'admin_grant'
@@ -265,6 +266,12 @@ export default function TokenTable({ rows, quarters }: Props) {
                       )}
                     </td>
                     <td className="py-1.5 px-3">
+                      {t.cancellation_reason && (
+                        <div className="text-[10px] text-[#444650] mb-0.5" title={t.cancellation_reason}>
+                          <span className="font-semibold uppercase tracking-wide text-[9px] text-[#7a5a00]">Rider:</span>{' '}
+                          <span className="italic">{t.cancellation_reason}</span>
+                        </div>
+                      )}
                       {editing ? (
                         <div className="flex items-center gap-1">
                           <input
@@ -276,7 +283,7 @@ export default function TokenTable({ rows, quarters }: Props) {
                               if (e.key === 'Escape') setEditingNoteId(null)
                             }}
                             className="flex-1 border border-[#c4c6d1] rounded px-1.5 py-0.5 text-xs focus:outline-none focus:border-[#002058]"
-                            placeholder="Note…"
+                            placeholder="Admin note…"
                           />
                           <button onClick={() => handleNoteSave(t.id)} className="text-[10px] text-[#002058] font-semibold hover:underline">Save</button>
                           <button onClick={() => setEditingNoteId(null)}  className="text-[10px] text-[#444650] hover:underline">×</button>
@@ -287,7 +294,9 @@ export default function TokenTable({ rows, quarters }: Props) {
                           className="text-xs text-left text-[#444650] hover:text-[#191c1e] hover:underline"
                           disabled={t.status !== 'available'}
                         >
-                          {shownNote || (t.status === 'available' ? <span className="text-[#c4c6d1]">+ note</span> : <span className="text-[#c4c6d1]">—</span>)}
+                          {shownNote
+                            ? <><span className="font-semibold uppercase tracking-wide text-[9px] text-[#444650]">Admin:</span> {shownNote}</>
+                            : (t.status === 'available' ? <span className="text-[#c4c6d1]">+ admin note</span> : <span className="text-[#c4c6d1]">—</span>)}
                         </button>
                       )}
                     </td>

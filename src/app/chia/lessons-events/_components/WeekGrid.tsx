@@ -36,6 +36,8 @@ export type GridLesson = {
   instructorInitials:  string    // "PM" — shown inside the colored stripe
   instructorColor:     string    // hex color for the stripe
   horseName:           string | null
+  notes:               string | null
+  cancellationReason:  string | null
 }
 
 // Events render on the same grid as lessons but have their own visual language.
@@ -503,6 +505,11 @@ export default function WeekGrid({ days, lessons, events, availability, instruct
                       l.instructorName,
                       l.horseName,
                     ].filter(Boolean).join(' · ')
+                    const tooltip = [
+                      tooltipParts,
+                      l.cancellationReason ? `Cancel reason: ${l.cancellationReason}` : null,
+                      l.notes ? `Notes: ${l.notes}` : null,
+                    ].filter(Boolean).join('\n')
 
                     return (
                       <Link
@@ -516,7 +523,7 @@ export default function WeekGrid({ days, lessons, events, availability, instruct
                           left:  `calc(${leftPct}% + 2px)`,
                           width: `calc(${widthPct}% - 4px)`,
                         }}
-                        title={tooltipParts}
+                        title={tooltip}
                       >
                         <div className="flex h-full">
                           {/* Instructor color stripe + initials */}
