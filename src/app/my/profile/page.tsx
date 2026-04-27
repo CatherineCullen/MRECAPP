@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import ProfileForm from './_components/ProfileForm'
+import PasswordSection from './_components/PasswordSection'
 import NotificationPrefsSection from './_components/NotificationPrefsSection'
 import CalendarSection from './_components/CalendarSection'
 import { headers } from 'next/headers'
@@ -50,6 +51,7 @@ export default async function MyProfilePage() {
     <div className="space-y-3">
       <h1 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide px-1">Profile</h1>
       <ProfileForm person={personRes.data} />
+      <PasswordSection />
       <CalendarSection icalToken={personRes.data.ical_token} origin={origin} />
       <NotificationPrefsSection prefs={prefs} config={config} />
     </div>
