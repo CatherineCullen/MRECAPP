@@ -68,7 +68,7 @@ export default async function ServiceCatalogPage() {
       )}
 
       {/* Billable a la carte services */}
-      <section className="bg-white rounded-lg border border-[#c4c6d1]/40 mb-6 overflow-hidden">
+      <section className="bg-white rounded-lg border border-[#c4c6d1]/40 mb-6 overflow-x-auto">
         <div className="px-4 py-2.5 bg-[#f2f4f7] border-b border-[#c4c6d1]/30">
           <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">
             A la carte — billable
@@ -97,7 +97,7 @@ export default async function ServiceCatalogPage() {
       </section>
 
       {/* Training ride providers — per-provider rates on person.default_training_ride_rate */}
-      <section className="bg-white rounded-lg border border-[#c4c6d1]/40 mb-6 overflow-hidden">
+      <section className="bg-white rounded-lg border border-[#c4c6d1]/40 mb-6 overflow-x-auto">
         <div className="px-4 py-2.5 bg-[#f2f4f7] border-b border-[#c4c6d1]/30">
           <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">
             Training ride providers
@@ -130,7 +130,7 @@ export default async function ServiceCatalogPage() {
       </section>
 
       {/* Non-billable provider services */}
-      <section className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-hidden">
+      <section className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-x-auto">
         <div className="px-4 py-2.5 bg-[#f2f4f7] border-b border-[#c4c6d1]/30">
           <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">
             Non-billable providers

@@ -187,7 +187,7 @@ export default function TokenTable({ rows, quarters }: Props) {
           <p className="text-xs text-[#444650]">Change the status or quarter filter to see more.</p>
         </div>
       ) : (
-        <div className="bg-white rounded border border-[#c4c6d1]/40 overflow-hidden">
+        <div className="bg-white rounded border border-[#c4c6d1]/40 overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-[#f7f9fc] border-b border-[#c4c6d1]/30 text-left">

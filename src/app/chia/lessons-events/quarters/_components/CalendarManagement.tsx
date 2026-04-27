@@ -121,7 +121,7 @@ function MonthGroup({ label, days, quarterId }: { label: string; days: CalendarD
   const makeupCount = days.filter(d => d.is_makeup_day).length
 
   return (
-    <div className="mb-2">
+    <div className="mb-2 overflow-x-auto">
       <div className="flex items-baseline gap-3 px-3 py-1.5 bg-[#f7f9fc] border-b border-[#c4c6d1]/40">
         <span className="text-xs font-bold text-[#191c1e]">{label}</span>
         {closedCount > 0 && (

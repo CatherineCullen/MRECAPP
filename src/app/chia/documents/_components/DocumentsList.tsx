@@ -45,7 +45,7 @@ export default function DocumentsList({
   }
 
   return (
-    <div>
+    <div className="overflow-x-auto">
       {error && <div className="px-4 py-2 text-xs text-[#b3261e] bg-[#fce8e6]">{error}</div>}
       <table className="w-full">
         <thead>

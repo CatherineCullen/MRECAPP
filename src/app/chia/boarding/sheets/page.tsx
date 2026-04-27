@@ -44,7 +44,7 @@ export default async function SheetsListPage() {
           <p className="text-[#444650] text-sm">No active sign-up sheets. Create one to get started.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg overflow-hidden">
+        <div className="bg-white rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[#f2f4f7]">
               <tr className="text-left text-[10px] font-semibold text-[#444650] uppercase tracking-wider">

@@ -132,7 +132,7 @@ function QrTable({
   footer?:     React.ReactNode
 }) {
   return (
-    <section className="bg-white rounded-lg border border-[#c4c6d1]/40 mb-6 overflow-hidden">
+    <section className="bg-white rounded-lg border border-[#c4c6d1]/40 mb-6 overflow-x-auto">
       <div className="px-4 py-2.5 bg-[#f2f4f7] border-b border-[#c4c6d1]/30">
         <h2 className="text-xs font-semibold text-[#444650] uppercase tracking-wider">{heading}</h2>
         <p className="text-[11px] text-[#444650] mt-0.5">{subheading}</p>

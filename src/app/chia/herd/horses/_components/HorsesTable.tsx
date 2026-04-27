@@ -96,6 +96,7 @@ export default function HorsesTable({ horses }: Props) {
           </span>
         )}
       </div>
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-[#f2f4f7]">
@@ -164,6 +165,7 @@ export default function HorsesTable({ horses }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
 
       <div className="px-4 py-2.5 bg-[#f2f4f7] border-t border-[#c4c6d1]/20">
         <span className="text-xs text-[#444650]">

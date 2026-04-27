@@ -30,7 +30,7 @@ export default async function CatalogPage() {
         <p className="text-xs text-[#444650] mb-3">
           Quarterly price pre-filled when creating a new subscription. Private, semi-private, and group are the same price — only duration differs.
         </p>
-        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-hidden">
+        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#f0f2f7] border-b border-[#c4c6d1]/40">
@@ -61,7 +61,7 @@ export default async function CatalogPage() {
         <p className="text-xs text-[#444650] mb-3">
           Default price pre-filled when creating an evaluation or extra lesson.
         </p>
-        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-hidden">
+        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#f0f2f7] border-b border-[#c4c6d1]/40">
@@ -92,7 +92,7 @@ export default async function CatalogPage() {
         <p className="text-xs text-[#444650] mb-3">
           Default price and duration pre-filled when scheduling an event. Both are overridable per event.
         </p>
-        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-hidden">
+        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#f0f2f7] border-b border-[#c4c6d1]/40">

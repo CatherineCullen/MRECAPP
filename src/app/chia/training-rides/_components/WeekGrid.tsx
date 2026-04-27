@@ -96,7 +96,7 @@ export default function WeekGrid({ providerId, horses, weekDays, cellsByKey, ava
     <div>
       {error && <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">{error}</div>}
 
-      <div className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-hidden">
+      <div className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="bg-[#f7f9fc] border-b border-[#c4c6d1]/30">

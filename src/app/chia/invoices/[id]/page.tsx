@@ -228,7 +228,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       )}
 
       {/* Line items */}
-      <div className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-hidden mb-4">
+      <div className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-x-auto mb-4">
         <div className="px-4 py-2 bg-[#f7f9fc] border-b border-[#c4c6d1]/30 flex items-center">
           <h3 className="text-sm font-bold text-[#191c1e] flex-1">Line items</h3>
           <span className="text-xs text-[#444650]">

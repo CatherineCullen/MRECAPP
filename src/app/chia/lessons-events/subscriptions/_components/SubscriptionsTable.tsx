@@ -82,7 +82,7 @@ export default function SubscriptionsTable({ rows }: Props) {
   const { sorted, sort, onSort } = useSort(augmented, { key: null, dir: 'asc' })
 
   return (
-    <div className="bg-white rounded border border-[#c4c6d1]/40 overflow-hidden">
+    <div className="bg-white rounded border border-[#c4c6d1]/40 overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
           <tr className="bg-[#f7f9fc] border-b border-[#c4c6d1]/30 text-left">

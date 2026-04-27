@@ -107,6 +107,7 @@ export default function PeopleTable({ people }: Props) {
       {rows.length === 0 ? (
         <div className="px-4 py-10 text-center text-sm text-[#444650]">No matches.</div>
       ) : (
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
       <thead>
         <tr className="bg-[#f2f4f7]">
@@ -168,6 +169,7 @@ export default function PeopleTable({ people }: Props) {
         ))}
       </tbody>
     </table>
+    </div>
       )}
     </div>
   )

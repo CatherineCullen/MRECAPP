@@ -321,7 +321,7 @@ export default function WeekGrid({ days, lessons, events, availability, instruct
   }
 
   return (
-    <div className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-hidden">
+    <div className="bg-white rounded-lg border border-[#c4c6d1]/40 overflow-x-auto">
       <div className="flex">
         {/* Time axis column */}
         <div className="flex-none w-12 border-r border-[#c4c6d1]/30 bg-[#f7f9fc]">

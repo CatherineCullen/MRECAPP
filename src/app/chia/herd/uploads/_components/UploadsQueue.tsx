@@ -67,7 +67,7 @@ export default function UploadsQueue({
             : 'Nothing to review right now.'}
         </div>
       ) : (
-        <div className="bg-white rounded-lg overflow-hidden">
+        <div className="bg-white rounded-lg overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[#f7f9fc] text-[11px] font-semibold text-[#444650] uppercase tracking-wide">
               <tr>

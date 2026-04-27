@@ -197,7 +197,7 @@ export default function RenewalTable({
         </button>
       </div>
 
-      <div className="bg-white rounded-lg overflow-hidden">
+      <div className="bg-white rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-[#f0f2f6] text-[#444650]">
             <tr>
@@ -270,7 +270,7 @@ export default function RenewalTable({
           <h3 className="text-xs font-semibold text-[#444650] uppercase tracking-wide mb-2">
             Not renewing ({notRenewing.length})
           </h3>
-          <div className="bg-white rounded-lg overflow-hidden">
+          <div className="bg-white rounded-lg overflow-x-auto">
             <table className="w-full text-xs">
               <tbody>
                 {notRenewing.map(r => (

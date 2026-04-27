@@ -81,7 +81,7 @@ export default function CatalogPanel({ rows }: { rows: HealthItemTypeRow[] }) {
       </button>
 
       {open && (
-        <div className="border-t border-[#c4c6d1]/30">
+        <div className="border-t border-[#c4c6d1]/30 overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-[#c4c6d1]/30 bg-[#f7f9fc]">
