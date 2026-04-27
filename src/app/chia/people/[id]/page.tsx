@@ -6,6 +6,7 @@ import PersonHorsesSection from './_components/PersonHorsesSection'
 import PersonGuardianSection from './_components/PersonGuardianSection'
 import PersonStripeSection from './_components/PersonStripeSection'
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
+import PersonScheduleSection from './_components/PersonScheduleSection'
 import { getCurrentUser } from '@/lib/auth'
 import SendInviteButton from './_components/SendInviteButton'
 import ChangeLoginEmailButton from './_components/ChangeLoginEmailButton'
@@ -253,6 +254,9 @@ export default async function PersonPage({
 
         {/* Documents — waivers, boarding agreements, misc attached to this person */}
         <EntityDocumentsSection kind="person" id={id} label={`Person: ${displayName}`} />
+
+        {/* Upcoming schedule — lessons, training rides, sign-up slots */}
+        {!person.is_organization && <PersonScheduleSection personId={id} />}
 
         {/* Stripe sync — admin-only. Stripe customer IDs are billing
             plumbing, not something end users should see or trigger.
