@@ -252,15 +252,32 @@ export async function updateRiderHorse(args: {
  * lesson to 'scheduled'. Admin correction flow — e.g. mis-clicked Complete,
  * cancellation reversed because the lesson will run after all.
  *
- * For cancellations, any makeup tokens generated from this lesson are
- * hard-deleted (they were never real events — the rider doesn't know about
- * them since rider notifications aren't wired yet).
+ * For cancellations, any unused tokens generated from this lesson are
+ * hard-deleted (they were never real events). If a token has already been
+ * spent on a scheduled or used makeup, we block the revert — the admin must
+ * cancel that makeup lesson first so we don't leave a phantom on the calendar.
  */
 export async function revertLesson(lessonId: string): Promise<{ error?: string }> {
   const supabase = createAdminClient()
   const now      = new Date().toISOString()
 
-  // Delete any tokens that originated from this lesson (if it was cancelled)
+  // If a token from this lesson has already been spent on a makeup, refuse
+  // to revert. Admin needs to cancel that makeup first — keeps the credit
+  // chain consistent and avoids dangling makeups on the calendar.
+  const { data: spentToken } = await supabase
+    .from('makeup_token')
+    .select('id, status, scheduled_lesson_id')
+    .eq('original_lesson_id', lessonId)
+    .in('status', ['scheduled', 'used'])
+    .maybeSingle()
+
+  if (spentToken) {
+    return {
+      error: 'A makeup lesson has already been scheduled from this cancellation. Cancel the makeup lesson first, then revert this one.',
+    }
+  }
+
+  // Safe to delete unspent tokens (available / expired) that originated here.
   await supabase
     .from('makeup_token')
     .delete()
