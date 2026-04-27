@@ -141,7 +141,7 @@ export default function EnrollmentForm({
         <h2 className="text-sm font-semibold text-[#444650] uppercase tracking-wider mb-2">
           Please read carefully (v{templateVersion})
         </h2>
-        <div className="prose prose-sm max-w-none text-[#191c1e] max-h-[420px] overflow-y-auto border border-[#e0e3e6] rounded p-3 bg-[#fafbfd]">
+        <div className="prose prose-sm max-w-none text-[#191c1e] max-h-[420px] overflow-y-auto bg-[#f2f4f7] rounded p-4">
           <ReactMarkdown>{templateBody}</ReactMarkdown>
         </div>
       </section>
@@ -257,7 +257,7 @@ export default function EnrollmentForm({
           {' '}(v{privacyNoticeVersion}).
         </p>
         {showPrivacy && (
-          <div className="prose prose-sm max-w-none text-[#191c1e] max-h-[320px] overflow-y-auto border border-[#e0e3e6] rounded p-3 bg-[#fafbfd]">
+          <div className="prose prose-sm max-w-none text-[#191c1e] max-h-[320px] overflow-y-auto bg-[#f2f4f7] rounded p-4">
             <ReactMarkdown>{privacyNoticeBody}</ReactMarkdown>
           </div>
         )}
