@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import MyNav from './_components/MyNav'
 import { getRiderScope } from './_lib/riderScope'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 export default async function MyLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
@@ -50,7 +51,8 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         canLogServices={user.isAdmin || user.isBarnWorker}
         canLogTrainingRides={user.isTrainingRideProvider || user.isAdmin}
       />
-      <main className="max-w-md mx-auto px-4 py-4">
+      <main className="max-w-md mx-auto px-4 py-4 space-y-3">
+        <PWAInstallPrompt variant="banner" />
         {children}
       </main>
     </div>

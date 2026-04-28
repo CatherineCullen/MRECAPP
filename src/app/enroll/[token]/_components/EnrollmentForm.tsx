@@ -6,6 +6,7 @@ import SignatureCanvas from 'react-signature-canvas'
 import ReactMarkdown from 'react-markdown'
 import { submitEnrollment } from '../actions'
 import { createClient } from '@/lib/supabase/client'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 // Public-facing enrollment form. Rider reads the waiver, fills in their own
 // info, signs on the canvas, sets a password, submits. On success we sign
@@ -130,6 +131,9 @@ export default function EnrollmentForm({
         <p className="text-xs text-[#444650]">
           If you aren't redirected, <a href="/sign-in" className="text-[#056380] font-semibold">go to sign-in</a>.
         </p>
+        <div className="pt-2 text-left">
+          <PWAInstallPrompt variant="inline" />
+        </div>
       </div>
     )
   }
