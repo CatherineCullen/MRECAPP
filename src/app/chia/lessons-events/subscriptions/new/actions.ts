@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import type { DayOfWeek } from '../../_lib/generateLessonDates'
+import { barnLocalToUtcIso } from '@/lib/datetime'
 
 type CreateArgs = {
   riderId:           string
@@ -85,7 +86,7 @@ export async function createSubscription(args: CreateArgs): Promise<{ error?: st
   const lessonRows = args.lessonDates.map(date => ({
     instructor_id: args.instructorId,
     lesson_type:   'private' as const,
-    scheduled_at:  `${date}T${args.lessonTime}:00`,   // naive timestamptz — stored as local
+    scheduled_at:  barnLocalToUtcIso(date, args.lessonTime),
     status:        'scheduled' as const,
     created_by:    user?.personId ?? null,
   }))

@@ -8,6 +8,7 @@ import MergeSection, { type MergeCandidate } from './_components/MergeSection'
 import RiderCancelButton from './_components/RiderCancelButton'
 import { effectiveStatus, type RawStatus } from '../_lib/effectiveLessonStatus'
 import { displayName } from '@/lib/displayName'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Terminal raw statuses — horse assignment is locked once the lesson is done.
 // Instructors/admin can still revert the lesson via LessonActions if needed.
@@ -18,6 +19,7 @@ function formatDateTime(iso: string) {
   return d.toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 

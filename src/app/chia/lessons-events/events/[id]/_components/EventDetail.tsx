@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import SearchPicker from '@/components/SearchPicker'
 import { updateEvent, cancelEvent, deleteEvent } from '../actions'
 import { skipBilling, unskipBilling } from '@/app/chia/lessons-events/unbilled/actions'
+import { barnLocalToUtcIso, BARN_TZ } from '@/lib/datetime'
 
 type Option = { id: string; name: string }
 
@@ -82,7 +83,7 @@ export default function EventDetail(p: Props) {
     startTransition(async () => {
       const result = await updateEvent({
         eventId:         p.eventId,
-        scheduledAt:     `${date}T${time}:00`,
+        scheduledAt:     barnLocalToUtcIso(date, time),
         durationMinutes: parsedDuration,
         instructorId:    instructorId || null,
         title:           title.trim(),
@@ -361,7 +362,7 @@ function ReadView({
                 Billing skipped
               </span>
               <span className="text-[#444650]">
-                {new Date(p.billingSkippedAt!).toLocaleDateString()}
+                {new Date(p.billingSkippedAt!).toLocaleDateString('en-US', { timeZone: BARN_TZ })}
               </span>
               <button
                 type="button"
@@ -522,5 +523,6 @@ function formatDateTime(iso: string) {
   return d.toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }

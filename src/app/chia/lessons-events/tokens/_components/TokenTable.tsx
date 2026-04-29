@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { expireToken, restoreToken, updateTokenNote, batchExpirePastDue } from '../actions'
 import { useSort, SortableHeader, type Sortable } from '@/lib/sortableTable'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type TokenRow = {
   id:                  string
@@ -258,9 +259,9 @@ export default function TokenTable({ rows, quarters }: Props) {
                             className="text-[10px] text-[#444650] hover:text-[#002058] hover:underline"
                             title="Open the scheduled makeup lesson"
                           >
-                            {new Date(t.scheduled_lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {new Date(t.scheduled_lesson_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: BARN_TZ })}
                             {' · '}
-                            {new Date(t.scheduled_lesson_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            {new Date(t.scheduled_lesson_date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: BARN_TZ })}
                           </Link>
                         </div>
                       )}

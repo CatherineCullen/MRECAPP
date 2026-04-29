@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { approveLineItem, unApproveLineItem, deleteLineItem, editLineItem } from '../actions'
 import type { QueueLineItem, BillingContactOpt } from '../_lib/loadQueue'
+import { BARN_TZ } from '@/lib/datetime'
 
 /**
  * Per-item allocation + edit + delete UI.
@@ -34,7 +35,7 @@ function fmt(n: number): string {
 // timestamps with meaningful clock-of-day to admin.
 function fmtDate(iso: string): string {
   const d = new Date(iso)
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: BARN_TZ })
 }
 
 export default function AllocateRow({ item, billingContacts }: Props) {

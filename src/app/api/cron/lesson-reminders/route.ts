@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Vercel invokes this route on the cron schedule and passes
 // Authorization: Bearer <CRON_SECRET>. The same secret must be set in
@@ -21,7 +22,7 @@ function formatLessonTime(scheduledAt: string): string {
     day:     'numeric',
     hour:    'numeric',
     minute:  '2-digit',
-    timeZone: 'America/New_York',
+    timeZone: BARN_TZ,
   })
 }
 

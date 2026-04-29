@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { syncStripeCustomer, createTestInvoice } from '../actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 type Invoice = {
   id: string
@@ -267,11 +268,11 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
         </span>
         {invoice.paid_at ? (
           <span className="text-xs text-[#8c8e98]">
-            paid {new Date(invoice.paid_at).toLocaleDateString()}
+            paid {new Date(invoice.paid_at).toLocaleDateString('en-US', { timeZone: BARN_TZ })}
           </span>
         ) : invoice.sent_at ? (
           <span className="text-xs text-[#8c8e98]">
-            sent {new Date(invoice.sent_at).toLocaleDateString()}
+            sent {new Date(invoice.sent_at).toLocaleDateString('en-US', { timeZone: BARN_TZ })}
           </span>
         ) : null}
       </div>

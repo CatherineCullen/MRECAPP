@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { SentSnapshot, SentInvoice, SentInvoiceStatus } from '../_lib/loadSent'
+import { BARN_TZ } from '@/lib/datetime'
 
 /**
  * Sent invoices history.
@@ -26,6 +27,7 @@ function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
+    timeZone: BARN_TZ,
   })
 }
 

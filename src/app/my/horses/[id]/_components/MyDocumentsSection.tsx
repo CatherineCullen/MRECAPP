@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type DocumentRow = {
   id:            string
@@ -13,8 +14,12 @@ export type DocumentRow = {
 
 function formatDate(iso: string | null) {
   if (!iso) return null
-  const d = new Date(iso.length === 10 ? iso + 'T12:00:00' : iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const isDateOnly = iso.length === 10
+  const d = new Date(isDateOnly ? iso + 'T12:00:00' : iso)
+  return d.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    ...(isDateOnly ? {} : { timeZone: BARN_TZ }),
+  })
 }
 
 export default function MyDocumentsSection({ documents }: { documents: DocumentRow[] }) {

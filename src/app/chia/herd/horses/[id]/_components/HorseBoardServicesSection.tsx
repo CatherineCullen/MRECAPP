@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { logBoardServices } from '@/lib/boardServiceLogging'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type HorseBoardLog = {
   id:             string
@@ -105,8 +106,8 @@ export default function HorseBoardServicesSection({
 
 function LogRow({ log }: { log: HorseBoardLog }) {
   const d   = new Date(log.logged_at)
-  const dt  = d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-  const tm  = d.toLocaleTimeString('en-US',  { hour: 'numeric', minute: '2-digit' })
+  const dt  = d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', timeZone: BARN_TZ })
+  const tm  = d.toLocaleTimeString('en-US',  { hour: 'numeric', minute: '2-digit', timeZone: BARN_TZ })
   const voided = log.status === 'voided'
 
   return (

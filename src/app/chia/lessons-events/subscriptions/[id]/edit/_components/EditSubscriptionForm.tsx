@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import SearchPicker from '@/components/SearchPicker'
 import { updateSubscription, cancelRemainingLessons } from '../../actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 type Option = { id: string; name: string }
 
@@ -54,6 +55,7 @@ function fmtDateTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 

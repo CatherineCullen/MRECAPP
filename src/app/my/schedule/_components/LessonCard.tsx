@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { cancelMyLesson, requestCancellationException, type CancelOutcome } from '../actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 type Props = {
   lessonRiderId: string
@@ -17,7 +18,7 @@ function formatDate(iso: string) {
   const d = new Date(iso)
   return d.toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
-    timeZone: 'America/New_York',
+    timeZone: BARN_TZ,
   })
 }
 
@@ -25,7 +26,7 @@ function formatTime(iso: string) {
   const d = new Date(iso)
   return d.toLocaleTimeString('en-US', {
     hour: 'numeric', minute: '2-digit',
-    timeZone: 'America/New_York',
+    timeZone: BARN_TZ,
   })
 }
 

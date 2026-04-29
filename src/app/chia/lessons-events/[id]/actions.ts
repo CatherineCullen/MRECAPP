@@ -4,12 +4,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { notify } from '@/lib/notifications'
 import { revalidatePath } from 'next/cache'
+import { BARN_TZ } from '@/lib/datetime'
 
 function formatLessonTime(scheduledAt: string): string {
   const d = new Date(scheduledAt)
   return d.toLocaleString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York',
+    hour: 'numeric', minute: '2-digit', timeZone: BARN_TZ,
   })
 }
 

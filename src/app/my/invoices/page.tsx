@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getRiderScope } from '../_lib/riderScope'
+import { BARN_TZ } from '@/lib/datetime'
 
 export const metadata = { title: 'Invoices — Marlboro Ridge Equestrian Center' }
 
@@ -21,7 +22,13 @@ const STATUS_STYLE: Record<string, string> = {
 
 function formatDate(iso: string | null) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })
+}
+
+function formatDateOnly(ymd: string | null) {
+  if (!ymd) return '—'
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function invoiceTotal(lineItems: Array<{
@@ -122,7 +129,7 @@ export default async function MyInvoicesPage() {
                     )}
                     {inv.due_date && (
                       <span className="text-xs text-warning">
-                        Due {formatDate(inv.due_date)}
+                        Due {formatDateOnly(inv.due_date)}
                       </span>
                     )}
                   </div>

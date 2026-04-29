@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { markUploadReviewed, unmarkUploadReviewed } from '../actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type UploadRow = {
   id:          string
@@ -20,6 +21,7 @@ function formatWhen(iso: string) {
   return d.toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 

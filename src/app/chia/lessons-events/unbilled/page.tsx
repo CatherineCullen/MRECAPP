@@ -5,6 +5,7 @@ import UnbilledPackagesList, { type UnbilledGroup, type UnbilledItem, type Skipp
 import { loadLessonSent } from '../invoices/_lib/loadLessonInvoices'
 import LessonSentView from '../invoices/_components/LessonSentView'
 import { displayName } from '@/lib/displayName'
+import { BARN_TZ } from '@/lib/datetime'
 
 /**
  * Unbilled Products — unbilled lesson products AND unbilled events, grouped
@@ -231,7 +232,7 @@ export default async function BillingProductsPage() {
       title:        evtType?.label ?? 'Event',
       subtitle:     e.title,
       price:        Number(e.price),
-      dateLabel:    `Scheduled ${new Date(e.scheduled_at).toLocaleDateString()}`,
+      dateLabel:    `Scheduled ${new Date(e.scheduled_at).toLocaleDateString('en-US', { timeZone: BARN_TZ })}`,
       notes:        e.notes,
       badgeText:    evtType?.calendar_badge ?? null,
       badgeColor:   evtType?.calendar_color ?? null,
@@ -281,7 +282,7 @@ export default async function BillingProductsPage() {
       title:         evtType?.label ?? 'Event',
       subtitle:      e.title,
       price:         Number(e.price),
-      dateLabel:     `Scheduled ${new Date(e.scheduled_at).toLocaleDateString()}`,
+      dateLabel:     `Scheduled ${new Date(e.scheduled_at).toLocaleDateString('en-US', { timeZone: BARN_TZ })}`,
       skippedAt:     e.billing_skipped_at!,
       skippedReason: e.billing_skipped_reason,
       badgeText:     evtType?.calendar_badge ?? null,

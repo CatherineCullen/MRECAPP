@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { renderIcal, type IcalEvent } from '@/lib/ical'
 import { getRiderScope } from '@/app/my/_lib/riderScope'
 import { displayName } from '@/lib/displayName'
+import { utcIsoToBarnNaive, BARN_TZ } from '@/lib/datetime'
 
 export const dynamic = 'force-dynamic'
 
@@ -156,21 +157,16 @@ export async function GET(
       : l.lesson_type === 'semi_private' ? 'Semi-private lesson'
       : 'Group lesson'
 
-    // `scheduled_at` is a naive timestamp — no offset — meaning Eastern wall
-    // clock. Do NOT parse it with `new Date()` on the server because:
-    //   - on Vercel (UTC) it'd be interpreted as UTC, emitting 4pm lessons as
-    //     4pm UTC (= noon Eastern in Google Cal — the bug we're fixing).
-    //   - on a dev Mac (Eastern) it'd be interpreted as Eastern, working by
-    //     coincidence in dev but silently breaking in prod.
-    // Instead: read the wall-clock components from the string and emit as
-    // TZID=America/New_York local time. Calendar clients resolve the offset
-    // via the VTIMEZONE block, so DST is handled correctly year-round.
-    const startLocal = l.scheduled_at.slice(0, 19)      // "YYYY-MM-DDTHH:MM:SS"
+    // `scheduled_at` is honest UTC (timestamptz). Convert to barn-local
+    // wall-clock components, then emit those as TZID=America/New_York —
+    // calendar clients resolve the offset via the VTIMEZONE block, so DST
+    // works year-round.
+    const startLocal = utcIsoToBarnNaive(l.scheduled_at)
     const endLocal = addMinutesToNaive(startLocal, l.duration_minutes ?? 30)
     events.push({
       uid:         `mrec-lesson-${l.id}@marlbororidgeequestriancenter.com`,
       kind:        'local',
-      tzid:        'America/New_York',
+      tzid:        BARN_TZ,
       startLocal,
       endLocal,
       summary:     riderName ? `${typeLabel} — ${riderName}` : typeLabel,
@@ -221,7 +217,7 @@ export async function GET(
       events.push({
         uid:         `mrec-signup-${row.id}@marlbororidgeequestriancenter.com`,
         kind:        'local',
-        tzid:        'America/New_York',
+        tzid:        BARN_TZ,
         startLocal,
         endLocal,
         summary,

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
+import { BARN_TZ, utcIsoToBarnNaive } from '@/lib/datetime'
 
 // Mirror of the rider-facing "My Schedule" list, scoped to this one person and
 // rendered inside the CHIA admin profile page. Read-only — staff click through
@@ -17,6 +18,7 @@ function fmtDateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 
@@ -30,6 +32,7 @@ function fmtDate(iso: string): string {
   }
   return new Date(iso).toLocaleDateString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric',
+    timeZone: BARN_TZ,
   })
 }
 
@@ -115,7 +118,7 @@ export default async function PersonScheduleSection({ personId }: Props) {
   const items: Item[] = [
     ...upcomingLessons.map((lr: LessonRiderRow): Item => {
       const l = Array.isArray(lr.lesson) ? lr.lesson[0] : lr.lesson as any
-      return { kind: 'lesson', sortKey: l.scheduled_at, lr }
+      return { kind: 'lesson', sortKey: utcIsoToBarnNaive(l.scheduled_at), lr }
     }),
     ...(trainingRides ?? []).map((ride): Item => ({
       kind: 'training',

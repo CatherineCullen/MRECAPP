@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { softDeleteDocument } from '../actions'
 import { isProtectedFromDelete } from '../_lib/documentTypes'
 import type { DocumentListRow } from '../_lib/loadDocuments'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Compact table. Clicking the filename opens the file through the signed-URL
 // route (/api/documents/[id]). Delete is inline; waivers refuse at the
@@ -66,7 +67,7 @@ export default function DocumentsList({
             const signed = row.signedAt
               ? new Date(row.signedAt + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
               : '—'
-            const uploaded = new Date(row.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+            const uploaded = new Date(row.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit', timeZone: BARN_TZ })
             const attachHref =
               row.attachedKind === 'horse'  && row.horseId  ? `/chia/herd/horses/${row.horseId}` :
               row.attachedKind === 'person' && row.personId ? `/chia/people/${row.personId}`   : null

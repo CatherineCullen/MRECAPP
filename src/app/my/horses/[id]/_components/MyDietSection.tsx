@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { saveMyDiet } from '../diet/actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type Diet = {
   id:             string
@@ -139,7 +140,7 @@ export default function MyDietSection({ horseId, diet }: { horseId: string; diet
               )}
               {diet!.updated_at && (
                 <div className="text-[10px] text-on-surface-muted">
-                  Updated {new Date(diet!.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  Updated {new Date(diet!.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })}
                   {diet!.version > 1 && ` · v${diet!.version}`}
                 </div>
               )}

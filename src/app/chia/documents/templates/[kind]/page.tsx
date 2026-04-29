@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { loadCurrentTemplate, loadTemplateVersions } from '../../_lib/loadTemplate'
 import TemplateEditor from './_components/TemplateEditor'
+import { BARN_TZ } from '@/lib/datetime'
 
 export default async function TemplateEditPage({
   params,
@@ -47,7 +48,7 @@ export default async function TemplateEditPage({
           <ul className="text-xs text-[#444650] space-y-1">
             {versions.map(v => (
               <li key={v.id}>
-                v{v.version} · effective {new Date(v.effective_from).toLocaleDateString('en-US', { dateStyle: 'long' })}
+                v{v.version} · effective {new Date(v.effective_from).toLocaleDateString('en-US', { dateStyle: 'long', timeZone: BARN_TZ })}
                 {v.version === current?.version && <span className="ml-2 text-[#1a6b3c] font-semibold">current</span>}
               </li>
             ))}

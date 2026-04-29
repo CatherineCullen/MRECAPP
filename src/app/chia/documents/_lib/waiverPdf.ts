@@ -1,5 +1,6 @@
 import 'server-only'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Server-side PDF renderer for a signed waiver. We keep it intentionally
 // simple — no markdown parser. Admin writes waiver text as plain paragraphs
@@ -145,7 +146,7 @@ export async function renderSignedWaiverPdf(args: RenderArgs): Promise<Uint8Arra
   }
 
   const signedAtReadable = new Date(args.signedAtIso).toLocaleString('en-US', {
-    dateStyle: 'long', timeStyle: 'short',
+    dateStyle: 'long', timeStyle: 'short', timeZone: BARN_TZ,
   })
   ensureSpace(lineH * 2)
   page.drawText(`Printed name: ${args.signerPrintedName}`, { x: MARGIN, y, size: BODY_FONT_SIZE, font })

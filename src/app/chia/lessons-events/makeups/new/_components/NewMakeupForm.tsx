@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SearchPicker from '@/components/SearchPicker'
 import { createLessonProduct } from '../../../products/new/actions'
+import { barnLocalToUtcIso } from '@/lib/datetime'
 
 export type TokenOption = {
   id:           string
@@ -88,7 +89,7 @@ export default function NewMakeupForm({ riders, instructors, horses, prefillDate
           riderId,
           instructorId,
           horseId:      horseId || null,
-          scheduledAt:  `${date}T${time}:00`,
+          scheduledAt:  barnLocalToUtcIso(date, time),
           lessonType:   'private',
           price:        0,          // ignored for makeup
           partySize:    null,

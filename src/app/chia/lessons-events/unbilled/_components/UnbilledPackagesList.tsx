@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { sendPackageInvoice, updatePackagePrice, updateEventPrice, skipBilling, unskipBilling } from '../actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type UnbilledItemKind = 'package' | 'event' | 'subscription'
 
@@ -565,7 +566,7 @@ function SkippedRow({
             )}
           </div>
           <div className="text-xs text-[#8c8e98] mt-0.5">
-            {item.dateLabel} · ${item.price.toFixed(2)} · Skipped {new Date(item.skippedAt).toLocaleDateString()}
+            {item.dateLabel} · ${item.price.toFixed(2)} · Skipped {new Date(item.skippedAt).toLocaleDateString('en-US', { timeZone: BARN_TZ })}
             {item.skippedReason && (
               <> · <span className="italic">{item.skippedReason}</span></>
             )}

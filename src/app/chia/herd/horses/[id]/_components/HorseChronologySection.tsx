@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { ChronologyEvent } from '../_lib/loadChronology'
+import { BARN_TZ } from '@/lib/datetime'
 
 /**
  * Chronology feed — today-anchored, future above, past below. Day
@@ -46,6 +47,7 @@ function formatDayHeader(dateKey: string): string {
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 

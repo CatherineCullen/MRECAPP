@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { BARN_TZ } from '@/lib/datetime'
 
 type Diet = {
   am_feed:        string | null
@@ -96,7 +97,7 @@ export default function HorseDietSection({ diet, horseId }: { diet: Diet, horseI
           )}
           {diet.updated_at && (
             <div className="text-[10px] text-[#c4c6d1]">
-              Updated {new Date(diet.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              Updated {new Date(diet.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })}
               {diet.version > 1 && ` · v${diet.version}`}
             </div>
           )}

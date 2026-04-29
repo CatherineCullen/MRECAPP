@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import type { LessonSentSnapshot, LessonSentInvoice } from '../_lib/loadLessonInvoices'
 import { voidAndCancelLessonInvoice } from '../actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Sent lesson invoices, grouped by quarter. Each row is one household's
 // quarterly bundle. Expand to see line items. Void & Cancel button on
@@ -16,7 +17,7 @@ function fmt(n: number): string {
 function fmtDate(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })
 }
 
 function fmtMethod(m: string | null): string {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import SearchPicker from '@/components/SearchPicker'
 import { createLessonProduct, type ProductKind } from '../actions'
 import { sendPackageInvoice } from '../../../unbilled/actions'
+import { barnLocalToUtcIso } from '@/lib/datetime'
 
 type Option      = { id: string; name: string }
 type RiderOption = Option & { defaultBilledToId: string }
@@ -120,7 +121,7 @@ export default function NewLessonProductForm({
         billedToId:   isMakeup ? null : billedToId,
         instructorId,
         horseId:      horseId || null,
-        scheduledAt:  `${date}T${time}:00`,
+        scheduledAt:  barnLocalToUtcIso(date, time),
         lessonType,
         price:        isMakeup ? 0 : Number(price),
         partySize:    null,

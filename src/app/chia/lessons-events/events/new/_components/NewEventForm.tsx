@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SearchPicker from '@/components/SearchPicker'
 import { createEvent } from '../actions'
+import { barnLocalToUtcIso } from '@/lib/datetime'
 
 type Option = { id: string; name: string }
 
@@ -85,7 +86,7 @@ export default function NewEventForm({
     startTransition(async () => {
       const result = await createEvent({
         eventTypeCode:   typeCode,
-        scheduledAt:     `${date}T${time}:00`,
+        scheduledAt:     barnLocalToUtcIso(date, time),
         durationMinutes: Number(duration),
         hostId,
         instructorId:    instructorId || null,

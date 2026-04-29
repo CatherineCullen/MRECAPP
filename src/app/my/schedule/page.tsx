@@ -8,6 +8,7 @@ import MakeupTokenCard from './_components/MakeupTokenCard'
 import SignUpSlotCard from './_components/SignUpSlotCard'
 import { displayName } from '@/lib/displayName'
 import { getRiderScope } from '../_lib/riderScope'
+import { utcIsoToBarnNaive } from '@/lib/datetime'
 
 export const metadata = { title: 'My Schedule — Marlboro Ridge Equestrian Center' }
 
@@ -137,7 +138,9 @@ export default async function MySchedulePage() {
   const items: Item[] = [
     ...upcoming.map((lr: LessonRiderRow): Item => {
       const l = Array.isArray(lr.lesson) ? lr.lesson[0] : lr.lesson as any
-      return { kind: 'lesson', date: l.scheduled_at, lr }
+      // Normalize to barn-local naive so this sort key is comparable to the
+      // training/signup naive strings below.
+      return { kind: 'lesson', date: utcIsoToBarnNaive(l.scheduled_at), lr }
     }),
     ...(trainingRides ?? []).map((ride): Item => ({
       kind: 'training',

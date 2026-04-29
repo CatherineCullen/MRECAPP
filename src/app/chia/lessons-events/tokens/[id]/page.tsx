@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
 import TokenDetailActions from './_components/TokenDetailActions'
 import NotesEditor from './_components/NotesEditor'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Human-readable day of week for subscription slot
 const DAY_LABEL: Record<string, string> = {
@@ -35,6 +36,7 @@ function fmtDateTime(iso: string | null | undefined) {
   return new Date(iso).toLocaleString('en-US', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 

@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { stripe } from '@/lib/stripe/server'
 import { generateLessonDates, type DayOfWeek } from '../_lib/generateLessonDates'
+import { barnLocalToUtcIso } from '@/lib/datetime'
 
 // Quarterly Renewal — admin actions.
 //
@@ -158,9 +159,9 @@ export async function createPendingSubscriptions(
     const lessonRows = lessonDates.map(date => ({
       instructor_id: src.instructor_id,
       lesson_type:   'private' as const,
-      // lesson_time is already 'HH:MM:SS' from Postgres time type — no need
-      // to append seconds.
-      scheduled_at:  `${date}T${src.lesson_time}`,
+      // lesson_time is 'HH:MM:SS' from Postgres time type; helper trims
+      // to HH:MM via split(':').
+      scheduled_at:  barnLocalToUtcIso(date, src.lesson_time),
       status:        'pending' as const,
       created_by:    user?.personId ?? null,
     }))

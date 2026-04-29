@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { resolveCarePlan, editCarePlan } from '../horses/[id]/care-plans/actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 /**
  * Shared Temporary Care Plan card — rendered on both the per-horse view and
@@ -43,7 +44,7 @@ function formatDate(d: string) {
 }
 
 function formatDateTime(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })
 }
 
 export function ActivePlanCard({

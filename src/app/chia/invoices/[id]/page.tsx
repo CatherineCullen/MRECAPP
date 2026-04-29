@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
+import { BARN_TZ } from '@/lib/datetime'
 
 // Neutral invoice detail page — both boarding and lessons-events invoices
 // live in the same `invoice` table, so we serve one place that shows
@@ -71,7 +72,7 @@ function fmtDate(iso: string | null | undefined): string {
     const [y, m, d] = iso.split('-').map(Number)
     return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })
 }
 
 function fmtDateTime(iso: string | null | undefined): string {
@@ -79,6 +80,7 @@ function fmtDateTime(iso: string | null | undefined): string {
   return new Date(iso).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
+    timeZone: BARN_TZ,
   })
 }
 

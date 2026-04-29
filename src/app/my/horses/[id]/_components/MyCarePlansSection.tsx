@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { addMyCarePlan, resolveMyCarePlan, editMyCarePlan } from '../care-plans/actions'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type CarePlan = {
   id:              string
@@ -21,7 +22,7 @@ function formatDate(d: string) {
 }
 
 function formatDateTime(d: string) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })
 }
 
 const inputCls = 'w-full border border-outline rounded px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary bg-surface-lowest'

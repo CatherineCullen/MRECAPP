@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { loadTemplateVersions } from '../_lib/loadTemplate'
+import { BARN_TZ } from '@/lib/datetime'
 
 export default async function TemplatesIndexPage() {
   const [waivers, boarding] = await Promise.all([
@@ -68,7 +69,7 @@ function TemplateCard({
           <span className="italic text-[#c4c6d1]">No version on file yet.</span>
         ) : (
           <>
-            <span>Current: v{current.version} · effective {new Date(current.effective_from).toLocaleDateString()}</span>
+            <span>Current: v{current.version} · effective {new Date(current.effective_from).toLocaleDateString('en-US', { timeZone: BARN_TZ })}</span>
             {versions.length > 1 && (
               <span className="ml-3 text-[#6b6e7a]">{versions.length - 1} prior version{versions.length - 1 === 1 ? '' : 's'}</span>
             )}

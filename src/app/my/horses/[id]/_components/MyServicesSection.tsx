@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { BARN_TZ } from '@/lib/datetime'
 
 export type ServiceLogEntry = {
   id:           string
@@ -12,7 +13,7 @@ export type ServiceLogEntry = {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: BARN_TZ })
 }
 
 function formatPrice(dollars: number | null) {
