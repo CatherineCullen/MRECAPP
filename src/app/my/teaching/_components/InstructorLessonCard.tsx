@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateHorseAssignment, updateLessonNote } from '../actions'
+import { formatBarnTime } from '@/lib/datetime'
 
 export type HorseOption = { id: string; barnName: string; isLessonHorse: boolean }
 
@@ -25,19 +26,6 @@ export type InstructorLesson = {
     subscriptionSlot: string | null
     makeupTokenCount: number
   }>
-}
-
-function formatTime(iso: string) {
-  // See note in ../page.tsx — scheduled_at is stored naive, so new Date()
-  // shifts by server TZ offset. Parse HH:mm directly.
-  const m = iso.match(/T(\d{2}):(\d{2})/)
-  if (!m) return ''
-  let h = parseInt(m[1], 10)
-  const mm = m[2]
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  if (h > 12) h -= 12
-  if (h === 0) h = 12
-  return `${h}:${mm} ${ampm}`
 }
 
 const LESSON_LABEL = {
@@ -104,7 +92,7 @@ export default function InstructorLessonCard({
       onClick={() => setExpanded(e => !e)}
     >
       <p className="text-base font-bold text-on-surface">
-        {formatTime(lesson.scheduledAt)}
+        {formatBarnTime(lesson.scheduledAt)}
       </p>
 
       <div className="flex items-center gap-2 mt-1">

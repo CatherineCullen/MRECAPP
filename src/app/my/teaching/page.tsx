@@ -8,6 +8,7 @@ import ViewToggle from './_components/ViewToggle'
 import FullDayLessonRow, { type FullDayLesson } from './_components/FullDayLessonRow'
 import AvailabilityEditor, { type AvailabilityWindow } from './_components/AvailabilityEditor'
 import { displayName } from '@/lib/displayName'
+import { toBarnLocalDate } from '@/lib/datetime'
 
 export const metadata = { title: 'My Teaching — Marlboro Ridge Equestrian Center' }
 
@@ -196,17 +197,18 @@ export default async function TeachingPage({
     }
   }
 
-  // Group by day of week
+  // Group by day of week (barn-local — a 9pm Eastern lesson stored as 01:00
+  // UTC next day still belongs in the Eastern day's column)
   const myByDay: InstructorLesson[][] = [[], [], [], [], [], [], []]
   for (const l of myLessons) {
-    const d = new Date(l.scheduledAt)
+    const d = toBarnLocalDate(l.scheduledAt)
     const idx = d.getDay() === 0 ? 6 : d.getDay() - 1
     myByDay[idx].push(l)
   }
 
   const fullByDay: FullDayLesson[][] = [[], [], [], [], [], [], []]
   for (const l of fullDayLessons) {
-    const d = new Date(l.scheduledAt)
+    const d = toBarnLocalDate(l.scheduledAt)
     const idx = d.getDay() === 0 ? 6 : d.getDay() - 1
     fullByDay[idx].push(l)
   }

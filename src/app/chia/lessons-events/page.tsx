@@ -7,6 +7,7 @@ import { toISODate, startOfWeek, weekDays, parseISODate } from './_lib/weekRange
 import { effectiveStatus, type RawStatus } from './_lib/effectiveLessonStatus'
 import { displayName, shortName, personInitials } from '@/lib/displayName'
 import { instructorColor, UNASSIGNED_COLOR } from './_lib/instructorColor'
+import { toBarnLocalDate } from '@/lib/datetime'
 
 export default async function LessonsCalendarPage({
   searchParams,
@@ -129,8 +130,8 @@ export default async function LessonsCalendarPage({
 
   // Shape lessons for the grid
   const gridLessons: GridLesson[] = (lessons ?? []).map(l => {
-    const d      = new Date(l.scheduled_at)
-    const dow    = d.getDay()                 // 0..6 Sun..Sat
+    const d      = toBarnLocalDate(l.scheduled_at)
+    const dow    = d.getDay()                 // 0..6 Sun..Sat (barn-local)
     const dayIdx = dow === 0 ? 6 : dow - 1    // shift to Mon-first
     const minutes = d.getHours() * 60 + d.getMinutes()
 
@@ -223,7 +224,7 @@ export default async function LessonsCalendarPage({
   // as full-column-width cards underneath lessons so both are visible on a
   // collision. Status 'cancelled' gets a dimmed look.
   const gridEvents: GridEvent[] = (events ?? []).map(e => {
-    const d      = new Date(e.scheduled_at)
+    const d      = toBarnLocalDate(e.scheduled_at)
     const dow    = d.getDay()
     const dayIdx = dow === 0 ? 6 : dow - 1
     const minutes = d.getHours() * 60 + d.getMinutes()

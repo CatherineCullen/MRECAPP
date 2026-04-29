@@ -2,7 +2,7 @@
 // displayed Eastern. Conversions go through date-fns-tz so there's one
 // trustworthy implementation we don't maintain.
 
-import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime, formatInTimeZone } from 'date-fns-tz'
 
 export const BARN_TZ = 'America/New_York'
 
@@ -40,6 +40,16 @@ export function formatBarnTime(iso: string | Date): string {
  */
 export function utcIsoToBarnNaive(iso: string | Date): string {
   return formatInTimeZone(iso, BARN_TZ, "yyyy-MM-dd'T'HH:mm:ss")
+}
+
+/**
+ * Return a Date whose `.getHours()`, `.getMinutes()`, `.getDay()` etc. read
+ * back as barn-local components. Useful when calendar layout code wants to
+ * compute slot positions from a UTC instant. The returned Date is NOT a
+ * real instant — don't use it for arithmetic against another Date.
+ */
+export function toBarnLocalDate(iso: string | Date): Date {
+  return toZonedTime(iso, BARN_TZ)
 }
 
 /** Today's date in the barn timezone, as YYYY-MM-DD. */
