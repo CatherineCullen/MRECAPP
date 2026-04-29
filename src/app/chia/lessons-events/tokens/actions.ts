@@ -45,6 +45,34 @@ export async function restoreToken(tokenId: string): Promise<{ error?: string }>
   return {}
 }
 
+export async function releaseStuckToken(tokenId: string): Promise<{ error?: string }> {
+  const supabase = createAdminClient()
+  const now = new Date().toISOString()
+
+  const { data: token, error: fetchErr } = await supabase
+    .from('makeup_token')
+    .select('id, scheduled_lesson:lesson!makeup_token_scheduled_lesson_id_fkey(status)')
+    .eq('id', tokenId)
+    .eq('status', 'scheduled')
+    .maybeSingle()
+
+  if (fetchErr) return { error: fetchErr.message }
+  if (!token)   return { error: 'Token not found or is not in scheduled state.' }
+
+  if ((token.scheduled_lesson as { status: string } | null)?.status === 'scheduled') {
+    return { error: 'The makeup lesson is still scheduled. Cancel it first.' }
+  }
+
+  const { error } = await supabase
+    .from('makeup_token')
+    .update({ status: 'available', scheduled_lesson_id: null, status_changed_at: now, updated_at: now })
+    .eq('id', tokenId)
+
+  if (error) return { error: error.message }
+  revalidateTokenViews(tokenId)
+  return {}
+}
+
 export async function updateTokenNote(tokenId: string, note: string | null): Promise<{ error?: string }> {
   const supabase = createAdminClient()
   const { error } = await supabase

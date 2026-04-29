@@ -134,7 +134,7 @@ export async function cancelRemainingLessons(args: {
     .from('lesson_rider')
     .select(`
       id, lesson_id, rider_id,
-      lesson:lesson!inner ( id, scheduled_at, status, lesson_rider ( id, cancelled_at ) )
+      lesson:lesson!inner ( id, scheduled_at, status, is_makeup, lesson_rider ( id, cancelled_at ) )
     `)
     .eq('subscription_id', args.subscriptionId)
     .is('cancelled_at', null)
@@ -142,10 +142,11 @@ export async function cancelRemainingLessons(args: {
 
   if (riderErr) return { error: riderErr.message }
 
-  // Filter to only lessons still in a cancellable state (scheduled/pending-ish)
+  // Makeup lessons are one-off events backed by a token — they survive a slot
+  // change and must be cancelled separately. Only cancel regular slot lessons.
   const eligible = (riderRows ?? []).filter(r => {
-    const status = (r.lesson as any)?.status
-    return status === 'scheduled'
+    const lesson = r.lesson as any
+    return lesson?.status === 'scheduled' && !lesson?.is_makeup
   })
 
   if (eligible.length === 0) {

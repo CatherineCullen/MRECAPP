@@ -170,9 +170,14 @@ export default function DraftsView({ snapshot }: { snapshot: DraftsSnapshot }) {
       // same billing_line_item(s). Ask the admin to confirm the cascade.
       const others = probe.cascade.filter(c => c.invoiceId !== draft.id)
       const othersLabel = others.map(o => o.personLabel).join(', ')
-      const msg = others.length === 1
-        ? `${draft.billedToLabel} shares a split charge with ${othersLabel}. Discarding this invoice also discards ${othersLabel}'s invoice. All affected charges return to Review & Allocate. Continue?`
-        : `${draft.billedToLabel} shares split charges with ${othersLabel}. Discarding this invoice also discards theirs. All affected charges return to Review & Allocate. Continue?`
+      // If every sibling is the same person as the invoice being discarded,
+      // this is a duplicate (not a genuine split between different people).
+      const isDuplicate = others.every(o => o.personLabel === draft.billedToLabel)
+      const msg = isDuplicate
+        ? `This invoice has a duplicate for ${draft.billedToLabel}. Both will be discarded and all charges will return to Review & Allocate. Continue?`
+        : others.length === 1
+          ? `${draft.billedToLabel} shares a split charge with ${othersLabel}. Discarding this invoice also discards ${othersLabel}'s invoice. All affected charges return to Review & Allocate. Continue?`
+          : `${draft.billedToLabel} shares split charges with ${othersLabel}. Discarding this invoice also discards theirs. All affected charges return to Review & Allocate. Continue?`
       if (!confirm(msg)) {
         // Admin bailed — reset the row status.
         setRowStatus(s => ({ ...s, [draft.id]: { state: 'idle' } }))

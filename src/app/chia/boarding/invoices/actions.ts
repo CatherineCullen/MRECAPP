@@ -497,6 +497,22 @@ export async function generateBoardInvoices(params: {
     byPerson.set(a.person_id, list)
   }
 
+  // Idempotency guard: find any person who already has a live (non-deleted,
+  // non-voided) draft invoice for this exact period. If a prior run created
+  // one and the request was retried before the billing_period_start stamp
+  // landed, we'd otherwise double-create. Skip those persons — their
+  // existing draft is the correct result.
+  const { data: existingInvoices } = await db
+    .from('invoice')
+    .select('billed_to_id')
+    .in('billed_to_id', personIds)
+    .eq('period_start', params.periodStart)
+    .eq('period_end', params.periodEnd)
+    .eq('status', 'draft')
+    .is('deleted_at', null)
+
+  const alreadyInvoiced = new Set((existingInvoices ?? []).map(i => i.billed_to_id))
+
   // 3. For each person: Stripe draft → CHIA invoice → invoice_line_items.
   const results: Array<{ personId: string; personLabel: string; ok: boolean; stripeInvoiceId?: string; error?: string }> = []
   const successfullyInvoicedItemIds = new Set<string>()
@@ -519,6 +535,14 @@ export async function generateBoardInvoices(params: {
   }
 
   for (const [personId, personAllocs] of byPerson) {
+    if (alreadyInvoiced.has(personId)) {
+      // A prior run already created a draft for this person+period.
+      // Mark their allocations as successfully invoiced so the stamp step
+      // still runs and pulls the billing_line_items out of the queue.
+      for (const a of personAllocs) successfullyInvoicedItemIds.add(a.billing_line_item_id)
+      results.push({ personId, personLabel: personLabel(personId), ok: true })
+      continue
+    }
     try {
       const lineItems = personAllocs.map(a => {
         const parent = itemsById.get(a.billing_line_item_id)

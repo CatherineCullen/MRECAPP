@@ -199,7 +199,7 @@ export async function requestCancellationException(
   const db = createAdminClient()
   const { data: lr } = await db
     .from('lesson_rider')
-    .select('id, rider_id, lesson:lesson!lesson_id(scheduled_at)')
+    .select('id, rider_id, lesson:lesson!lesson_id(id, scheduled_at, status)')
     .eq('id', lessonRiderId)
     .maybeSingle()
 
@@ -215,7 +215,7 @@ export async function requestCancellationException(
   }).eq('id', lessonRiderId)
 
   const lesson = Array.isArray(lr.lesson) ? lr.lesson[0] : lr.lesson as any
-  if (lesson?.id) {
+  if (lesson?.id && lesson.status === 'scheduled') {
     await db.from('lesson').update({
       cancellation_reason: message ? `Exception requested: ${message}` : 'Exception requested',
       cancelled_at:        nowStr,

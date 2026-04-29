@@ -22,6 +22,12 @@ export async function completeLesson(lessonId: string): Promise<{ error?: string
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
 
+  const { data: check, error: checkErr } = await supabase
+    .from('lesson').select('status').eq('id', lessonId).maybeSingle()
+  if (checkErr) return { error: checkErr.message }
+  if (!check)   return { error: 'Lesson not found.' }
+  if (check.status !== 'scheduled') return { error: `Lesson is already ${check.status}.` }
+
   const { error } = await supabase
     .from('lesson')
     .update({
@@ -59,6 +65,12 @@ export async function completeLesson(lessonId: string): Promise<{ error?: string
  */
 export async function markNoShow(lessonId: string): Promise<{ error?: string }> {
   const supabase = createAdminClient()
+
+  const { data: check, error: checkErr } = await supabase
+    .from('lesson').select('status').eq('id', lessonId).maybeSingle()
+  if (checkErr) return { error: checkErr.message }
+  if (!check)   return { error: 'Lesson not found.' }
+  if (check.status !== 'scheduled') return { error: `Lesson is already ${check.status}.` }
 
   const { error } = await supabase
     .from('lesson')
@@ -102,7 +114,7 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
   const { data: lesson, error: fetchErr } = await supabase
     .from('lesson')
     .select(`
-      id, scheduled_at, status,
+      id, scheduled_at, status, is_makeup,
       lesson_rider (
         id, rider_id, subscription_id, cancelled_at,
         subscription:lesson_subscription ( id, quarter_id, subscription_type )
@@ -136,6 +148,8 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
       .update({ cancelled_at: now, cancelled_by_id: user?.personId ?? null, updated_at: now })
       .in('id', activeRiders.map(r => r.id))
   }
+
+  if (lesson.is_makeup) await releaseMakeupToken(supabase, args.lessonId, now)
 
   // Token generation. Riders without a subscription (legacy / migration-era
   // lessons) still get tokens — quarter_id is derived from the lesson's
@@ -261,15 +275,21 @@ export async function revertLesson(lessonId: string): Promise<{ error?: string }
   const supabase = createAdminClient()
   const now      = new Date().toISOString()
 
-  // If a token from this lesson has already been spent on a makeup, refuse
-  // to revert. Admin needs to cancel that makeup first — keeps the credit
-  // chain consistent and avoids dangling makeups on the calendar.
-  const { data: spentToken } = await supabase
-    .from('makeup_token')
-    .select('id, status, scheduled_lesson_id')
-    .eq('original_lesson_id', lessonId)
-    .in('status', ['scheduled', 'used'])
-    .maybeSingle()
+  // Fetch in parallel: lesson state (for rider-restore timestamp), spent-token
+  // guard, and the makeup token link (if this lesson is itself a makeup).
+  const [{ data: current }, { data: spentToken }, { data: mkRider }] = await Promise.all([
+    supabase.from('lesson').select('cancelled_at').eq('id', lessonId).maybeSingle(),
+    supabase.from('makeup_token')
+      .select('id, status, scheduled_lesson_id')
+      .eq('original_lesson_id', lessonId)
+      .in('status', ['scheduled', 'used'])
+      .maybeSingle(),
+    supabase.from('lesson_rider')
+      .select('makeup_token_id')
+      .eq('lesson_id', lessonId)
+      .not('makeup_token_id', 'is', null)
+      .maybeSingle(),
+  ])
 
   if (spentToken) {
     return {
@@ -277,34 +297,32 @@ export async function revertLesson(lessonId: string): Promise<{ error?: string }
     }
   }
 
-  // Safe to delete unspent tokens (available / expired) that originated here.
-  await supabase
-    .from('makeup_token')
-    .delete()
-    .eq('original_lesson_id', lessonId)
+  await Promise.all([
+    // Delete unspent tokens (available / expired) that originated from this lesson.
+    supabase.from('makeup_token').delete().eq('original_lesson_id', lessonId),
 
-  // Un-cancel any lesson_rider rows
-  await supabase
-    .from('lesson_rider')
-    .update({ cancelled_at: null, cancelled_by_id: null, updated_at: now })
-    .eq('lesson_id', lessonId)
-    .not('cancelled_at', 'is', null)
+    // Restore only the riders that cancelLesson() cancelled — identified by
+    // their cancelled_at matching the lesson's. Riders individually cancelled
+    // before the lesson cancel (different, earlier timestamp) keep their status.
+    current?.cancelled_at
+      ? supabase.from('lesson_rider')
+          .update({ cancelled_at: null, cancelled_by_id: null, updated_at: now })
+          .eq('lesson_id', lessonId)
+          .eq('cancelled_at', current.cancelled_at)
+      : Promise.resolve(),
 
-  // If this lesson was a makeup for another lesson, revert that token back
-  // to 'available' so the rider still has their credit.
-  const { data: token } = await supabase
-    .from('makeup_token')
-    .select('id')
-    .eq('scheduled_lesson_id', lessonId)
-    .eq('status', 'used')
-    .maybeSingle()
-
-  if (token) {
-    await supabase
-      .from('makeup_token')
-      .update({ status: 'available', status_changed_at: now })
-      .eq('id', token.id)
-  }
+    // If this lesson was a makeup, put its token back to 'scheduled' and
+    // re-link it. lesson_rider.makeup_token_id is set at creation and never
+    // cleared, so it works whether the prior state was 'used' (completed →
+    // token was 'used') or 'available' (cancelled → token was released today).
+    // Setting 'available' here instead would allow scheduling a second makeup.
+    mkRider?.makeup_token_id
+      ? supabase.from('makeup_token')
+          .update({ status: 'scheduled', scheduled_lesson_id: lessonId, status_changed_at: now, updated_at: now })
+          .eq('id', mkRider.makeup_token_id)
+          .in('status', ['used', 'available'])
+      : Promise.resolve(),
+  ])
 
   const { error } = await supabase
     .from('lesson')
@@ -373,7 +391,7 @@ export async function mergeLessons(args: {
   // Validate both lessons up front
   const { data: pair, error: pairErr } = await supabase
     .from('lesson')
-    .select('id, scheduled_at, instructor_id, status, deleted_at')
+    .select('id, scheduled_at, instructor_id, status, deleted_at, is_makeup')
     .in('id', [args.sourceLessonId, args.targetLessonId])
 
   if (pairErr) return { error: pairErr.message }
@@ -396,6 +414,7 @@ export async function mergeLessons(args: {
   // Step A: merge this pair
   const firstResult = await mergePair(supabase, args.sourceLessonId, args.targetLessonId, now, user?.personId ?? null)
   if (firstResult.error) return { error: firstResult.error }
+  if (source.is_makeup) await releaseMakeupToken(supabase, args.sourceLessonId, now)
   let mergedCount = 1
 
   // Step B: if scope is 'quarter', find and collapse all future scheduled
@@ -431,7 +450,7 @@ export async function mergeLessons(args: {
 
       const { data: candidates } = await supabase
         .from('lesson')
-        .select('id, created_at')
+        .select('id, created_at, is_makeup')
         .eq('scheduled_at', isoAt)
         .eq('instructor_id', target.instructor_id)
         .eq('status', 'scheduled')
@@ -444,6 +463,7 @@ export async function mergeLessons(args: {
         for (const d of dissolve) {
           const r = await mergePair(supabase, d.id, keep.id, now, user?.personId ?? null)
           if (r.error) return { error: `Failed bulk merge on ${isoAt}: ${r.error}`, mergedCount }
+          if (d.is_makeup) await releaseMakeupToken(supabase, d.id, now)
           mergedCount += 1
         }
       }
@@ -506,6 +526,18 @@ async function mergePair(
   return {}
 }
 
+async function releaseMakeupToken(
+  supabase: ReturnType<typeof createAdminClient>,
+  lessonId: string,
+  now: string,
+): Promise<void> {
+  await supabase
+    .from('makeup_token')
+    .update({ status: 'available', scheduled_lesson_id: null, status_changed_at: now, updated_at: now })
+    .eq('scheduled_lesson_id', lessonId)
+    .eq('status', 'scheduled')
+}
+
 async function quarterIdForScheduledAt(
   supabase: ReturnType<typeof createAdminClient>,
   scheduledAt: string,
@@ -543,7 +575,7 @@ export async function cancelRider(args: {
   const { data: lesson, error: fetchErr } = await supabase
     .from('lesson')
     .select(`
-      id, scheduled_at, status, deleted_at,
+      id, scheduled_at, status, deleted_at, is_makeup,
       lesson_rider (
         id, rider_id, subscription_id, cancelled_at,
         subscription:lesson_subscription ( id, quarter_id )
@@ -592,6 +624,8 @@ export async function cancelRider(args: {
       .update({ lesson_type, updated_at: now })
       .eq('id', args.lessonId)
   }
+
+  if (lesson.is_makeup && remaining.length === 0) await releaseMakeupToken(supabase, args.lessonId, now)
 
   // Grant token if requested. Riders without a subscription (legacy / migration-
   // era lessons) still get tokens — quarter_id is derived from the lesson's

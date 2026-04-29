@@ -285,7 +285,11 @@ export default async function TokenDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Actions */}
-      <TokenDetailActions tokenId={token.id} status={token.status as 'available' | 'scheduled' | 'used' | 'expired'} />
+      <TokenDetailActions
+        tokenId={token.id}
+        status={token.status as 'available' | 'scheduled' | 'used' | 'expired'}
+        scheduledLessonStatus={(token.scheduled_lesson as { status: string } | null)?.status ?? null}
+      />
     </div>
   )
 }

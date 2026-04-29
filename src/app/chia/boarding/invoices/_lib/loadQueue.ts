@@ -242,15 +242,15 @@ export async function loadQueue(): Promise<QueueSnapshot> {
   // any existing open aggregate for the group FIRST and extending it
   // rather than inserting a new one.
   if (eligibleHorseIds.length > 0) {
-    // Self-heal: kill any open (draft, un-invoiced) training-ride aggregate
-    // that has zero live rides linked to it. Orphans accumulate if a past
-    // seed run inserted an aggregate but the subsequent ride-link update
-    // never landed (pre-idempotency bug, network hiccup, etc.). The seed
-    // code as it stands now won't create new ones — this step cleans up
-    // the residue so admin counts stay accurate.
+    // Self-heal pass on all open (draft, un-invoiced) training-ride aggregates:
+    // 1. Orphan cleanup — delete aggregates with zero live linked rides.
+    // 2. Quantity reconciliation — re-verify count on survivors and patch if
+    //    stale. Quantity drifts when rides are removed after the count was set
+    //    (e.g. a ride deleted while the line was already reviewed, which blocks
+    //    the normal unlogRide decrement path).
     const { data: liveAggs } = await db
       .from('billing_line_item')
-      .select('id')
+      .select('id, description, unit_price, quantity')
       .in('horse_id', eligibleHorseIds)
       .is('billing_period_start', null)
       .is('deleted_at', null)
@@ -264,17 +264,39 @@ export async function loadQueue(): Promise<QueueSnapshot> {
         .select('billing_line_item_id')
         .in('billing_line_item_id', aggIds)
         .is('deleted_at', null)
-      const linkedSet = new Set(
-        (stillLinked ?? [])
-          .map(r => r.billing_line_item_id)
-          .filter((x): x is string => x !== null),
-      )
-      const orphans = aggIds.filter(id => !linkedSet.has(id))
-      if (orphans.length > 0) {
+
+      const countById = new Map<string, number>()
+      for (const r of stillLinked ?? []) {
+        if (r.billing_line_item_id) {
+          countById.set(r.billing_line_item_id, (countById.get(r.billing_line_item_id) ?? 0) + 1)
+        }
+      }
+
+      const orphanIds = aggIds.filter(id => !countById.has(id))
+      if (orphanIds.length > 0) {
         await db
           .from('billing_line_item')
           .update({ deleted_at: new Date().toISOString() })
-          .in('id', orphans)
+          .in('id', orphanIds)
+      }
+
+      // Patch stale quantities on survivors.
+      const orphanSet = new Set(orphanIds)
+      for (const agg of liveAggs ?? []) {
+        if (orphanSet.has(agg.id)) continue
+        const actual = countById.get(agg.id) ?? 0
+        if (actual === Number(agg.quantity)) continue
+        const rateStr = Number(agg.unit_price).toFixed(2).replace(/\.00$/, '')
+        const desc = agg.description ?? ''
+        const parenIdx = desc.lastIndexOf(' (')
+        const prefix = parenIdx >= 0 ? desc.slice(0, parenIdx) : desc
+        await db
+          .from('billing_line_item')
+          .update({
+            quantity:    actual,
+            description: `${prefix} (${actual} × $${rateStr})`,
+          })
+          .eq('id', agg.id)
       }
     }
 

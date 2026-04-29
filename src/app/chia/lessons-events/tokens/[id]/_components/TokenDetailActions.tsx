@@ -3,16 +3,17 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { expireToken, restoreToken } from '../../actions'
+import { expireToken, restoreToken, releaseStuckToken } from '../../actions'
 
 type Status = 'available' | 'scheduled' | 'used' | 'expired'
 
 type Props = {
-  tokenId: string
-  status:  Status
+  tokenId:              string
+  status:               Status
+  scheduledLessonStatus?: string | null
 }
 
-export default function TokenDetailActions({ tokenId, status }: Props) {
+export default function TokenDetailActions({ tokenId, status, scheduledLessonStatus }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -35,9 +36,20 @@ export default function TokenDetailActions({ tokenId, status }: Props) {
     })
   }
 
-  if (status === 'used' || status === 'scheduled') {
-    // Terminal / in-flight — nothing to do from here. The scheduled makeup
-    // lesson itself handles reschedule/cancel actions in its own detail page.
+  function handleRelease() {
+    setError(null)
+    startTransition(async () => {
+      const r = await releaseStuckToken(tokenId)
+      if (r?.error) setError(r.error)
+      else router.refresh()
+    })
+  }
+
+  // Stuck-scheduled: the makeup was canceled without reverting the token.
+  // Show a release button so the rider's credit can be recovered.
+  const isStuckScheduled = status === 'scheduled' && scheduledLessonStatus !== 'scheduled'
+
+  if (status === 'used' || (status === 'scheduled' && !isStuckScheduled)) {
     return null
   }
 
@@ -70,6 +82,15 @@ export default function TokenDetailActions({ tokenId, status }: Props) {
             className="text-xs font-semibold text-[#1a6b3c] border border-[#b7f0d0] bg-white px-2.5 py-1.5 rounded hover:bg-[#b7f0d0]/30 disabled:opacity-50 transition-colors"
           >
             Restore
+          </button>
+        )}
+        {isStuckScheduled && (
+          <button
+            onClick={handleRelease}
+            disabled={pending}
+            className="text-xs font-semibold text-[#1a6b3c] border border-[#b7f0d0] bg-white px-2.5 py-1.5 rounded hover:bg-[#b7f0d0]/30 disabled:opacity-50 transition-colors"
+          >
+            Release token
           </button>
         )}
       </div>
