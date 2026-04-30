@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import MyNav from './_components/MyNav'
 import { getRiderScope } from './_lib/riderScope'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
+import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import { unreadThreadCountForPerson } from '@/lib/messaging/threads'
 
 export default async function MyLayout({ children }: { children: React.ReactNode }) {
@@ -55,6 +56,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         unreadMessages={unreadMessages}
       />
       <main className="max-w-md mx-auto px-4 py-4 space-y-3">
+        <ServiceWorkerRegistrar />
         <PWAInstallPrompt variant="banner" />
         {children}
       </main>

@@ -39,6 +39,7 @@ export type OutboundChannel =
   | 'stripe_invoice_send'
   | 'email'
   | 'sms'
+  | 'push'
 
 /** True iff OUTBOUND_ENABLED is explicitly set to 'true'. Default: false. */
 export function isOutboundEnabled(): boolean {
@@ -85,7 +86,7 @@ export function assertStripeOutboundAllowed(
  * gated — no safe test mode. Call this from adapter layer when those are
  * wired up.
  */
-export function assertDirectOutboundAllowed(channel: 'email' | 'sms'): void {
+export function assertDirectOutboundAllowed(channel: 'email' | 'sms' | 'push'): void {
   if (!isOutboundEnabled()) {
     throw new OutboundDisabledError(channel, 'OUTBOUND_ENABLED is not set')
   }

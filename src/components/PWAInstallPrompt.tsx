@@ -111,7 +111,7 @@ export default function PWAInstallPrompt({ variant = 'banner' }: { variant?: Var
           </div>
           <div className="text-xs text-[#444650] mt-0.5">
             Add it to your home screen for one-tap access to your schedule
-            and (soon) messages from your instructor.
+            and push notifications when your instructor messages you.
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">

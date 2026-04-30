@@ -2,7 +2,9 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notify } from '@/lib/notifications'
 import { getAppOrigin } from '@/lib/appUrl'
+import { OutboundDisabledError } from '@/lib/outbound'
 import { guardianMessageLabel, adminLabel } from './displayName'
+import { sendPushToPerson } from './push'
 
 const THROTTLE_WINDOW_MS = 60 * 1000  // 60 seconds per Q-MSG-5
 
@@ -74,7 +76,20 @@ export async function notifyNewMessage(args: {
   const now = Date.now()
   const smsAllowed = !throttle || (now - new Date(throttle.last_sms_at).getTime()) > THROTTLE_WINDOW_MS
 
+  // Global push toggle for this notification type. Per-user opt-out
+  // checked per recipient inside the loop.
+  const { data: cfg } = await db
+    .from('notification_config')
+    .select('push_enabled')
+    .eq('notification_type', 'message_received')
+    .maybeSingle()
+  const pushAllowedGlobally = cfg?.push_enabled ?? true
+
+  const threadUrl = `${appUrl}/my/messages/${args.threadId}`
+
   for (const r of activeRecipients) {
+    // SMS + email path through the standard notify() helper (which
+    // handles per-user opt-outs, dedup, and the kill switch).
     await notify({
       personId:    r.id,
       type:        'message_received',
@@ -87,6 +102,36 @@ export async function notifyNewMessage(args: {
         app_url:     appUrl,
       },
     })
+
+    // Push path — separate from notify() because push payloads are
+    // structured JSON, not text templates. Same opt-in/out plumbing
+    // (notification_preference rows, channel='push').
+    if (pushAllowedGlobally) {
+      const { data: prefs } = await db
+        .from('notification_preference')
+        .select('opted_out')
+        .eq('person_id', r.id)
+        .eq('notification_type', 'message_received')
+        .eq('channel', 'push')
+        .is('deleted_at', null)
+        .maybeSingle()
+      const optedOut = prefs?.opted_out ?? false
+      if (!optedOut) {
+        try {
+          await sendPushToPerson(r.id, {
+            title: senderLabel,
+            body:  preview,
+            url:   threadUrl,
+            tag:   `thread-${args.threadId}`,
+          })
+        } catch (err) {
+          if (!(err instanceof OutboundDisabledError)) {
+            console.error('[notifyNewMessage] push failed', err)
+          }
+          // OutboundDisabledError = expected in dev/preview; swallow.
+        }
+      }
+    }
   }
 
   if (smsAllowed) {
