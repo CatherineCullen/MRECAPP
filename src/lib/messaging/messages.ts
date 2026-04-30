@@ -2,6 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrCreateThread, joinThread } from './threads'
 import { canMessage } from './eligibility'
+import { notifyNewMessage } from './notify'
 
 export interface SendMessageParams {
   /** Person sending the message — typically getCurrentUser().personId. */
@@ -82,6 +83,16 @@ export async function sendMessage(params: SendMessageParams): Promise<SendMessag
   if (msgErr || !msg) throw new Error(`Failed to send message: ${msgErr?.message}`)
 
   await db.from('thread').update({ updated_at: nowIso }).eq('id', threadId)
+
+  // Fire-and-forget notification dispatch. Errors are swallowed inside
+  // notify() (kill switch, missing template, opt-outs) so the parent
+  // sendMessage call never fails because of an SMS hiccup.
+  await notifyNewMessage({
+    threadId,
+    messageId: msg.id,
+    senderId,
+    body,
+  })
 
   return { threadId, messageId: msg.id }
 }
