@@ -88,8 +88,12 @@ export default async function ThreadPage({
             </div>
             {g.items.map(m => {
               const align = m.isViewer ? 'items-end' : 'items-start'
+              // Tonal palette per Heritage Atelier: pale fills, no loud
+              // primary navy. Position (right vs left) carries the
+              // sent/received distinction; color distinguishes admin
+              // presence from regular replies.
               const bubble = m.isViewer
-                ? 'bg-primary-container text-on-primary-container'
+                ? 'bg-primary-fixed text-primary'
                 : m.isAdmin
                   ? 'bg-secondary-fixed text-on-secondary-fixed'
                   : 'bg-surface-highest text-on-surface'
