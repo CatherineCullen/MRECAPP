@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
             <>
               <p className="text-sm text-[#444650] mb-4">
                 If an account exists for <strong>{email}</strong>, a password reset link has been sent.
-                Check your inbox (and spam folder) for an email from Marlboro Ridge.
+                Check your inbox (and spam folder) for an email from Marlboro Ridge Equestrian Center.
               </p>
               <a href="/sign-in" className="text-sm font-semibold text-[#056380]">← Back to sign-in</a>
             </>

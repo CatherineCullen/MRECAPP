@@ -59,7 +59,7 @@ export default async function MyProfilePage() {
       <div className="bg-surface-lowest rounded-lg p-4 space-y-2">
         <h2 className="text-xs font-semibold text-on-surface-muted uppercase tracking-wide">Push notifications</h2>
         <p className="text-xs text-on-surface-muted">
-          Get a push notification when someone sends you a message. Works on devices where you've installed Marlboro Ridge to your home screen. SMS still works regardless.
+          Get a push notification when someone sends you a message. Works on devices where you've installed Marlboro Ridge Equestrian Center to your home screen. SMS still works regardless.
         </p>
         <PushNotificationToggle />
       </div>

@@ -107,7 +107,7 @@ export default function PWAInstallPrompt({ variant = 'banner' }: { variant?: Var
       <div className={wrapperCls}>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-[#191c1e]">
-            Install Marlboro Ridge on your phone
+            Install Marlboro Ridge Equestrian Center on your phone
           </div>
           <div className="text-xs text-[#444650] mt-0.5">
             Add it to your home screen for one-tap access to your schedule
@@ -153,8 +153,8 @@ export default function PWAInstallPrompt({ variant = 'banner' }: { variant?: Var
               <li>Tap <strong>Add</strong> in the top-right corner.</li>
             </ol>
             <p className="text-xs text-[#444650]">
-              The Marlboro Ridge icon will appear on your home screen. Tap it
-              like any other app.
+              The Marlboro Ridge Equestrian Center icon will appear on your home
+              screen. Tap it like any other app.
             </p>
             <div className="flex justify-end pt-2">
               <button

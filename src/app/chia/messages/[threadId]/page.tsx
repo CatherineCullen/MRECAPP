@@ -69,20 +69,35 @@ export default async function AdminThreadPage({
               <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8c8e98]">{g.heading}</span>
             </div>
             {g.items.map(m => {
+              // Admin viewing someone else's thread sees TWO non-self
+              // bubble colors so it's obvious which side of the
+              // conversation each message came from.
+              //   pair_a → pale sky    (#bee9ff)
+              //   pair_b → pale amber  (#ffddb3)
+              //   admin own (right-aligned) → lavender (#dae2ff)
+              //   third-party admin (rare) → neutral gray (#e0e3e6)
               const align = m.isViewer ? 'items-end' : 'items-start'
-              const bubble = m.isViewer
-                ? 'bg-[#dae2ff] text-[#002058]'        // admin viewing own message
-                : m.isAdmin
-                  ? 'bg-[#bee9ff] text-[#001f2a]'      // another admin's message (rare)
-                  : 'bg-[#e0e3e6] text-[#191c1e]'      // regular participant message
+              let bubble: string
+              if (m.isViewer) {
+                bubble = 'bg-[#dae2ff] text-[#002058]'
+              } else if (m.senderId === detail.pairAId) {
+                bubble = 'bg-[#bee9ff] text-[#001f2a]'
+              } else if (m.senderId === detail.pairBId) {
+                bubble = 'bg-[#ffddb3] text-[#7c4b00]'
+              } else {
+                bubble = 'bg-[#e0e3e6] text-[#191c1e]'
+              }
 
               return (
                 <div key={m.id} className={`flex flex-col ${align}`}>
-                  {!m.isViewer && (
-                    <span className="text-[10px] uppercase tracking-wider font-semibold text-[#8c8e98] px-1">
-                      {m.senderLabel}
-                    </span>
-                  )}
+                  {/* Always show the sender label, including on the
+                      viewer's own bubble — admin overseeing a
+                      conversation needs unambiguous attribution
+                      everywhere, even on their own posts (otherwise
+                      "wait, did I say that or did Paul?" creeps in). */}
+                  <span className="text-xs font-semibold text-[#191c1e] px-1">
+                    {m.senderLabel}
+                  </span>
 
                   {m.lessonContext && (
                     <div className="bg-[#f7f9fc] rounded-t-lg px-3 py-1 mt-0.5">
@@ -117,12 +132,22 @@ export default async function AdminThreadPage({
 /**
  * Admin variant of loadThread — skips the participant authorization check
  * since admin can view any thread. The "(admin)" label is preserved on
- * sender bubbles by reusing the shared helper.
+ * sender bubbles by reusing the shared helper. Also exposes the pair
+ * identity (pair_a_id, pair_b_id) so the renderer can color-code each
+ * participant distinctly — critical when admin is observing a
+ * conversation between two other people and needs to tell who said what
+ * at a glance.
  */
+type AdminThreadDetail = NonNullable<Awaited<ReturnType<typeof loadThread>>> & {
+  adminIsParticipant: boolean
+  pairAId:            string
+  pairBId:            string
+}
+
 async function loadThreadAsAdmin(
   threadId: string,
   adminId: string,
-): Promise<(Awaited<ReturnType<typeof loadThread>> & { adminIsParticipant: boolean }) | null> {
+): Promise<AdminThreadDetail | null> {
   const { createAdminClient } = await import('@/lib/supabase/admin')
   const db = createAdminClient()
 
@@ -203,5 +228,7 @@ async function loadThreadAsAdmin(
     headerLabel,
     messages,
     adminIsParticipant: !!part,
+    pairAId: thread.pair_a_id,
+    pairBId: thread.pair_b_id,
   }
 }

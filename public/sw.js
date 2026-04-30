@@ -1,4 +1,4 @@
-// Marlboro Ridge service worker — Phase 1 scope is push notifications only.
+// Marlboro Ridge Equestrian Center service worker — Phase 1 scope is push notifications only.
 // No offline cache, no asset interception. The browser still uses HTTP cache
 // for app shell; we don't need a separate strategy yet.
 
@@ -21,7 +21,7 @@ self.addEventListener('push', (event) => {
     payload = { title: 'New message', body: event.data.text() }
   }
 
-  const title = payload.title || 'Marlboro Ridge'
+  const title = payload.title || 'Marlboro Ridge Equestrian Center'
   const options = {
     body:  payload.body || '',
     icon:  '/icon-192.png',

@@ -241,8 +241,9 @@ export default function EnrollmentForm({
           />
           <span>
             I consent to receive operational text messages from Marlboro Ridge
-            (lesson reminders, schedule changes, billing notices). Reply STOP
-            to opt out at any time. Message and data rates may apply.
+            Equestrian Center (lesson reminders, schedule changes, billing
+            notices). Reply STOP to opt out at any time. Message and data rates
+            may apply.
           </span>
         </label>
       </section>

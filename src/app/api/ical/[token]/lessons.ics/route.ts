@@ -237,7 +237,7 @@ export async function GET(
     }
   }
 
-  const calendarName = `Marlboro Ridge — ${person.preferred_name ?? person.first_name ?? 'Schedule'}`
+  const calendarName = `Marlboro Ridge Equestrian Center — ${person.preferred_name ?? person.first_name ?? 'Schedule'}`
   const body = renderIcal(events, calendarName)
 
   return new NextResponse(body, {
