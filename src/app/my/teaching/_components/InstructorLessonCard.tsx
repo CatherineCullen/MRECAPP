@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { updateHorseAssignment, updateLessonNote } from '../actions'
 import { formatBarnTime } from '@/lib/datetime'
+import { openThreadWith } from '../../messages/actions'
 
 export type HorseOption = { id: string; barnName: string; isLessonHorse: boolean }
 
@@ -25,6 +26,8 @@ export type InstructorLesson = {
     subscriptionType: string | null
     subscriptionSlot: string | null
     makeupTokenCount: number
+    /** PersonId to message — guardian for minors, rider for adults. Null if neither has a login. */
+    messageRecipientId: string | null
   }>
 }
 
@@ -49,6 +52,8 @@ export default function InstructorLessonCard({
   const [noteSaved,   setNoteSaved]   = useState(lesson.notes ?? '')
   const [noteError,   setNoteError]   = useState<string | null>(null)
   const [notePending, startNote]      = useTransition()
+
+  const [msgPending,  startMsg]       = useTransition()
 
   const [localHorses, setLocalHorses] = useState<Record<string, string | null>>(
     Object.fromEntries(lesson.riders.map(r => [r.lrId, r.horseId]))
@@ -143,6 +148,22 @@ export default function InstructorLessonCard({
                 </a>
               ) : (
                 <p className="text-xs text-on-surface-muted">No phone on file</p>
+              )}
+
+              {r.messageRecipientId && (
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    startMsg(async () => {
+                      await openThreadWith({ recipientId: r.messageRecipientId!, lessonId: lesson.lessonId })
+                    })
+                  }}
+                  disabled={msgPending}
+                  className="text-xs font-semibold text-secondary disabled:opacity-50"
+                >
+                  Message {r.isMinor ? r.guardianName ?? 'guardian' : r.name}
+                </button>
               )}
 
               {lesson.isFuture && (

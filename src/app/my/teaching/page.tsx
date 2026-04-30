@@ -163,6 +163,9 @@ export default async function TeachingPage({
           const h    = Array.isArray(lr.horse)        ? lr.horse[0]        : lr.horse
           const sub  = Array.isArray(lr.subscription) ? lr.subscription[0] : lr.subscription
           const guardian = r?.guardian_id ? guardianMap.get(r.guardian_id) : null
+          // Routing for "Message" button: minors don't have logins, so
+          // send to the guardian (account holder).
+          const messageRecipientId = r?.is_minor && r?.guardian_id ? r.guardian_id : (r?.id ?? null)
           return {
             lrId:             lr.id,
             name:             r ? displayName(r as any) : 'Rider',
@@ -175,6 +178,7 @@ export default async function TeachingPage({
             subscriptionType: sub?.subscription_type ?? null,
             subscriptionSlot: formatSlot(sub?.lesson_day ?? null, sub?.lesson_time ?? null),
             makeupTokenCount: r?.id ? (tokenCountMap.get(r.id) ?? 0) : 0,
+            messageRecipientId,
           }
         }),
       })

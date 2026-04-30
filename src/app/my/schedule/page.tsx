@@ -182,7 +182,9 @@ export default async function MySchedulePage() {
                 <LessonCard
                   key={item.lr.id}
                   lessonRiderId={item.lr.id}
+                  lessonId={l.id}
                   scheduledAt={l.scheduled_at}
+                  instructorId={l.instructor_id}
                   instructorName={instructorMap.get(l.instructor_id) ?? 'Instructor'}
                   lessonType={l.lesson_type}
                   isMakeup={l.is_makeup}

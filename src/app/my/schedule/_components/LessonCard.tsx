@@ -3,10 +3,13 @@
 import { useState, useTransition } from 'react'
 import { cancelMyLesson, requestCancellationException, type CancelOutcome } from '../actions'
 import { BARN_TZ } from '@/lib/datetime'
+import { openThreadWith } from '../../messages/actions'
 
 type Props = {
   lessonRiderId: string
+  lessonId:      string
   scheduledAt:   string   // ISO string
+  instructorId:  string
   instructorName: string
   lessonType:    'private' | 'semi_private' | 'group'
   isMakeup:      boolean
@@ -37,7 +40,7 @@ const LESSON_LABEL = {
 }
 
 export default function LessonCard({
-  lessonRiderId, scheduledAt, instructorName, lessonType, isMakeup, hoursUntil, riderName,
+  lessonRiderId, lessonId, scheduledAt, instructorId, instructorName, lessonType, isMakeup, hoursUntil, riderName,
 }: Props) {
   const [expanded,    setExpanded]    = useState(false)
   const [confirming,  setConfirming]  = useState(false)
@@ -122,9 +125,16 @@ export default function LessonCard({
         </div>
       </div>
 
-      {/* Expanded: cancel flow */}
+      {/* Expanded: action menu */}
       {expanded && !confirming && (
-        <div className="mt-3 pt-3 border-t border-outline-variant/20" onClick={e => e.stopPropagation()}>
+        <div className="mt-3 pt-3 border-t border-outline-variant/20 flex items-center gap-4" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => start(async () => { await openThreadWith({ recipientId: instructorId, lessonId }) })}
+            disabled={pending}
+            className="text-sm font-semibold text-secondary disabled:opacity-50"
+          >
+            Message {instructorName}
+          </button>
           <button
             onClick={() => setConfirming(true)}
             className="text-sm font-semibold text-error"
