@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import MyNav from './_components/MyNav'
 import { getRiderScope } from './_lib/riderScope'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
+import { unreadThreadCountForPerson } from '@/lib/messaging/threads'
 
 export default async function MyLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser()
@@ -14,7 +15,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
   const riderIds = await getRiderScope(user.personId)
 
   const today = new Date().toISOString().slice(0, 10)
-  const [horsesRes, invoicesRes, sheetsRes] = await Promise.all([
+  const [horsesRes, invoicesRes, sheetsRes, unreadMessages] = await Promise.all([
     db.from('horse_contact')
       .select('id')
       .in('person_id', riderIds)
@@ -32,6 +33,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
       .gte('date', today)
       .is('deleted_at', null)
       .limit(1),
+    unreadThreadCountForPerson(user.personId),
   ])
 
   const hasHorses    = (horsesRes.data?.length   ?? 0) > 0
@@ -50,6 +52,7 @@ export default async function MyLayout({ children }: { children: React.ReactNode
         isInstructor={user.isInstructor || user.isAdmin}
         canLogServices={user.isAdmin || user.isBarnWorker}
         canLogTrainingRides={user.isTrainingRideProvider || user.isAdmin}
+        unreadMessages={unreadMessages}
       />
       <main className="max-w-md mx-auto px-4 py-4 space-y-3">
         <PWAInstallPrompt variant="banner" />

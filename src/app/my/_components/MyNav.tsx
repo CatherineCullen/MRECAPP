@@ -13,6 +13,7 @@ export default function MyNav({
   isInstructor,
   canLogServices,
   canLogTrainingRides,
+  unreadMessages,
 }: {
   firstName: string
   hasHorses: boolean
@@ -22,6 +23,7 @@ export default function MyNav({
   isInstructor: boolean
   canLogServices: boolean
   canLogTrainingRides: boolean
+  unreadMessages: number
 }) {
   const pathname = usePathname()
   const tabsRef  = useRef<HTMLDivElement | null>(null)
@@ -43,9 +45,10 @@ export default function MyNav({
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
-  const tabs = [
+  const tabs: Array<{ label: string; href: string; badge?: number }> = [
     ...(isInstructor ? [{ label: 'Teaching', href: '/my/teaching' }] : []),
     { label: 'Schedule',  href: '/my/schedule'  },
+    { label: 'Messages',  href: '/my/messages', badge: unreadMessages },
     ...(hasHorses   ? [{ label: 'Horses',   href: '/my/horses'   }] : []),
     ...(showSignUps ? [{ label: 'Sign-Ups', href: '/my/sign-ups' }] : []),
     ...(canLogTrainingRides ? [{ label: 'Training', href: '/my/training-rides' }] : []),
@@ -77,13 +80,18 @@ export default function MyNav({
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`flex-shrink-0 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+                className={`flex-shrink-0 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors inline-flex items-center gap-1.5 ${
                   active
                     ? 'border-secondary text-white'
                     : 'border-transparent text-secondary/50 hover:text-white'
                 }`}
               >
                 {tab.label}
+                {tab.badge && tab.badge > 0 ? (
+                  <span className="bg-secondary text-primary text-[10px] font-bold rounded-full min-w-[18px] h-[18px] inline-flex items-center justify-center px-1">
+                    {tab.badge > 99 ? '99+' : tab.badge}
+                  </span>
+                ) : null}
               </Link>
             )
           })}
