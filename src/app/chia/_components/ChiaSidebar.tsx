@@ -13,9 +13,9 @@ import { useEffect, useState } from 'react'
 const sections = [
   { label: 'Herd',             href: '/chia/herd',             icon: '⬡' },
   { label: 'Lessons & Events', href: '/chia/lessons-events',   icon: '◷' },
+  { label: 'Messages',         href: '/chia/messages',         icon: '✉' },
   { label: 'Training Rides',   href: '/chia/training-rides',   icon: '◉' },
   { label: 'People',           href: '/chia/people',           icon: '◯' },
-  { label: 'Messages',         href: '/chia/messages',         icon: '✉' },
   { label: 'Boarding',         href: '/chia/boarding',         icon: '▣' },
   { label: 'Documents',        href: '/chia/documents',        icon: '▤' },
   { label: 'Data',             href: '/chia/data',             icon: '◈' },
