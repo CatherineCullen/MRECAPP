@@ -103,6 +103,84 @@ export async function loadInboxForPerson(viewerId: string): Promise<InboxRow[]> 
   return rows
 }
 
+export interface AdminInboxRow {
+  threadId:       string
+  /** Both original-pair labels — admin sees the conversation between two other people. */
+  participantsLabel: string
+  preview:        string
+  lastActivityAt: string
+  /** True if the admin has unread messages — applies only after they've joined the thread. */
+  unread:         boolean
+  /** Comma-joined participant labels for client-side filtering. */
+  searchKey:      string
+}
+
+/**
+ * Admin inbox: ALL threads in the system, sorted unread-first then by
+ * activity. Admin may or may not be a participant yet — `unread` only
+ * triggers if they've posted (and thus have a thread_participant row
+ * with last_read_at).
+ */
+export async function loadAllThreadsForAdmin(adminId: string): Promise<AdminInboxRow[]> {
+  const db = createAdminClient()
+
+  const { data: threads } = await db
+    .from('thread')
+    .select('id, pair_a_id, pair_b_id, created_at, updated_at')
+    .order('updated_at', { ascending: false })
+
+  if (!threads || threads.length === 0) return []
+
+  // Admin's own participation rows (where they exist) for unread tracking.
+  const { data: adminParts } = await db
+    .from('thread_participant')
+    .select('thread_id, last_read_at')
+    .eq('person_id', adminId)
+  const adminLastRead = new Map((adminParts ?? []).map(p => [p.thread_id, p.last_read_at]))
+
+  const rows: AdminInboxRow[] = await Promise.all(threads.map(async t => {
+    const { data: lastMsg } = await db
+      .from('message')
+      .select('body, created_at, sender_id')
+      .eq('thread_id', t.id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const preview = lastMsg
+      ? (lastMsg.body.length > 80 ? `${lastMsg.body.slice(0, 80)}…` : lastMsg.body)
+      : ''
+
+    const [labelA, labelB] = await Promise.all([
+      labelForPerson(t.pair_a_id),
+      labelForPerson(t.pair_b_id),
+    ])
+
+    let unread = false
+    if (adminLastRead.has(t.id) && lastMsg && lastMsg.sender_id !== adminId) {
+      const lr = adminLastRead.get(t.id)
+      unread = !lr || lastMsg.created_at > lr
+    }
+
+    return {
+      threadId: t.id,
+      participantsLabel: `${labelA} ↔ ${labelB}`,
+      preview,
+      lastActivityAt: lastMsg?.created_at ?? t.updated_at,
+      unread,
+      searchKey: `${labelA} ${labelB}`.toLowerCase(),
+    }
+  }))
+
+  rows.sort((a, b) => {
+    if (a.unread !== b.unread) return a.unread ? -1 : 1
+    return b.lastActivityAt.localeCompare(a.lastActivityAt)
+  })
+
+  return rows
+}
+
 /**
  * Label for a single person: guardian-decorated, plus "(admin)" suffix
  * if they hold the admin role.

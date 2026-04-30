@@ -11,6 +11,7 @@ import { getCurrentUser } from '@/lib/auth'
 import SendInviteButton from './_components/SendInviteButton'
 import ChangeLoginEmailButton from './_components/ChangeLoginEmailButton'
 import ArchivePersonButton from './_components/ArchivePersonButton'
+import MessagePersonButton from './_components/MessagePersonButton'
 
 const ROLE_LABELS: Record<string, string> = {
   rider: 'Rider', owner: 'Owner', instructor: 'Instructor',
@@ -136,6 +137,9 @@ export default async function PersonPage({
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {currentUser?.isAdmin && person.auth_user_id && currentUser.personId !== id && (
+            <MessagePersonButton personId={id} />
+          )}
           {!person.auth_user_id && !person.is_minor && !person.is_organization && (
             <SendInviteButton personId={id} hasEmail={!!person.email} />
           )}
