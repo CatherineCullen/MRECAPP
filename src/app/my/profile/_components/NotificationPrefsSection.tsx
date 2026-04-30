@@ -9,6 +9,7 @@ type Config = { type: string; emailEnabled: boolean; smsEnabled: boolean }
 const PREFS_CONFIG = [
   { type: 'lesson_reminder',     label: 'Lesson reminders',     desc: '24 hours before your lesson' },
   { type: 'lesson_cancellation', label: 'Cancellation notices', desc: 'When a lesson is cancelled' },
+  { type: 'message_received',    label: 'New messages',         desc: 'SMS preview when someone sends you a message — debounced to one buzz per minute per conversation' },
 ]
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled: boolean }) {
