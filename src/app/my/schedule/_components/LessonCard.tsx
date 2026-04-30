@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { cancelMyLesson, requestCancellationException, type CancelOutcome } from '../actions'
+import { cancelMyLesson, type CancelOutcome } from '../actions'
 import { BARN_TZ } from '@/lib/datetime'
 import { openThreadWith } from '../../messages/actions'
 
@@ -44,8 +44,8 @@ export default function LessonCard({
 }: Props) {
   const [expanded,    setExpanded]    = useState(false)
   const [confirming,  setConfirming]  = useState(false)
-  const [reason,      setReason]      = useState('')
-  const [outcome,     setOutcome]     = useState<CancelOutcome | 'exception_sent' | null>(null)
+  const [note,        setNote]        = useState('')
+  const [outcome,     setOutcome]     = useState<CancelOutcome | null>(null)
   const [error,       setError]       = useState<string | null>(null)
   const [pending,     start]          = useTransition()
 
@@ -54,18 +54,9 @@ export default function LessonCard({
 
   function handleCancel() {
     start(async () => {
-      if (isLate) {
-        // Late: treat as exception request if they add a reason, else straight cancel
-        const res = reason.trim()
-          ? await requestCancellationException(lessonRiderId, reason)
-          : await cancelMyLesson(lessonRiderId)
-        if (res.error) { setError(res.error); return }
-        setOutcome(reason.trim() ? 'exception_sent' : 'cancelled_late')
-      } else {
-        const res = await cancelMyLesson(lessonRiderId, reason || undefined)
-        if (res.error) { setError(res.error); return }
-        setOutcome(res.outcome ?? 'cancelled_late')
-      }
+      const res = await cancelMyLesson(lessonRiderId, note.trim() || undefined)
+      if (res.error) { setError(res.error); return }
+      setOutcome(res.outcome ?? 'cancelled_late')
       setConfirming(false)
     })
   }
@@ -84,10 +75,7 @@ export default function LessonCard({
           <p className="text-xs text-on-surface-muted mt-1">You've used your 2 free cancellations this quarter — no makeup credit for this one.</p>
         )}
         {outcome === 'cancelled_late' && (
-          <p className="text-xs text-on-surface-muted mt-1">Less than 24 hours — no makeup credit generated. Contact the barn if you need an exception.</p>
-        )}
-        {outcome === 'exception_sent' && (
-          <p className="text-xs text-on-surface-muted mt-1">Cancelled. Your note has been sent to the barn — they'll be in touch about a credit.</p>
+          <p className="text-xs text-on-surface-muted mt-1">Less than 24 hours — no makeup credit. {note.trim() ? "Your note was sent to the barn — they'll review for an exception." : 'Contact the barn if you need an exception.'}</p>
         )}
       </div>
     )
@@ -149,17 +137,17 @@ export default function LessonCard({
           {isLate ? (
             <p className="text-sm text-on-surface mb-2">
               This lesson is less than 24 hours away. Cancelling now won't generate a makeup credit.
-              You can add a note below and the barn will decide if an exception applies.
+              Adding a note sends it to your instructor — the barn can grant an exception if appropriate.
             </p>
           ) : (
             <p className="text-sm text-on-surface mb-2">
-              Are you sure you want to cancel this lesson?
+              Cancel this lesson? Add a note if you'd like to send your instructor context.
             </p>
           )}
           <textarea
-            value={reason}
-            onChange={e => setReason(e.target.value)}
-            placeholder={isLate ? 'Explain your situation (optional)…' : 'Add a note for the barn (optional)…'}
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            placeholder={`Note for ${instructorName} (optional)…`}
             rows={2}
             className="w-full bg-surface-highest rounded px-3 py-2 text-sm text-on-surface placeholder-on-surface-muted/60 focus:outline-none resize-none"
           />
@@ -170,10 +158,10 @@ export default function LessonCard({
               disabled={pending}
               className="btn-primary text-white text-sm font-semibold px-4 py-2 rounded disabled:opacity-50"
             >
-              {pending ? 'Cancelling…' : isLate && reason.trim() ? 'Cancel & send note' : 'Yes, cancel'}
+              {pending ? 'Cancelling…' : note.trim() ? 'Cancel & send note' : 'Yes, cancel'}
             </button>
             <button
-              onClick={() => { setConfirming(false); setReason(''); setError(null) }}
+              onClick={() => { setConfirming(false); setNote(''); setError(null) }}
               className="text-sm font-semibold text-on-secondary-container"
             >
               Never mind

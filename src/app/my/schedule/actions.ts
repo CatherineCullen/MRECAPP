@@ -3,15 +3,28 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { sendMessage } from '@/lib/messaging/messages'
+import { formatBarnDateTime } from '@/lib/datetime'
 
 export type CancelOutcome =
   | 'cancelled_with_token'       // ≥24hrs, token granted
   | 'cancelled_no_allowance'     // ≥24hrs but standard rider used 2 already
   | 'cancelled_late'             // <24hrs, no token
 
+/**
+ * Rider self-service cancel. Optional `note` becomes a thread message
+ * tagged to the cancelled lesson, with a system_prefix that contains
+ * the lesson date/time + "Cancelled by rider" so the instructor sees
+ * context without cross-referencing their schedule.
+ *
+ * If the lesson is in-window (≥24hrs), a makeup token is granted under
+ * the existing rules (boarders unlimited, standard riders 2/quarter).
+ * Late cancels do not auto-grant. Admin reads the note in the thread
+ * and decides whether to grant manually.
+ */
 export async function cancelMyLesson(
   lessonRiderId: string,
-  reason?: string,
+  note?: string,
 ): Promise<{ outcome?: CancelOutcome; error?: string }> {
   const user = await getCurrentUser()
   if (!user?.personId) return { error: 'Not signed in.' }
@@ -123,14 +136,15 @@ export async function cancelMyLesson(
   const remainingCount = remaining?.length ?? 0
 
   if (remainingCount === 0) {
-    // Last rider out — cancel the whole lesson
+    // Last rider out — cancel the whole lesson. Cancellation reason is
+    // no longer written to the lesson row; it lives in the tagged
+    // message instead (queried by lesson_id at display time).
     await db
       .from('lesson')
       .update({
         status:              'cancelled_rider',
         cancelled_at:        nowStr,
         cancelled_by_id:     user.personId,
-        cancellation_reason: reason ?? null,
         updated_at:          nowStr,
       })
       .eq('id', lesson.id)
@@ -182,51 +196,39 @@ export async function cancelMyLesson(
     }
   }
 
-  revalidatePath('/my/schedule')
-  revalidatePath('/chia/lessons-events')
-
-  return { outcome }
-}
-
-export async function requestCancellationException(
-  lessonRiderId: string,
-  message: string,
-): Promise<{ error?: string }> {
-  const user = await getCurrentUser()
-  if (!user?.personId) return { error: 'Not signed in.' }
-
-  // Verify ownership
-  const db = createAdminClient()
-  const { data: lr } = await db
-    .from('lesson_rider')
-    .select('id, rider_id, lesson:lesson!lesson_id(id, scheduled_at, status)')
-    .eq('id', lessonRiderId)
-    .maybeSingle()
-
-  if (!lr || lr.rider_id !== user.personId) return { error: 'Not authorized.' }
-
-  // Store the exception note on the lesson_rider as a cancellation with a reason tag
-  // Admin will see it in CHIA and can grant a token manually
-  const nowStr = new Date().toISOString()
-  await db.from('lesson_rider').update({
-    cancelled_at:     nowStr,
-    cancelled_by_id:  user.personId,
-    updated_at:       nowStr,
-  }).eq('id', lessonRiderId)
-
-  const lesson = Array.isArray(lr.lesson) ? lr.lesson[0] : lr.lesson as any
-  if (lesson?.id && lesson.status === 'scheduled') {
-    await db.from('lesson').update({
-      cancellation_reason: message ? `Exception requested: ${message}` : 'Exception requested',
-      cancelled_at:        nowStr,
-      cancelled_by_id:     user.personId,
-      status:              'cancelled_rider',
-      updated_at:          nowStr,
-    }).eq('id', lesson.id)
+  // If the rider typed a note, post it as a thread message tagged to
+  // this lesson. The instructor sees the cancel context in their thread
+  // (via system_prefix) and the lesson detail page in CHIA queries
+  // tagged messages to show admin the same context. One source of
+  // truth, two surfaces.
+  if (note?.trim()) {
+    try {
+      const prefix = `${formatBarnDateTime(lesson.scheduled_at)} · Cancelled by rider`
+      // Resolve the instructor recipient from the lesson row.
+      const { data: lessonRow } = await db
+        .from('lesson')
+        .select('instructor_id')
+        .eq('id', lesson.id)
+        .maybeSingle()
+      if (lessonRow?.instructor_id) {
+        await sendMessage({
+          senderId:             user.personId,
+          recipientId:          lessonRow.instructor_id,
+          body:                 note.trim(),
+          lessonId:             lesson.id,
+          systemPrefix:         prefix,
+          skipEligibilityCheck: true, // they had a lesson together — eligibility is implicit
+        })
+      }
+    } catch (err) {
+      // Don't fail the cancel because the message couldn't post.
+      // Log and move on; admin can still see the lesson is cancelled.
+      console.error('[cancelMyLesson] Failed to post cancel note as message', err)
+    }
   }
 
   revalidatePath('/my/schedule')
   revalidatePath('/chia/lessons-events')
 
-  return {}
+  return { outcome }
 }

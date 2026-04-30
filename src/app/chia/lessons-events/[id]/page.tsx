@@ -88,6 +88,23 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
     originalLesson = orig as unknown as OriginalLesson | null
   }
 
+  // Messages tagged to this lesson (compose-from-lesson-card +
+  // cancel-with-note). Surfaced in the cancel context block when
+  // present; the lesson_id-tagged message is now the canonical home
+  // for cancel notes (lesson.cancellation_reason is still rendered
+  // as a fallback for rows pre-dating the messaging build).
+  const { data: lessonMessages } = await supabase
+    .from('message')
+    .select(`
+      id, body, system_prefix, created_at,
+      sender:person!message_sender_id_fkey (
+        id, first_name, last_name, preferred_name, is_organization, organization_name
+      )
+    `)
+    .eq('lesson_id', id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
   // ─────────────────────────────────────────────────────────────
   // Self-heal: lesson_type must match active rider count.
   // Earlier merge bug left some lessons stuck at lesson_type='private'
@@ -404,12 +421,34 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
             </>
           )}
 
-          {lesson.cancellation_reason && (
+          {(lessonMessages?.length ?? 0) > 0 ? (
+            <>
+              <dt className="text-[#444650] font-semibold">Notes from rider</dt>
+              <dd className="text-[#191c1e] space-y-2">
+                {(lessonMessages ?? []).map(m => {
+                  const sender = Array.isArray(m.sender) ? m.sender[0] : m.sender
+                  return (
+                    <div key={m.id}>
+                      {m.system_prefix && (
+                        <div className="text-[10px] uppercase tracking-wider text-[#8c8e98] font-semibold">
+                          {m.system_prefix}
+                        </div>
+                      )}
+                      <div className="whitespace-pre-wrap">{m.body}</div>
+                      <div className="text-[10px] text-[#8c8e98] mt-0.5">
+                        — {displayName(sender as { first_name?: string | null; last_name?: string | null; preferred_name?: string | null; is_organization?: boolean | null; organization_name?: string | null } | null) ?? '—'}
+                      </div>
+                    </div>
+                  )
+                })}
+              </dd>
+            </>
+          ) : lesson.cancellation_reason ? (
             <>
               <dt className="text-[#444650] font-semibold">Cancel reason</dt>
               <dd className="text-[#191c1e] whitespace-pre-wrap">{lesson.cancellation_reason}</dd>
             </>
-          )}
+          ) : null}
 
           {lesson.cancelled_at && (
             <>
