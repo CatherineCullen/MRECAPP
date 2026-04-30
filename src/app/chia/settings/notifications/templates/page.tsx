@@ -13,8 +13,13 @@ export default async function NotificationTemplatesPage() {
   const { data: templates } = await db
     .from('notification_template')
     .select('notification_type, channel, subject, body, default_subject, default_body')
+    .in('channel', ['email', 'sms'])  // 'push' has no editable text template — payloads are built in code
     .order('notification_type')
     .order('channel')
 
-  return <TemplateEditor initialTemplates={templates ?? []} />
+  // Cast: the runtime filter above guarantees channel is email|sms, but the
+  // generated DB type still includes 'push'. The editor doesn't render push.
+  const rows = (templates ?? []) as Array<typeof templates extends (infer T)[] | null ? T & { channel: 'email' | 'sms' } : never>
+
+  return <TemplateEditor initialTemplates={rows} />
 }

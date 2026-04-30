@@ -52,6 +52,11 @@ const NOTIFICATION_META: Record<string, {
     description: 'Quarterly renewal reminder sent to riders before the new quarter.',
     wired:       false,
   },
+  message_received: {
+    label:       'In-App Message',
+    description: 'When a rider, instructor, or admin posts in a thread. SMS preview includes the sender name and first 80 characters. Per-thread debounce of 60 seconds prevents SMS storms on chatty threads.',
+    wired:       true,
+  },
 }
 
 export default async function NotificationsSettingsPage() {

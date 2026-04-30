@@ -2741,10 +2741,66 @@ export type Database = {
           },
         ]
       }
+      message: {
+        Row: {
+          body: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          lesson_id: string | null
+          sender_id: string
+          system_prefix: string | null
+          thread_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          sender_id: string
+          system_prefix?: string | null
+          thread_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          lesson_id?: string | null
+          sender_id?: string
+          system_prefix?: string | null
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lesson"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "thread"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_config: {
         Row: {
           email_enabled: boolean
           notification_type: Database["public"]["Enums"]["notification_type"]
+          push_enabled: boolean
           sms_enabled: boolean
           updated_at: string
           updated_by: string | null
@@ -2752,6 +2808,7 @@ export type Database = {
         Insert: {
           email_enabled?: boolean
           notification_type: Database["public"]["Enums"]["notification_type"]
+          push_enabled?: boolean
           sms_enabled?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -2759,6 +2816,7 @@ export type Database = {
         Update: {
           email_enabled?: boolean
           notification_type?: Database["public"]["Enums"]["notification_type"]
+          push_enabled?: boolean
           sms_enabled?: boolean
           updated_at?: string
           updated_by?: string | null
@@ -3152,6 +3210,47 @@ export type Database = {
           },
         ]
       }
+      push_subscription: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          person_id: string
+          revoked_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          person_id: string
+          revoked_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          person_id?: string
+          revoked_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscription_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quarter: {
         Row: {
           created_at: string
@@ -3323,6 +3422,107 @@ export type Database = {
             columns: ["signed_up_by_id"]
             isOneToOne: false
             referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      thread: {
+        Row: {
+          created_at: string
+          id: string
+          pair_a_id: string
+          pair_b_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pair_a_id: string
+          pair_b_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pair_a_id?: string
+          pair_b_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_pair_a_id_fkey"
+            columns: ["pair_a_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "thread_pair_b_id_fkey"
+            columns: ["pair_b_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      thread_participant: {
+        Row: {
+          id: string
+          joined_at: string
+          last_read_at: string | null
+          person_id: string
+          thread_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          person_id: string
+          thread_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          last_read_at?: string | null
+          person_id?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_participant_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "person"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "thread_participant_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "thread"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      thread_sms_throttle: {
+        Row: {
+          last_sms_at: string
+          thread_id: string
+        }
+        Insert: {
+          last_sms_at?: string
+          thread_id: string
+        }
+        Update: {
+          last_sms_at?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "thread_sms_throttle_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: true
+            referencedRelation: "thread"
             referencedColumns: ["id"]
           },
         ]
@@ -3631,7 +3831,7 @@ export type Database = {
       log_source: "app" | "qr_code" | "admin"
       makeup_token_reason: "rider_cancel" | "barn_cancel" | "admin_grant"
       makeup_token_status: "available" | "scheduled" | "used" | "expired"
-      notification_channel: "email" | "sms"
+      notification_channel: "email" | "sms" | "push"
       notification_type:
         | "lesson_reminder"
         | "lesson_cancellation"
@@ -3642,6 +3842,7 @@ export type Database = {
         | "makeup_token"
         | "renewal_notice"
         | "enrollment_invite"
+        | "message_received"
       person_preferred_language: "english" | "spanish"
       person_riding_level: "beginner" | "intermediate" | "advanced"
       person_role_type:
@@ -3851,7 +4052,7 @@ export const Constants = {
       log_source: ["app", "qr_code", "admin"],
       makeup_token_reason: ["rider_cancel", "barn_cancel", "admin_grant"],
       makeup_token_status: ["available", "scheduled", "used", "expired"],
-      notification_channel: ["email", "sms"],
+      notification_channel: ["email", "sms", "push"],
       notification_type: [
         "lesson_reminder",
         "lesson_cancellation",
@@ -3862,6 +4063,7 @@ export const Constants = {
         "makeup_token",
         "renewal_notice",
         "enrollment_invite",
+        "message_received",
       ],
       person_preferred_language: ["english", "spanish"],
       person_riding_level: ["beginner", "intermediate", "advanced"],

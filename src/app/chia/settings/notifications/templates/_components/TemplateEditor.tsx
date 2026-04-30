@@ -25,6 +25,7 @@ const VARS: Record<NotificationType, string[]> = {
   makeup_token:        ['first_name'],
   renewal_notice:      ['first_name'],
   enrollment_invite:   ['first_name', 'enroll_link', 'expires_days'],
+  message_received:    ['sender_name', 'preview', 'app_url'],
 }
 
 const LABELS: Record<NotificationType, string> = {
@@ -37,10 +38,11 @@ const LABELS: Record<NotificationType, string> = {
   makeup_token:        'Makeup Token Issued',
   renewal_notice:      'Renewal Notice',
   enrollment_invite:   'Enrollment Invitation',
+  message_received:    'In-App Message Received',
 }
 
 const WIRED: Set<NotificationType> = new Set([
-  'lesson_reminder', 'lesson_cancellation', 'invoice', 'enrollment_invite',
+  'lesson_reminder', 'lesson_cancellation', 'invoice', 'enrollment_invite', 'message_received',
 ])
 
 function ChannelEditor({
