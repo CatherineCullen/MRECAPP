@@ -7,7 +7,7 @@ const tabs = [
   { label: 'Horses',      href: '/chia/herd/horses',     key: 'horses'    },
   { label: 'Health',      href: '/chia/herd/health',     key: 'health'    },
   { label: 'Temporary Care Plans', href: '/chia/herd/care-plans', key: 'care-plans' },
-  { label: 'Diets',       href: '/chia/herd/diets',      key: 'diets'     },
+  { label: 'Feed Room',   href: '/chia/herd/diets',      key: 'diets'     },
   { label: 'Import',      href: '/chia/herd/import',     key: 'import'    },
   { label: 'Uploads',     href: '/chia/herd/uploads',    key: 'uploads'   },
 ] as const

@@ -275,10 +275,13 @@ type AddVetRecordPayload = {
     health_item_type_id?: string | null
   }[]
   care_plans: {
-    content:      string
-    starts_on:    string | null
-    ends_on:      string | null
-    source_quote: string | null
+    content:                string
+    starts_on:              string | null
+    ends_on:                string | null
+    is_feedroom_medication: boolean
+    am_instruction:         string | null
+    pm_instruction:         string | null
+    source_quote:           string | null
   }[]
   document: {
     storagePath: string
@@ -330,15 +333,18 @@ export async function addVetRecord(horseId: string, payload: AddVetRecordPayload
     const { error } = await supabase
       .from('care_plan')
       .insert({
-        horse_id:            horseId,
-        content:             cp.content,
-        starts_on:           cp.starts_on,
-        ends_on:             cp.ends_on,
-        source_quote:        cp.source_quote,
-        source_vet_visit_id: vetVisit.id,
-        created_by:          user?.personId ?? null,
-        is_active:           true,
-        version:             1,
+        horse_id:               horseId,
+        content:                cp.content,
+        starts_on:              cp.starts_on,
+        ends_on:                cp.ends_on,
+        is_feedroom_medication: cp.is_feedroom_medication,
+        am_instruction:         cp.is_feedroom_medication ? (cp.am_instruction?.trim() || null) : null,
+        pm_instruction:         cp.is_feedroom_medication ? (cp.pm_instruction?.trim() || null) : null,
+        source_quote:           cp.source_quote,
+        source_vet_visit_id:    vetVisit.id,
+        created_by:             user?.personId ?? null,
+        is_active:              true,
+        version:                1,
       })
     if (error) throw error
   }

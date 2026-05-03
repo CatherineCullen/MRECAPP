@@ -31,10 +31,13 @@ type HealthEvent = {
 }
 
 type CarePlan = {
-  content:      string
-  starts_on:    string | null
-  ends_on:      string | null
-  source_quote: string | null
+  content:                string
+  starts_on:              string | null
+  ends_on:                string | null
+  is_feedroom_medication: boolean
+  am_instruction:         string | null
+  pm_instruction:         string | null
+  source_quote:           string | null
 }
 
 type ParsedData = {
@@ -162,7 +165,20 @@ function ReviewCards({
   const [horseId,      setHorseId]     = useState<string | null>(initialHorseId ?? autoMatchedHorseId)
   const [visit,        setVisit]       = useState(data.visit)
   const [events,       setEvents]      = useState<HealthEvent[]>(initialEvents)
-  const [plans,        setPlans]       = useState<CarePlan[]>(data.care_plans ?? [])
+  // Normalize each AI-supplied plan so the new feedroom fields always have
+  // defined values — older prompt versions and conservative AI runs may
+  // omit them entirely.
+  const [plans, setPlans] = useState<CarePlan[]>(
+    (data.care_plans ?? []).map(cp => ({
+      content:                cp.content ?? '',
+      starts_on:              cp.starts_on ?? null,
+      ends_on:                cp.ends_on ?? null,
+      is_feedroom_medication: cp.is_feedroom_medication ?? false,
+      am_instruction:         cp.am_instruction ?? null,
+      pm_instruction:         cp.pm_instruction ?? null,
+      source_quote:           cp.source_quote ?? null,
+    }))
+  )
   const [pdfFile,      setPdfFile]     = useState<File | null>(null)
   const [uploadError,  setUploadError] = useState<string | null>(null)
   const [isPending,    startTransition] = useTransition()
@@ -178,6 +194,13 @@ function ReviewCards({
   }
   function updatePlan(i: number, k: keyof CarePlan, v: string) {
     setPlans(prev => prev.map((p, idx) => idx === i ? { ...p, [k]: v || null } : p))
+  }
+  function setPlanFeedMed(i: number, val: boolean) {
+    setPlans(prev => prev.map((p, idx) => idx === i
+      // Clear AM/PM when toggling off so we don't keep stale dose text on a
+      // row that's no longer flagged as a feedroom med.
+      ? { ...p, is_feedroom_medication: val, am_instruction: val ? p.am_instruction : null, pm_instruction: val ? p.pm_instruction : null }
+      : p))
   }
   function removePlan(i: number) {
     setPlans(prev => prev.filter((_, idx) => idx !== i))
@@ -305,6 +328,30 @@ function ReviewCards({
                     <Field label="Starts on" type="date" value={cp.starts_on ?? ''} onChange={v => updatePlan(i, 'starts_on', v)} />
                     <Field label="Ends on"   type="date" value={cp.ends_on   ?? ''} onChange={v => updatePlan(i, 'ends_on', v)} />
                   </div>
+
+                  {/* Feed Room medication block — AI may pre-fill if the
+                      doc is unambiguous; admin reviews and corrects. */}
+                  <div className="bg-[#f7f9fc] rounded px-3 py-2.5 border border-[#dae2ff]/50">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cp.is_feedroom_medication}
+                        onChange={e => setPlanFeedMed(i, e.target.checked)}
+                        className="accent-[#056380]"
+                      />
+                      <span className="text-xs font-semibold text-[#191c1e]">Feed Room medication</span>
+                      {cp.is_feedroom_medication && (
+                        <span className="text-[10px] text-[#444650]">— shows up on the Feed Room sheet with AM/PM dosing</span>
+                      )}
+                    </label>
+                    {cp.is_feedroom_medication && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <TextArea label="AM dose" value={cp.am_instruction ?? ''} onChange={v => updatePlan(i, 'am_instruction', v)} rows={2} />
+                        <TextArea label="PM dose" value={cp.pm_instruction ?? ''} onChange={v => updatePlan(i, 'pm_instruction', v)} rows={2} />
+                      </div>
+                    )}
+                  </div>
+
                   {cp.source_quote !== null && (
                     <TextArea label="Source quote" value={cp.source_quote ?? ''} onChange={v => updatePlan(i, 'source_quote', v)} rows={2} />
                   )}

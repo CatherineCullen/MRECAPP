@@ -19,16 +19,22 @@ type HealthEvent = {
 }
 
 type CarePlan = {
-  content:   string
-  starts_on: string
-  ends_on:   string
+  content:                string
+  starts_on:              string
+  ends_on:                string
+  is_feedroom_medication: boolean
+  am_instruction:         string
+  pm_instruction:         string
 }
 
 function emptyEvent(): HealthEvent {
   return { item_name: '', administered_on: '', next_due: '', notes: '', health_item_type_id: CREATE_NEW }
 }
 function emptyPlan(): CarePlan {
-  return { content: '', starts_on: '', ends_on: '' }
+  return {
+    content: '', starts_on: '', ends_on: '',
+    is_feedroom_medication: false, am_instruction: '', pm_instruction: '',
+  }
 }
 
 function Field({ label, value, onChange, type = 'text', required = false }: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean }) {
@@ -91,6 +97,11 @@ export default function VetRecordManualForm({
   function updatePlan(i: number, k: keyof CarePlan, v: string) {
     setPlans(prev => prev.map((p, idx) => idx === i ? { ...p, [k]: v } : p))
   }
+  function setPlanFeedMed(i: number, val: boolean) {
+    setPlans(prev => prev.map((p, idx) => idx === i
+      ? { ...p, is_feedroom_medication: val, am_instruction: val ? p.am_instruction : '', pm_instruction: val ? p.pm_instruction : '' }
+      : p))
+  }
 
   async function handleSubmit() {
     setError(null)
@@ -139,10 +150,13 @@ export default function VetRecordManualForm({
             health_item_type_id: ev.health_item_type_id === CREATE_NEW ? null : ev.health_item_type_id,
           })),
           care_plans: plans.map(cp => ({
-            content:      cp.content,
-            starts_on:    cp.starts_on || null,
-            ends_on:      cp.ends_on   || null,
-            source_quote: null,
+            content:                cp.content,
+            starts_on:              cp.starts_on || null,
+            ends_on:                cp.ends_on   || null,
+            is_feedroom_medication: cp.is_feedroom_medication,
+            am_instruction:         cp.is_feedroom_medication ? (cp.am_instruction || null) : null,
+            pm_instruction:         cp.is_feedroom_medication ? (cp.pm_instruction || null) : null,
+            source_quote:           null,
           })),
           document,
         })
@@ -212,6 +226,23 @@ export default function VetRecordManualForm({
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Starts on" type="date" value={cp.starts_on} onChange={v => updatePlan(i, 'starts_on', v)} />
                     <Field label="Ends on"   type="date" value={cp.ends_on}   onChange={v => updatePlan(i, 'ends_on', v)} />
+                  </div>
+                  <div className="bg-[#f7f9fc] rounded px-3 py-2.5 border border-[#dae2ff]/50">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cp.is_feedroom_medication}
+                        onChange={e => setPlanFeedMed(i, e.target.checked)}
+                        className="accent-[#056380]"
+                      />
+                      <span className="text-xs font-semibold text-[#191c1e]">Feed Room medication</span>
+                    </label>
+                    {cp.is_feedroom_medication && (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <TextArea label="AM dose" value={cp.am_instruction} onChange={v => updatePlan(i, 'am_instruction', v)} rows={2} />
+                        <TextArea label="PM dose" value={cp.pm_instruction} onChange={v => updatePlan(i, 'pm_instruction', v)} rows={2} />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button onClick={() => setPlans(prev => prev.filter((_, idx) => idx !== i))} className="mt-2 text-xs text-[#b00020] hover:underline">

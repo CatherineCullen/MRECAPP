@@ -28,6 +28,7 @@ export default async function HerdCarePlansPage() {
     .from('care_plan')
     .select(`
       id, content, starts_on, ends_on, source_quote, resolved_at, resolution_note,
+      is_feedroom_medication, am_instruction, pm_instruction,
       horse!care_plan_horse_id_fkey (id, barn_name),
       person:person!care_plan_created_by_fkey (first_name, last_name),
       resolved_by_person:person!care_plan_resolved_by_fkey (first_name, last_name)
@@ -58,15 +59,18 @@ export default async function HerdCarePlansPage() {
 
           // Reshape the row to the CarePlan type the shared card expects.
           const plan: CarePlan = {
-            id:              row.id,
-            content:         row.content,
-            starts_on:       row.starts_on,
-            ends_on:         row.ends_on,
-            resolved_at:     row.resolved_at,
-            resolution_note: row.resolution_note,
-            source_quote:    row.source_quote,
-            person:          (row.person as unknown as { first_name: string; last_name: string } | null),
-            resolved_by_person: (row.resolved_by_person as unknown as { first_name: string; last_name: string } | null) ?? null,
+            id:                     row.id,
+            content:                row.content,
+            starts_on:              row.starts_on,
+            ends_on:                row.ends_on,
+            is_feedroom_medication: row.is_feedroom_medication,
+            am_instruction:         row.am_instruction,
+            pm_instruction:         row.pm_instruction,
+            resolved_at:            row.resolved_at,
+            resolution_note:        row.resolution_note,
+            source_quote:           row.source_quote,
+            person:                 (row.person as unknown as { first_name: string; last_name: string } | null),
+            resolved_by_person:     (row.resolved_by_person as unknown as { first_name: string; last_name: string } | null) ?? null,
           }
 
           return (

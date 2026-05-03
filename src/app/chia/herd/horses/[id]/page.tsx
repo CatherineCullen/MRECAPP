@@ -48,6 +48,7 @@ export default async function HorseRecordPage({
       care_plan (
         id, content, starts_on, ends_on, is_active, created_at, updated_at,
         resolved_at, resolution_note, source_quote,
+        is_feedroom_medication, am_instruction, pm_instruction,
         person!care_plan_created_by_fkey (first_name, last_name),
         resolved_by_person:person!care_plan_resolved_by_fkey (first_name, last_name)
       ),

@@ -9,22 +9,31 @@ export async function addCarePlan(horseId: string, formData: FormData) {
   const user    = await getCurrentUser()
   const supabase = createAdminClient()
 
-  const content  = (formData.get('content') as string).trim()
-  const startsOn = (formData.get('starts_on') as string) || null
-  const endsOn   = (formData.get('ends_on')   as string) || null
+  const content   = (formData.get('content') as string).trim()
+  const startsOn  = (formData.get('starts_on') as string) || null
+  const endsOn    = (formData.get('ends_on')   as string) || null
+  const isFeedMed = formData.get('is_feedroom_medication') === 'on'
+  const amRaw     = (formData.get('am_instruction') as string | null)?.trim() || null
+  const pmRaw     = (formData.get('pm_instruction') as string | null)?.trim() || null
 
   if (!content) throw new Error('Content is required.')
 
   const { error } = await supabase
     .from('care_plan')
     .insert({
-      horse_id:   horseId,
+      horse_id:               horseId,
       content,
-      starts_on:  startsOn,
-      ends_on:    endsOn,
-      created_by: user?.personId ?? null,
-      is_active:  true,
-      version:    1,
+      starts_on:              startsOn,
+      ends_on:                endsOn,
+      is_feedroom_medication: isFeedMed,
+      // AM/PM only carry meaning when the row is a feedroom med — null
+      // them out otherwise so we don't leak stale dose text if admin
+      // unchecks the box.
+      am_instruction:         isFeedMed ? amRaw : null,
+      pm_instruction:         isFeedMed ? pmRaw : null,
+      created_by:             user?.personId ?? null,
+      is_active:              true,
+      version:                1,
     })
 
   if (error) throw error
@@ -69,11 +78,14 @@ export async function resolveCarePlan(
  * superseded rows aren't rendered as active, but defensive).
  */
 export async function editCarePlan(args: {
-  planId:    string
-  horseId:   string
-  content:   string
-  starts_on: string | null
-  ends_on:   string | null
+  planId:                 string
+  horseId:                string
+  content:                string
+  starts_on:              string | null
+  ends_on:                string | null
+  is_feedroom_medication: boolean
+  am_instruction:         string | null
+  pm_instruction:         string | null
 }): Promise<{ newPlanId?: string; error?: string }> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
@@ -101,16 +113,19 @@ export async function editCarePlan(args: {
   const { data: inserted, error: insErr } = await supabase
     .from('care_plan')
     .insert({
-      horse_id:            args.horseId,
+      horse_id:               args.horseId,
       content,
-      starts_on:           args.starts_on,
-      ends_on:             args.ends_on,
-      version:             (current.version ?? 1) + 1,
-      previous_version_id: current.id,
-      source_vet_visit_id: current.source_vet_visit_id ?? null,
-      source_quote:        current.source_quote ?? null,
-      created_by:          user?.personId ?? null,
-      is_active:           true,
+      starts_on:              args.starts_on,
+      ends_on:                args.ends_on,
+      is_feedroom_medication: args.is_feedroom_medication,
+      am_instruction:         args.is_feedroom_medication ? (args.am_instruction?.trim() || null) : null,
+      pm_instruction:         args.is_feedroom_medication ? (args.pm_instruction?.trim() || null) : null,
+      version:                (current.version ?? 1) + 1,
+      previous_version_id:    current.id,
+      source_vet_visit_id:    current.source_vet_visit_id ?? null,
+      source_quote:           current.source_quote ?? null,
+      created_by:             user?.personId ?? null,
+      is_active:              true,
     })
     .select('id')
     .single()

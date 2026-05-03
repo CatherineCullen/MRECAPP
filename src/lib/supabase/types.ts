@@ -523,6 +523,7 @@ export type Database = {
       }
       care_plan: {
         Row: {
+          am_instruction: string | null
           content: string
           created_at: string
           created_by: string | null
@@ -531,6 +532,8 @@ export type Database = {
           horse_id: string
           id: string
           is_active: boolean
+          is_feedroom_medication: boolean
+          pm_instruction: string | null
           previous_version_id: string | null
           resolution_note: string | null
           resolved_at: string | null
@@ -542,6 +545,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          am_instruction?: string | null
           content: string
           created_at?: string
           created_by?: string | null
@@ -550,6 +554,8 @@ export type Database = {
           horse_id: string
           id?: string
           is_active?: boolean
+          is_feedroom_medication?: boolean
+          pm_instruction?: string | null
           previous_version_id?: string | null
           resolution_note?: string | null
           resolved_at?: string | null
@@ -561,6 +567,7 @@ export type Database = {
           version?: number
         }
         Update: {
+          am_instruction?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
@@ -569,6 +576,8 @@ export type Database = {
           horse_id?: string
           id?: string
           is_active?: boolean
+          is_feedroom_medication?: boolean
+          pm_instruction?: string | null
           previous_version_id?: string | null
           resolution_note?: string | null
           resolved_at?: string | null

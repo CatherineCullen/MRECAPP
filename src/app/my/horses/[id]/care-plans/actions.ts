@@ -25,10 +25,13 @@ async function assertAccess(horseId: string) {
 }
 
 export async function addMyCarePlan(args: {
-  horseId:   string
-  content:   string
-  starts_on: string | null
-  ends_on:   string | null
+  horseId:                string
+  content:                string
+  starts_on:              string | null
+  ends_on:                string | null
+  is_feedroom_medication: boolean
+  am_instruction:         string | null
+  pm_instruction:         string | null
 }): Promise<{ error?: string }> {
   const content = args.content.trim()
   if (!content) return { error: 'Content is required.' }
@@ -38,13 +41,16 @@ export async function addMyCarePlan(args: {
   const { error } = await supabase
     .from('care_plan')
     .insert({
-      horse_id:   args.horseId,
+      horse_id:               args.horseId,
       content,
-      starts_on:  args.starts_on,
-      ends_on:    args.ends_on,
-      created_by: user?.personId ?? null,
-      is_active:  true,
-      version:    1,
+      starts_on:              args.starts_on,
+      ends_on:                args.ends_on,
+      is_feedroom_medication: args.is_feedroom_medication,
+      am_instruction:         args.is_feedroom_medication ? (args.am_instruction?.trim() || null) : null,
+      pm_instruction:         args.is_feedroom_medication ? (args.pm_instruction?.trim() || null) : null,
+      created_by:             user?.personId ?? null,
+      is_active:              true,
+      version:                1,
     })
 
   if (error) return { error: error.message }
@@ -80,11 +86,14 @@ export async function resolveMyCarePlan(args: {
 // Edit = versioned supersession (see CLAUDE.md principle #7; care plans
 // are archived, not overwritten). Mirrors the CHIA editCarePlan action.
 export async function editMyCarePlan(args: {
-  planId:    string
-  horseId:   string
-  content:   string
-  starts_on: string | null
-  ends_on:   string | null
+  planId:                 string
+  horseId:                string
+  content:                string
+  starts_on:              string | null
+  ends_on:                string | null
+  is_feedroom_medication: boolean
+  am_instruction:         string | null
+  pm_instruction:         string | null
 }): Promise<{ newPlanId?: string; error?: string }> {
   const content = args.content.trim()
   if (!content) return { error: 'Content is required.' }
@@ -107,16 +116,19 @@ export async function editMyCarePlan(args: {
   const { data: inserted, error: insErr } = await supabase
     .from('care_plan')
     .insert({
-      horse_id:            args.horseId,
+      horse_id:               args.horseId,
       content,
-      starts_on:           args.starts_on,
-      ends_on:             args.ends_on,
-      version:             (current.version ?? 1) + 1,
-      previous_version_id: current.id,
-      source_vet_visit_id: current.source_vet_visit_id ?? null,
-      source_quote:        current.source_quote ?? null,
-      created_by:          user?.personId ?? null,
-      is_active:           true,
+      starts_on:              args.starts_on,
+      ends_on:                args.ends_on,
+      is_feedroom_medication: args.is_feedroom_medication,
+      am_instruction:         args.is_feedroom_medication ? (args.am_instruction?.trim() || null) : null,
+      pm_instruction:         args.is_feedroom_medication ? (args.pm_instruction?.trim() || null) : null,
+      version:                (current.version ?? 1) + 1,
+      previous_version_id:    current.id,
+      source_vet_visit_id:    current.source_vet_visit_id ?? null,
+      source_quote:           current.source_quote ?? null,
+      created_by:             user?.personId ?? null,
+      is_active:              true,
     })
     .select('id')
     .single()

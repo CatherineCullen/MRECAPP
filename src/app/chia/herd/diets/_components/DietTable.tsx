@@ -14,20 +14,77 @@ type DietFields = {
   notes:          string | null
 }
 
+type FeedroomMed = {
+  id:        string
+  content:   string
+  am:        string | null
+  pm:        string | null
+  starts_on: string | null
+  ends_on:   string | null
+}
+
 type DietRow = {
   id:        string
   barn_name: string
   status:    string
   diet: (DietFields & { id: string }) | null
+  meds: FeedroomMed[]
+}
+
+/** Compact "Apr 28 – May 5" / "until May 5" / "from Apr 28" date range. */
+function fmtRange(starts: string | null, ends: string | null): string {
+  function d(iso: string) {
+    const [, m, day] = iso.split('-').map(Number)
+    return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]} ${day}`
+  }
+  if (starts && ends) return `${d(starts)}–${d(ends)}`
+  if (ends)           return `until ${d(ends)}`
+  if (starts)         return `from ${d(starts)}`
+  return 'open-ended'
+}
+
+/** Combined-side cell render for AM Meds / PM Meds. Each med gets one
+ *  line: the dose text + a small parenthetical date range. Multiple
+ *  meds stack with a thin divider so the feed crew can scan top-down.
+ *  If the row has no AM dose for a given med, that med's AM cell shows
+ *  the content as a fallback so the crew can still see what the med
+ *  is. Unbounded TCPs render "(open-ended)" so the crew knows it's not
+ *  expiring soon. */
+function MedCell({ side, meds }: { side: 'am' | 'pm'; meds: FeedroomMed[] }) {
+  const present = meds.filter(m => (side === 'am' ? m.am : m.pm))
+  if (present.length === 0) return null
+  return (
+    <div className="space-y-1">
+      {present.map(m => (
+        <div key={m.id}>
+          <div>{side === 'am' ? m.am : m.pm}</div>
+          <div className="text-[#8c8e98] text-[10px]">({fmtRange(m.starts_on, m.ends_on)})</div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function cell(v: string | null | undefined) {
   return v ?? ''
 }
 
+/** Flatten the AM/PM med list to a single string per side for the CSV. */
+function medText(meds: FeedroomMed[], side: 'am' | 'pm'): string {
+  return meds
+    .filter(m => (side === 'am' ? m.am : m.pm))
+    .map(m => `${side === 'am' ? m.am : m.pm} (${fmtRange(m.starts_on, m.ends_on)})`)
+    .join('\n')
+}
+
 function exportCSV(rows: DietRow[], selected: Set<string>) {
   const visible = rows.filter(r => selected.has(r.id))
-  const headers = ['Horse', 'AM Feed', 'AM Supplements/Meds', 'AM Hay', 'PM Feed', 'PM Supplements/Meds', 'PM Hay', 'Notes']
+  const headers = [
+    'Horse',
+    'AM Feed', 'AM Supplements', 'AM Hay', 'AM Meds',
+    'PM Feed', 'PM Supplements', 'PM Hay', 'PM Meds',
+    'Notes',
+  ]
   const escape = (s: string) => `"${s.replace(/"/g, '""')}"`
   const lines = [
     headers.map(escape).join(','),
@@ -36,9 +93,11 @@ function exportCSV(rows: DietRow[], selected: Set<string>) {
       cell(r.diet?.am_feed),
       cell(r.diet?.am_supplements),
       cell(r.diet?.am_hay),
+      medText(r.meds, 'am'),
       cell(r.diet?.pm_feed),
       cell(r.diet?.pm_supplements),
       cell(r.diet?.pm_hay),
+      medText(r.meds, 'pm'),
       cell(r.diet?.notes),
     ].map(escape).join(',')),
   ]
@@ -46,7 +105,7 @@ function exportCSV(rows: DietRow[], selected: Set<string>) {
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
-  a.download = 'diets.csv'
+  a.download = 'feed-room.csv'
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -175,9 +234,16 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
         ))}
       </div>
 
+      {/* Print orientation: landscape so all 9 data columns fit. */}
+      <style jsx global>{`
+        @media print {
+          @page { size: landscape; margin: 0.5in; }
+        }
+      `}</style>
+
       {/* Print header — visible on print only */}
       <div className="hidden print:block mb-4">
-        <p className="text-xs text-[#444650]">Marlboro Ridge Equestrian Center — Feed Sheet</p>
+        <p className="text-xs text-[#444650]">Marlboro Ridge Equestrian Center — Feed Room</p>
       </div>
 
       {visible.length === 0 ? (
@@ -187,25 +253,39 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
           <table className="w-full border-collapse text-left bg-white print:text-[10px]">
             <thead>
               <tr className="bg-[#f2f4f7]">
+                {/* The "border-l-[4px] border-l-[#002058]" on the PM
+                    columns gives the day-half boundary a strong, easy-
+                    to-find visual rule for the feed crew scanning the
+                    sheet. Same on each PM body cell below. */}
                 <th className={`${th} border border-[#e0e3e6]`} rowSpan={2}>Horse</th>
-                <th className={`${th} border border-[#e0e3e6] text-center`} colSpan={3}>AM</th>
-                <th className={`${th} border border-[#e0e3e6] text-center`} colSpan={3}>PM</th>
+                <th className={`${th} border border-[#e0e3e6] text-center`} colSpan={4}>AM</th>
+                <th className={`${th} border border-[#e0e3e6] text-center border-l-[4px] border-l-[#002058]`} colSpan={4}>PM</th>
                 <th className={`${th} border border-[#e0e3e6]`} rowSpan={2}>Notes</th>
                 <th className={`${th} border border-[#e0e3e6] print:hidden`} rowSpan={2}></th>
               </tr>
               <tr className="bg-[#f2f4f7]">
                 <th className={`${th} border border-[#e0e3e6]`}>Feed</th>
-                <th className={`${th} border border-[#e0e3e6]`}>Supps / Meds</th>
+                <th className={`${th} border border-[#e0e3e6]`}>Supplements</th>
                 <th className={`${th} border border-[#e0e3e6]`}>Hay</th>
-                <th className={`${th} border border-[#e0e3e6]`}>Feed</th>
-                <th className={`${th} border border-[#e0e3e6]`}>Supps / Meds</th>
+                <th className={`${th} border border-[#e0e3e6] bg-[#dae2ff]/40`}>Meds</th>
+                <th className={`${th} border border-[#e0e3e6] border-l-[4px] border-l-[#002058]`}>Feed</th>
+                <th className={`${th} border border-[#e0e3e6]`}>Supplements</th>
                 <th className={`${th} border border-[#e0e3e6]`}>Hay</th>
+                <th className={`${th} border border-[#e0e3e6] bg-[#dae2ff]/40`}>Meds</th>
               </tr>
             </thead>
             <tbody>
               {visible.map((r, i) => {
                 const isEditing = editingId === r.id
                 const rowBg = i % 2 === 0 ? 'bg-white' : 'bg-[#f9fafb]'
+
+                // The Meds columns are sourced from active feedroom-flagged
+                // care_plan rows (not editable here — admin manages those
+                // from the horse profile / Care Plans tab).
+                const amMeds = <MedCell side="am" meds={r.meds} />
+                const pmMeds = <MedCell side="pm" meds={r.meds} />
+                const hasAmMeds = r.meds.some(m => m.am)
+                const hasPmMeds = r.meds.some(m => m.pm)
 
                 if (isEditing) {
                   return (
@@ -214,9 +294,11 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_feed')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_supplements')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_hay')}</td>
-                      <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_feed')}</td>
+                      <td className={`${hasAmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{amMeds ?? '—'}</td>
+                      <td className={`${tdEdit} border border-[#e0e3e6] border-l-[4px] border-l-[#002058]`}>{field('pm_feed')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_supplements')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_hay')}</td>
+                      <td className={`${hasPmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{pmMeds ?? '—'}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('notes', 3)}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6] print:hidden whitespace-nowrap`}>
                         <div className="flex flex-col gap-1">
@@ -248,13 +330,21 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
                         <td className={`${r.diet.am_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_feed        ?? '—'}</td>
                         <td className={`${r.diet.am_supplements ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_supplements ?? '—'}</td>
                         <td className={`${r.diet.am_hay         ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_hay         ?? '—'}</td>
-                        <td className={`${r.diet.pm_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_feed        ?? '—'}</td>
+                        <td className={`${hasAmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{amMeds ?? '—'}</td>
+                        <td className={`${r.diet.pm_feed        ? td : tdEmpty} border border-[#e0e3e6] border-l-[4px] border-l-[#002058]`}>{r.diet.pm_feed        ?? '—'}</td>
                         <td className={`${r.diet.pm_supplements ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_supplements ?? '—'}</td>
                         <td className={`${r.diet.pm_hay         ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.pm_hay         ?? '—'}</td>
+                        <td className={`${hasPmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{pmMeds ?? '—'}</td>
                         <td className={`${r.diet.notes          ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.notes          ?? '—'}</td>
                       </>
                     ) : (
-                      <td colSpan={7} className={`${tdEmpty} border border-[#e0e3e6] italic`}>No diet on file</td>
+                      <>
+                        <td colSpan={3} className={`${tdEmpty} border border-[#e0e3e6] italic`}>No diet on file</td>
+                        <td className={`${hasAmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{amMeds ?? '—'}</td>
+                        <td colSpan={3} className={`${tdEmpty} border border-[#e0e3e6] border-l-[4px] border-l-[#002058]`}>—</td>
+                        <td className={`${hasPmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{pmMeds ?? '—'}</td>
+                        <td className={`${tdEmpty} border border-[#e0e3e6]`}>—</td>
+                      </>
                     )}
                     <td className={`${tdEdit} border border-[#e0e3e6] print:hidden whitespace-nowrap`}>
                       <button

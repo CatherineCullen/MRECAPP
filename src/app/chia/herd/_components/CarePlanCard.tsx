@@ -23,15 +23,18 @@ import { BARN_TZ } from '@/lib/datetime'
  */
 
 export type CarePlan = {
-  id:              string
-  content:         string
-  starts_on:       string | null
-  ends_on:         string | null
-  resolved_at:     string | null
-  resolution_note: string | null
-  source_quote:    string | null
-  person:          { first_name: string; last_name: string } | null
-  resolved_by_person?: { first_name: string; last_name: string } | null
+  id:                     string
+  content:                string
+  starts_on:              string | null
+  ends_on:                string | null
+  is_feedroom_medication: boolean
+  am_instruction:         string | null
+  pm_instruction:         string | null
+  resolved_at:            string | null
+  resolution_note:        string | null
+  source_quote:           string | null
+  person:                 { first_name: string; last_name: string } | null
+  resolved_by_person?:    { first_name: string; last_name: string } | null
 }
 
 export type HorseLabel = {
@@ -62,6 +65,9 @@ export function ActivePlanCard({
   const [content, setContent] = useState(plan.content)
   const [startsOn, setStartsOn] = useState(plan.starts_on ?? '')
   const [endsOn, setEndsOn] = useState(plan.ends_on ?? '')
+  const [isFeedMed, setIsFeedMed] = useState(plan.is_feedroom_medication)
+  const [amInstr, setAmInstr] = useState(plan.am_instruction ?? '')
+  const [pmInstr, setPmInstr] = useState(plan.pm_instruction ?? '')
   const [error, setError]   = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -79,11 +85,14 @@ export function ActivePlanCard({
     if (!trimmed) { setError('Content is required.'); return }
     startTransition(async () => {
       const r = await editCarePlan({
-        planId:    plan.id,
+        planId:                 plan.id,
         horseId,
-        content:   trimmed,
-        starts_on: startsOn || null,
-        ends_on:   endsOn   || null,
+        content:                trimmed,
+        starts_on:              startsOn || null,
+        ends_on:                endsOn   || null,
+        is_feedroom_medication: isFeedMed,
+        am_instruction:         isFeedMed ? (amInstr.trim() || null) : null,
+        pm_instruction:         isFeedMed ? (pmInstr.trim() || null) : null,
       })
       if (r?.error) { setError(r.error); return }
       setMode('view')
@@ -95,6 +104,9 @@ export function ActivePlanCard({
     setContent(plan.content)
     setStartsOn(plan.starts_on ?? '')
     setEndsOn(plan.ends_on ?? '')
+    setIsFeedMed(plan.is_feedroom_medication)
+    setAmInstr(plan.am_instruction ?? '')
+    setPmInstr(plan.pm_instruction ?? '')
     setError(null)
     setMode('view')
   }
@@ -114,7 +126,30 @@ export function ActivePlanCard({
       )}
 
       {!showingForm ? (
-        <div className="text-sm text-[#191c1e] whitespace-pre-wrap">{plan.content}</div>
+        <>
+          {plan.is_feedroom_medication && (
+            <div className="inline-block text-[9px] font-bold text-[#056380] uppercase tracking-wider bg-[#dae2ff] px-1.5 py-0.5 rounded mb-1">
+              Feed Room
+            </div>
+          )}
+          <div className="text-sm text-[#191c1e] whitespace-pre-wrap">{plan.content}</div>
+          {plan.is_feedroom_medication && (plan.am_instruction || plan.pm_instruction) && (
+            <div className="mt-1.5 flex gap-3 text-xs">
+              {plan.am_instruction && (
+                <div>
+                  <span className="text-[9px] font-bold text-[#444650] uppercase tracking-wider">AM</span>
+                  <div className="text-[#191c1e]">{plan.am_instruction}</div>
+                </div>
+              )}
+              {plan.pm_instruction && (
+                <div>
+                  <span className="text-[9px] font-bold text-[#444650] uppercase tracking-wider">PM</span>
+                  <div className="text-[#191c1e]">{plan.pm_instruction}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <div className="space-y-2">
           <textarea
@@ -144,6 +179,42 @@ export function ActivePlanCard({
               />
               {!endsOn && <span className="text-[#7c4b00]">— no end date</span>}
             </label>
+          </div>
+
+          <div className="bg-[#f7f9fc] rounded px-2 py-2 border border-[#dae2ff]/50">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFeedMed}
+                onChange={e => setIsFeedMed(e.target.checked)}
+                className="accent-[#056380]"
+              />
+              <span className="text-[11px] font-semibold text-[#191c1e]">Feed Room medication</span>
+            </label>
+            {isFeedMed && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-[9px] font-bold text-[#444650] uppercase tracking-wider">AM dose</span>
+                  <textarea
+                    value={amInstr}
+                    onChange={e => setAmInstr(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Bute 1g in feed"
+                    className="mt-0.5 w-full border border-[#c4c6d1] rounded px-1.5 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380] resize-y"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[9px] font-bold text-[#444650] uppercase tracking-wider">PM dose</span>
+                  <textarea
+                    value={pmInstr}
+                    onChange={e => setPmInstr(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Bute 1g in feed"
+                    className="mt-0.5 w-full border border-[#c4c6d1] rounded px-1.5 py-1 text-xs text-[#191c1e] focus:outline-none focus:border-[#056380] resize-y"
+                  />
+                </label>
+              </div>
+            )}
           </div>
         </div>
       )}

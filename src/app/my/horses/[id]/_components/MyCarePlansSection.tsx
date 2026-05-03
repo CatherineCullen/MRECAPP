@@ -6,15 +6,18 @@ import { addMyCarePlan, resolveMyCarePlan, editMyCarePlan } from '../care-plans/
 import { BARN_TZ } from '@/lib/datetime'
 
 export type CarePlan = {
-  id:              string
-  content:         string
-  starts_on:       string | null
-  ends_on:         string | null
-  resolved_at:     string | null
-  resolution_note: string | null
-  source_quote:    string | null
-  person?:             { first_name: string; last_name: string } | null
-  resolved_by_person?: { first_name: string; last_name: string } | null
+  id:                     string
+  content:                string
+  starts_on:              string | null
+  ends_on:                string | null
+  is_feedroom_medication: boolean
+  am_instruction:         string | null
+  pm_instruction:         string | null
+  resolved_at:            string | null
+  resolution_note:        string | null
+  source_quote:           string | null
+  person?:                { first_name: string; last_name: string } | null
+  resolved_by_person?:    { first_name: string; last_name: string } | null
 }
 
 function formatDate(d: string) {
@@ -34,11 +37,16 @@ function ActivePlan({ plan, horseId }: { plan: CarePlan; horseId: string }) {
   const [content, setContent] = useState(plan.content)
   const [starts,  setStarts]  = useState(plan.starts_on ?? '')
   const [ends,    setEnds]    = useState(plan.ends_on   ?? '')
+  const [isFeedMed, setIsFeedMed] = useState(plan.is_feedroom_medication)
+  const [amInstr, setAmInstr] = useState(plan.am_instruction ?? '')
+  const [pmInstr, setPmInstr] = useState(plan.pm_instruction ?? '')
+  const [feedExpanded, setFeedExpanded] = useState(false)
   const [note,    setNote]    = useState('')
   const [error,   setError]   = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const addedBy = plan.person ? `${plan.person.first_name} ${plan.person.last_name}` : null
+  const hasFeedDoses = !!(plan.am_instruction || plan.pm_instruction)
 
   function handleSaveEdit() {
     setError(null)
@@ -50,6 +58,9 @@ function ActivePlan({ plan, horseId }: { plan: CarePlan; horseId: string }) {
         content: trimmed,
         starts_on: starts || null,
         ends_on:   ends   || null,
+        is_feedroom_medication: isFeedMed,
+        am_instruction: isFeedMed ? (amInstr.trim() || null) : null,
+        pm_instruction: isFeedMed ? (pmInstr.trim() || null) : null,
       })
       if (r?.error) { setError(r.error); return }
       setMode('view')
@@ -70,6 +81,9 @@ function ActivePlan({ plan, horseId }: { plan: CarePlan; horseId: string }) {
     setContent(plan.content)
     setStarts(plan.starts_on ?? '')
     setEnds(plan.ends_on ?? '')
+    setIsFeedMed(plan.is_feedroom_medication)
+    setAmInstr(plan.am_instruction ?? '')
+    setPmInstr(plan.pm_instruction ?? '')
     setError(null)
     setMode('view')
   }
@@ -77,7 +91,39 @@ function ActivePlan({ plan, horseId }: { plan: CarePlan; horseId: string }) {
   return (
     <div className="bg-warning-container rounded-lg px-3 py-2.5">
       {mode !== 'edit' ? (
-        <p className="text-sm text-on-surface whitespace-pre-wrap">{plan.content}</p>
+        <>
+          {plan.is_feedroom_medication && (
+            <span className="inline-block text-[9px] font-bold text-on-secondary-container uppercase tracking-wider bg-secondary-fixed px-1.5 py-0.5 rounded mb-1">
+              Feed Room
+            </span>
+          )}
+          <p className="text-sm text-on-surface whitespace-pre-wrap">{plan.content}</p>
+          {plan.is_feedroom_medication && hasFeedDoses && (
+            <button
+              type="button"
+              onClick={() => setFeedExpanded(v => !v)}
+              className="mt-1 text-[10px] font-semibold text-on-secondary-container uppercase tracking-wider"
+            >
+              {feedExpanded ? 'Hide' : 'Show'} AM / PM dose
+            </button>
+          )}
+          {plan.is_feedroom_medication && hasFeedDoses && feedExpanded && (
+            <div className="mt-1.5 flex gap-3 text-xs">
+              {plan.am_instruction && (
+                <div>
+                  <span className="text-[9px] font-bold text-on-surface-muted uppercase tracking-wider">AM</span>
+                  <div className="text-on-surface">{plan.am_instruction}</div>
+                </div>
+              )}
+              {plan.pm_instruction && (
+                <div>
+                  <span className="text-[9px] font-bold text-on-surface-muted uppercase tracking-wider">PM</span>
+                  <div className="text-on-surface">{plan.pm_instruction}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <div className="space-y-2">
           <textarea
@@ -97,6 +143,41 @@ function ActivePlan({ plan, horseId }: { plan: CarePlan; horseId: string }) {
               <input type="date" value={ends} onChange={e => setEnds(e.target.value)} className={dateInputCls} />
               {!ends && <span className="text-warning">— no end date</span>}
             </label>
+          </div>
+          <div className="bg-surface-lowest rounded px-2 py-2 border border-outline/40">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFeedMed}
+                onChange={e => setIsFeedMed(e.target.checked)}
+                className="accent-primary"
+              />
+              <span className="text-[11px] font-semibold text-on-surface">Feed Room medication</span>
+            </label>
+            {isFeedMed && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-[9px] font-bold text-on-surface-muted uppercase tracking-wider">AM dose</span>
+                  <textarea
+                    value={amInstr}
+                    onChange={e => setAmInstr(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Bute 1g in feed"
+                    className={`mt-0.5 ${inputCls} text-xs resize-y`}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[9px] font-bold text-on-surface-muted uppercase tracking-wider">PM dose</span>
+                  <textarea
+                    value={pmInstr}
+                    onChange={e => setPmInstr(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Bute 1g in feed"
+                    className={`mt-0.5 ${inputCls} text-xs resize-y`}
+                  />
+                </label>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -217,6 +298,9 @@ function AddPlanForm({
   const [content, setContent] = useState('')
   const [starts,  setStarts]  = useState('')
   const [ends,    setEnds]    = useState('')
+  const [isFeedMed, setIsFeedMed] = useState(false)
+  const [amInstr, setAmInstr] = useState('')
+  const [pmInstr, setPmInstr] = useState('')
   const [error,   setError]   = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -230,6 +314,9 @@ function AddPlanForm({
         content: trimmed,
         starts_on: starts || null,
         ends_on:   ends   || null,
+        is_feedroom_medication: isFeedMed,
+        am_instruction: isFeedMed ? (amInstr.trim() || null) : null,
+        pm_instruction: isFeedMed ? (pmInstr.trim() || null) : null,
       })
       if (r?.error) { setError(r.error); return }
       router.refresh()
@@ -257,6 +344,41 @@ function AddPlanForm({
           <input type="date" value={ends} onChange={e => setEnds(e.target.value)} className={dateInputCls} />
           {!ends && <span className="text-warning">— no end date</span>}
         </label>
+      </div>
+      <div className="bg-surface-lowest rounded px-2 py-2 border border-outline/40">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isFeedMed}
+            onChange={e => setIsFeedMed(e.target.checked)}
+            className="accent-primary"
+          />
+          <span className="text-[11px] font-semibold text-on-surface">Feed Room medication</span>
+        </label>
+        {isFeedMed && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="text-[9px] font-bold text-on-surface-muted uppercase tracking-wider">AM dose</span>
+              <textarea
+                value={amInstr}
+                onChange={e => setAmInstr(e.target.value)}
+                rows={2}
+                placeholder="e.g. Bute 1g in feed"
+                className={`mt-0.5 ${inputCls} text-xs resize-y`}
+              />
+            </label>
+            <label className="block">
+              <span className="text-[9px] font-bold text-on-surface-muted uppercase tracking-wider">PM dose</span>
+              <textarea
+                value={pmInstr}
+                onChange={e => setPmInstr(e.target.value)}
+                rows={2}
+                placeholder="e.g. Bute 1g in feed"
+                className={`mt-0.5 ${inputCls} text-xs resize-y`}
+              />
+            </label>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <button
