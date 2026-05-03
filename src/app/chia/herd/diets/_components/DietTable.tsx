@@ -355,7 +355,14 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
 
                 return (
                   <tr key={r.id} className={rowBg}>
-                    <td className={`${td} font-semibold border border-[#e0e3e6]`}>{r.barn_name}</td>
+                    <td className={`${td} font-semibold border border-[#e0e3e6]`}>
+                      <Link
+                        href={`/chia/herd/horses/${r.id}`}
+                        className="text-[#056380] hover:text-[#002058] hover:underline"
+                      >
+                        {r.barn_name}
+                      </Link>
+                    </td>
                     {r.diet ? (
                       <>
                         <td className={`${r.diet.am_feed        ? td : tdEmpty} border border-[#e0e3e6]`}>{r.diet.am_feed        ?? '—'}</td>
