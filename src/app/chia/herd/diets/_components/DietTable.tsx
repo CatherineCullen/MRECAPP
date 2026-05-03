@@ -202,7 +202,15 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
             Export CSV
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              // Open the dedicated print route in a new tab. It honors the
+              // current horse selection so you can print just the 8 horses
+              // going to a show, etc. Falls back to all horses if no
+              // selection is passed.
+              const ids = [...selected].join(',')
+              const url = ids ? `/print/feed-room?horses=${ids}` : '/print/feed-room'
+              window.open(url, '_blank')
+            }}
             className="text-xs font-semibold text-white bg-[#056380] hover:bg-[#002058] px-3 py-1.5 rounded"
           >
             Print
@@ -234,17 +242,11 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
         ))}
       </div>
 
-      {/* Print orientation: landscape so all 9 data columns fit. */}
-      <style jsx global>{`
-        @media print {
-          @page { size: landscape; margin: 0.5in; }
-        }
-      `}</style>
-
-      {/* Print header — visible on print only */}
-      <div className="hidden print:block mb-4">
-        <p className="text-xs text-[#444650]">Marlboro Ridge Equestrian Center — Feed Room</p>
-      </div>
+      {/* Note: this screen view is no longer the print target — the
+          Print button opens a dedicated /print/feed-room route in a
+          new tab and triggers window.print() there, so the printed
+          page is custom-built for paper without inheriting any of
+          the CHIA chrome. */}
 
       {visible.length === 0 ? (
         <p className="text-sm text-[#444650]">No horses selected.</p>

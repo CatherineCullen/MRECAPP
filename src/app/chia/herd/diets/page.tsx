@@ -37,9 +37,18 @@ export default async function DietsPage() {
       .is('resolved_at', null),
   ])
 
+  // The feed crew mixes one feeding ahead, so a med starting tomorrow
+  // needs to appear on today's sheet. Filter: include past, today, and
+  // exactly-tomorrow start dates; exclude further-future starts; exclude
+  // past-ended TCPs.
+  const tomorrow = (() => {
+    const d = new Date(today + 'T00:00:00')
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().slice(0, 10)
+  })()
   const allPlans = (plansRes.data ?? []).filter(p => {
-    if (p.starts_on && p.starts_on > today) return false
-    if (p.ends_on   && p.ends_on   < today) return false
+    if (p.starts_on && p.starts_on > tomorrow) return false
+    if (p.ends_on   && p.ends_on   < today)    return false
     return true
   })
 

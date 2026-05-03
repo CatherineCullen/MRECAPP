@@ -1,0 +1,113 @@
+/* Custom print export — Feed Room sheet. Designed for paper, not screen.
+   The on-screen view is just a sanity preview; the real consumer is
+   the printer. */
+
+@page {
+  size: landscape;
+  margin: 0.4in;
+}
+
+.print-root {
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: #191c1e;
+  padding: 24px;
+  max-width: 100%;
+}
+
+@media print {
+  .print-root {
+    padding: 0;
+  }
+}
+
+.print-header {
+  border-bottom: 2px solid #002058;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.print-header .title {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+.print-header .meta {
+  font-size: 11px;
+  color: #444650;
+}
+
+.feed-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  table-layout: auto;
+}
+
+.feed-table th,
+.feed-table td {
+  border: 1px solid #c4c6d1;
+  padding: 4px 6px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.feed-table th {
+  background: #f2f4f7;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #444650;
+}
+
+.feed-table th.am-group,
+.feed-table th.pm-group {
+  text-align: center;
+  font-size: 11px;
+  background: #e8edf4;
+}
+
+/* Bold day-half divider — between AM and PM column groups. */
+.feed-table th.pm-group,
+.feed-table th.pm-edge,
+.feed-table tbody td.pm-edge {
+  border-left: 3px solid #002058;
+}
+
+.feed-table .horse {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.feed-table .meds {
+  background: rgba(218, 226, 255, 0.35);
+}
+
+.feed-table tbody tr {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.feed-table tbody tr:nth-child(even) td {
+  background: #fafbfd;
+}
+
+.feed-table tbody tr:nth-child(even) td.meds {
+  background: rgba(218, 226, 255, 0.45);
+}
+
+.feed-table .muted {
+  color: #8c8e98;
+}
+.feed-table .small {
+  font-size: 8px;
+}
+
+.feed-table .empty {
+  text-align: center;
+  color: #8c8e98;
+  padding: 24px;
+  font-style: italic;
+}
