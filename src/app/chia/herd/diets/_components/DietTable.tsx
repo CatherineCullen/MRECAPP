@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { saveDietInline } from '../actions'
 
@@ -290,17 +291,45 @@ export default function DietTable({ rows }: { rows: DietRow[] }) {
                 const hasPmMeds = r.meds.some(m => m.pm)
 
                 if (isEditing) {
+                  // Meds cells are read-only here — they're sourced from
+                  // active feedroom-flagged care plans, which are managed
+                  // on the horse page. Show a small inline hint linking
+                  // straight to the add-care-plan form so an admin in edit
+                  // mode can jump there in one click.
+                  const medsHint = (
+                    <div className="mt-1 text-[9px] italic">
+                      <Link
+                        href={`/chia/herd/horses/${r.id}/care-plans/new`}
+                        className="text-[#056380] hover:text-[#002058] hover:underline"
+                      >
+                        + Add med (on horse page)
+                      </Link>
+                    </div>
+                  )
                   return (
                     <tr key={r.id} className={rowBg}>
-                      <td className={`${td} font-semibold border border-[#e0e3e6]`}>{r.barn_name}</td>
+                      <td className={`${td} font-semibold border border-[#e0e3e6]`}>
+                        <Link
+                          href={`/chia/herd/horses/${r.id}`}
+                          className="text-[#056380] hover:text-[#002058] hover:underline"
+                        >
+                          {r.barn_name}
+                        </Link>
+                      </td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_feed')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_supplements')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('am_hay')}</td>
-                      <td className={`${hasAmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{amMeds ?? '—'}</td>
+                      <td className={`${hasAmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>
+                        {amMeds ?? '—'}
+                        {medsHint}
+                      </td>
                       <td className={`${tdEdit} border border-[#e0e3e6] border-l-[4px] border-l-[#002058]`}>{field('pm_feed')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_supplements')}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('pm_hay')}</td>
-                      <td className={`${hasPmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>{pmMeds ?? '—'}</td>
+                      <td className={`${hasPmMeds ? td : tdEmpty} border border-[#e0e3e6] bg-[#dae2ff]/30`}>
+                        {pmMeds ?? '—'}
+                        {medsHint}
+                      </td>
                       <td className={`${tdEdit} border border-[#e0e3e6]`}>{field('notes', 3)}</td>
                       <td className={`${tdEdit} border border-[#e0e3e6] print:hidden whitespace-nowrap`}>
                         <div className="flex flex-col gap-1">
