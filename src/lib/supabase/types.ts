@@ -1947,6 +1947,7 @@ export type Database = {
           hosted_invoice_url: string | null
           id: string
           nmi_invoice_id: string | null
+          nmi_transaction_id: string | null
           notes: string | null
           paid_at: string | null
           paid_method: string | null
@@ -1966,6 +1967,7 @@ export type Database = {
           hosted_invoice_url?: string | null
           id?: string
           nmi_invoice_id?: string | null
+          nmi_transaction_id?: string | null
           notes?: string | null
           paid_at?: string | null
           paid_method?: string | null
@@ -1985,6 +1987,7 @@ export type Database = {
           hosted_invoice_url?: string | null
           id?: string
           nmi_invoice_id?: string | null
+          nmi_transaction_id?: string | null
           notes?: string | null
           paid_at?: string | null
           paid_method?: string | null
