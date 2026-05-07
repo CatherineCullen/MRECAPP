@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
 import { BARN_TZ } from '@/lib/datetime'
+import MarkPaidButton from './_components/MarkPaidButton'
 
 // Neutral invoice detail page — both boarding and lessons-events invoices
 // live in the same `invoice` table, so we serve one place that shows
@@ -147,6 +148,14 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             >
               Stripe ↗
             </a>
+          )}
+          {/* Manual mark-paid is for cash, check, external NMI charges. Only
+              meaningful for invoices that have been sent but aren't yet paid;
+              draft/voided/paid invoices don't get the affordance. */}
+          {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+            <div className="ml-auto">
+              <MarkPaidButton invoiceId={invoice.id} />
+            </div>
           )}
         </div>
       </div>

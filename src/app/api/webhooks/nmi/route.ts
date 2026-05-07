@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { applyInvoicePaid } from '@/lib/payments/applyInvoicePaid'
 import {
   NmiSignatureError,
   normalizeNmiEvent,
@@ -162,56 +163,19 @@ async function handleInvoicePaid(
     )
   }
 
-  const nowIso = new Date().toISOString()
-
-  // 4. Update the invoice. Stamp paid_at, paid_method (derived from
-  //    NMI's transaction_type), nmi_transaction_id, and status.
+  // 4. Apply the paid cascade via the shared helper. Same code path as
+  //    manual mark-paid (`/chia/invoices/[id]` action) so both flow
+  //    identically through the lesson_month + lesson status updates.
   const paidMethod = derivePaidMethod(event.raw)
+  const result = await applyInvoicePaid({
+    db:               supabase,
+    invoiceId:        invoice.id,
+    paidMethod,
+    nmiTransactionId: event.nmiTransactionId,
+  })
 
-  const { error: updateErr } = await supabase
-    .from('invoice')
-    .update({
-      status:             'paid',
-      paid_at:            nowIso,
-      paid_method:        paidMethod,
-      nmi_transaction_id: event.nmiTransactionId,
-    })
-    .eq('id', invoice.id)
-
-  if (updateErr) {
-    throw new Error(`Failed to update invoice ${invoice.id}: ${updateErr.message}`)
-  }
-
-  // 5. Cascade: any lesson_month rows linked to this invoice flip
-  //    Pending/Invoiced → Paid.
-  const { data: paidMonths, error: monthsErr } = await supabase
-    .from('lesson_month')
-    .update({ status: 'Paid' })
-    .eq('invoice_id', invoice.id)
-    .is('deleted_at', null)
-    .select('id')
-
-  if (monthsErr) {
-    throw new Error(`Failed to update lesson_month rows for invoice ${invoice.id}: ${monthsErr.message}`)
-  }
-
-  // 6. Cascade onward: lesson rows under those months flip
-  //    pending → scheduled. This is what makes the lessons actually
-  //    show up confirmed on the rider's My Schedule.
-  if (paidMonths && paidMonths.length > 0) {
-    const monthIds = paidMonths.map((m) => m.id)
-    const { error: lessonsErr } = await supabase
-      .from('lesson')
-      .update({ status: 'scheduled' })
-      .in('month_id', monthIds)
-      .eq('status', 'pending')
-      .is('deleted_at', null)
-
-    if (lessonsErr) {
-      throw new Error(
-        `Failed to flip lessons to scheduled for invoice ${invoice.id}: ${lessonsErr.message}`,
-      )
-    }
+  if (!result.ok) {
+    throw new Error(`applyInvoicePaid failed for ${invoice.id}: ${result.error}`)
   }
 }
 
