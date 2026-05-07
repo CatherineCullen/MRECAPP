@@ -3,42 +3,83 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import type { DayOfWeek } from '../../_lib/generateLessonDates'
-import { barnLocalToUtcIso } from '@/lib/datetime'
+import type { DayOfWeek } from '@/lib/lessons/monthly/dates'
+import { generateInitialMonths } from '@/lib/lessons/monthly/operations'
+import { getPerLessonPrice, type SubscriptionType } from '@/lib/lessons/monthly/pricing'
 
-type CreateArgs = {
+/**
+ * Create a new lesson subscription under the monthly model (ADR-0019).
+ *
+ * Flow:
+ *   1. Auto-assign the rider role to the rider person (idempotent).
+ *   2. Read the per-lesson rate for the chosen subscription_type from
+ *      the catalog. Fail loudly if not set — admin must configure rates
+ *      in Lessons & Events > Configuration > Catalog before creating
+ *      monthly subscriptions.
+ *   3. Insert lesson_subscription with status='active' (slot is held
+ *      indefinitely; payment-gating happens at the lesson_month level
+ *      now, not at subscription creation).
+ *   4. Generate the 3-month rolling window (prorated current + 2 full
+ *      future months) via the monthly library.
+ *
+ * Differences from the old quarterly action:
+ *   - No quarter_id, no subscription_price, no startDate, no
+ *     lessonDates array. The monthly model derives all of that from
+ *     the slot + barn calendar at generation time.
+ *   - subscription.status starts at 'active' instead of 'pending'.
+ *     The Pending gate moves to lesson_month.status.
+ */
+export type CreateMonthlySubscriptionArgs = {
   riderId:           string
   billedToId:        string
   instructorId:      string
-  quarterId:         string
   dayOfWeek:         DayOfWeek
   lessonTime:        string         // "HH:MM"
   defaultHorseId:    string | null
-  subscriptionType:  'standard' | 'boarder'
-  subscriptionPrice: number
-  startDate:         string         // 'YYYY-MM-DD'
-  lessonDates:       string[]       // dates the admin confirmed (subset of generated)
-  isProrated:        boolean
-  proratedPrice:     number | null
+  subscriptionType:  SubscriptionType
 }
 
-export async function createSubscription(args: CreateArgs): Promise<{ error?: string; subscriptionId?: string }> {
+export type CreateMonthlySubscriptionResult = {
+  error?:          string
+  subscriptionId?: string
+  /** Per-month preview shown back to admin after create — first month is prorated. */
+  months?: Array<{
+    year:        number
+    month:       number
+    lessonCount: number
+    isProrated:  boolean
+    total:       number
+  }>
+}
+
+export async function createMonthlySubscription(
+  args: CreateMonthlySubscriptionArgs,
+): Promise<CreateMonthlySubscriptionResult> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
 
-  if (args.lessonDates.length === 0) {
-    return { error: 'No lesson dates to create.' }
+  // 1. Look up the per-lesson rate. Fail early if admin hasn't set it.
+  let perLessonPrice: number | null
+  try {
+    perLessonPrice = await getPerLessonPrice(supabase, args.subscriptionType)
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) }
+  }
+  if (perLessonPrice == null) {
+    return {
+      error:
+        `Per-lesson rate for ${args.subscriptionType} riders is not set. ` +
+        `Configure it in Lessons & Events → Configuration → Catalog before creating subscriptions.`,
+    }
   }
 
-  // 0) Ensure the rider has the 'rider' role. Enrolling someone in a
-  //    subscription implicitly makes them a rider — we auto-assign so the
-  //    admin doesn't have to round-trip through the People form first.
-  //    Idempotent: skips if they already have the role.
+  // 2. Auto-assign the rider role (idempotent — skips if already present;
+  //    un-soft-deletes if it had been removed). Mirrors the legacy flow.
   const { data: existingRole } = await supabase
     .from('person_role')
     .select('id, deleted_at')
     .eq('person_id', args.riderId)
-    .eq('role', 'rider' as any)
+    .eq('role', 'rider')
     .order('assigned_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -46,7 +87,7 @@ export async function createSubscription(args: CreateArgs): Promise<{ error?: st
   if (!existingRole) {
     await supabase
       .from('person_role')
-      .insert({ person_id: args.riderId, role: 'rider' as any })
+      .insert({ person_id: args.riderId, role: 'rider' })
   } else if (existingRole.deleted_at) {
     await supabase
       .from('person_role')
@@ -54,24 +95,21 @@ export async function createSubscription(args: CreateArgs): Promise<{ error?: st
       .eq('id', existingRole.id)
   }
 
-  // 1) Insert the subscription row
+  // 3. Insert the slot subscription. Legacy quarterly columns (quarter_id,
+  //    subscription_price, etc.) are left null — they're being dropped in
+  //    PR 3b-rest along with the rest of the quarterly cruft.
   const { data: sub, error: subErr } = await supabase
     .from('lesson_subscription')
     .insert({
-      rider_id:              args.riderId,
-      billed_to_id:          args.billedToId,
-      quarter_id:            args.quarterId,
-      lesson_day:            args.dayOfWeek,
-      lesson_time:           args.lessonTime,
-      instructor_id:         args.instructorId,
-      default_horse_id:      args.defaultHorseId,
-      subscription_price:    args.subscriptionPrice,
-      is_prorated:           args.isProrated,
-      prorated_lesson_count: args.isProrated ? args.lessonDates.length : null,
-      prorated_price:        args.isProrated ? args.proratedPrice : null,
-      subscription_type:     args.subscriptionType,
-      status:                'pending',
-      created_by:            user?.personId ?? null,
+      rider_id:          args.riderId,
+      billed_to_id:      args.billedToId,
+      lesson_day:        args.dayOfWeek,
+      lesson_time:       args.lessonTime,
+      instructor_id:     args.instructorId,
+      default_horse_id:  args.defaultHorseId,
+      subscription_type: args.subscriptionType,
+      status:            'active',
+      created_by:        user?.personId ?? null,
     })
     .select('id')
     .single()
@@ -80,48 +118,32 @@ export async function createSubscription(args: CreateArgs): Promise<{ error?: st
     return { error: subErr?.message ?? 'Failed to create subscription.' }
   }
 
-  // 2) Insert one `lesson` row per date
-  //    Each lesson gets its own UUID from the DB; we need the IDs back so we
-  //    can tie lesson_rider rows to them.
-  const lessonRows = args.lessonDates.map(date => ({
-    instructor_id: args.instructorId,
-    lesson_type:   'private' as const,
-    scheduled_at:  barnLocalToUtcIso(date, args.lessonTime),
-    status:        'scheduled' as const,
-    created_by:    user?.personId ?? null,
-  }))
-
-  const { data: lessons, error: lessonErr } = await supabase
-    .from('lesson')
-    .insert(lessonRows)
-    .select('id, scheduled_at')
-
-  if (lessonErr || !lessons) {
-    // Best-effort cleanup: remove the subscription row we just created
+  // 4. Generate the 3-month rolling window. Cleanup: if generation fails
+  //    we delete the subscription row we just created so admin can retry
+  //    cleanly without an orphaned slot.
+  let months
+  try {
+    const result = await generateInitialMonths({
+      db:             supabase,
+      subscriptionId: sub.id,
+      perLessonPrice,
+      createdBy:      user?.personId ?? null,
+    })
+    months = result.months
+  } catch (e) {
     await supabase.from('lesson_subscription').delete().eq('id', sub.id)
-    return { error: lessonErr?.message ?? 'Failed to create lessons.' }
-  }
-
-  // 3) Insert one lesson_rider per lesson tying rider → subscription
-  const riderRows = lessons.map(l => ({
-    lesson_id:       l.id,
-    rider_id:        args.riderId,
-    horse_id:        args.defaultHorseId,
-    subscription_id: sub.id,
-    package_id:      null,
-  }))
-
-  const { error: riderErr } = await supabase
-    .from('lesson_rider')
-    .insert(riderRows)
-
-  if (riderErr) {
-    // Clean up lessons + subscription
-    await supabase.from('lesson').delete().in('id', lessons.map(l => l.id))
-    await supabase.from('lesson_subscription').delete().eq('id', sub.id)
-    return { error: riderErr.message }
+    return { error: e instanceof Error ? e.message : String(e) }
   }
 
   revalidatePath('/chia/lessons-events')
-  return { subscriptionId: sub.id }
+  return {
+    subscriptionId: sub.id,
+    months: months.map((m) => ({
+      year:        m.year,
+      month:       m.month,
+      lessonCount: m.lessonCount,
+      isProrated:  m.isProrated,
+      total:       perLessonPrice! * m.lessonCount,
+    })),
+  }
 }

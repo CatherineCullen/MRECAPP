@@ -2619,11 +2619,11 @@ export type Database = {
           makeup_notes: string | null
           prorated_lesson_count: number | null
           prorated_price: number | null
-          quarter_id: string
+          quarter_id: string | null
           renewal_intent: Database["public"]["Enums"]["renewal_intent"]
           rider_id: string
           status: Database["public"]["Enums"]["lesson_subscription_status"]
-          subscription_price: number
+          subscription_price: number | null
           subscription_type: Database["public"]["Enums"]["lesson_subscription_type"]
           updated_at: string
         }
@@ -2647,11 +2647,11 @@ export type Database = {
           makeup_notes?: string | null
           prorated_lesson_count?: number | null
           prorated_price?: number | null
-          quarter_id: string
+          quarter_id?: string | null
           renewal_intent?: Database["public"]["Enums"]["renewal_intent"]
           rider_id: string
           status?: Database["public"]["Enums"]["lesson_subscription_status"]
-          subscription_price: number
+          subscription_price?: number | null
           subscription_type?: Database["public"]["Enums"]["lesson_subscription_type"]
           updated_at?: string
         }
@@ -2675,11 +2675,11 @@ export type Database = {
           makeup_notes?: string | null
           prorated_lesson_count?: number | null
           prorated_price?: number | null
-          quarter_id?: string
+          quarter_id?: string | null
           renewal_intent?: Database["public"]["Enums"]["renewal_intent"]
           rider_id?: string
           status?: Database["public"]["Enums"]["lesson_subscription_status"]
-          subscription_price?: number
+          subscription_price?: number | null
           subscription_type?: Database["public"]["Enums"]["lesson_subscription_type"]
           updated_at?: string
         }
@@ -2744,7 +2744,7 @@ export type Database = {
           notes: string | null
           official_expires_at: string
           original_lesson_id: string | null
-          quarter_id: string
+          quarter_id: string | null
           reason: Database["public"]["Enums"]["makeup_token_reason"]
           rider_id: string
           scheduled_lesson_id: string | null
@@ -2761,7 +2761,7 @@ export type Database = {
           notes?: string | null
           official_expires_at: string
           original_lesson_id?: string | null
-          quarter_id: string
+          quarter_id?: string | null
           reason: Database["public"]["Enums"]["makeup_token_reason"]
           rider_id: string
           scheduled_lesson_id?: string | null
@@ -2778,7 +2778,7 @@ export type Database = {
           notes?: string | null
           official_expires_at?: string
           original_lesson_id?: string | null
-          quarter_id?: string
+          quarter_id?: string | null
           reason?: Database["public"]["Enums"]["makeup_token_reason"]
           rider_id?: string
           scheduled_lesson_id?: string | null
