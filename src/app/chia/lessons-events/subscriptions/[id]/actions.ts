@@ -115,13 +115,11 @@ export async function cancelRemainingLessons(args: {
 
   const { data: sub, error: subErr } = await supabase
     .from('lesson_subscription')
-    .select('id, rider_id, quarter_id, quarter:quarter ( end_date )')
+    .select('id, rider_id')
     .eq('id', args.subscriptionId)
     .maybeSingle()
 
   if (subErr || !sub) return { error: subErr?.message ?? 'Subscription not found.' }
-  const quarterEnd = (sub.quarter as any)?.end_date as string | undefined
-  if (!quarterEnd) return { error: 'Quarter end date missing.' }
 
   // Pull every future, still-active lesson_rider row owned by this subscription
   const { data: riderRows, error: riderErr } = await supabase
@@ -211,15 +209,16 @@ export async function cancelRemainingLessons(args: {
 
   // 5) Issue one makeup token per cancelled rider row — unless the admin
   //    opted out (grantTokens=false), e.g. a pending sub that was never paid
-  //    or a rare refund-and-release case.
+  //    or a rare refund-and-release case. ADR-0020: tokens expire 10 days
+  //    from issuance.
+  const expiresAt = new Date(Date.now() + 10 * 86400_000).toISOString()
   const tokenRows = grantTokens
     ? eligible.map(r => ({
         rider_id:            r.rider_id,
         subscription_id:     args.subscriptionId,
         original_lesson_id:  r.lesson_id,
         reason:              'barn_cancel' as const,
-        quarter_id:          sub.quarter_id,
-        official_expires_at: quarterEnd,
+        official_expires_at: expiresAt,
         status:              'available' as const,
         created_by:          user?.personId ?? null,
       }))

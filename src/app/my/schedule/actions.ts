@@ -8,7 +8,7 @@ import { formatBarnDateTime } from '@/lib/datetime'
 
 export type CancelOutcome =
   | 'cancelled_with_token'       // ≥24hrs, token granted
-  | 'cancelled_no_allowance'     // ≥24hrs but standard rider used 2 already
+  | 'cancelled_no_allowance'     // ≥24hrs but standard rider used their 1/month already
   | 'cancelled_late'             // <24hrs, no token
 
 /**
@@ -18,7 +18,11 @@ export type CancelOutcome =
  * context without cross-referencing their schedule.
  *
  * If the lesson is in-window (≥24hrs), a makeup token is granted under
- * the existing rules (boarders unlimited, standard riders 2/quarter).
+ * the monthly-model rules (ADR-0020):
+ *   - Boarders: unlimited tokens (24hr cancel rule still applies)
+ *   - Standard: 1 rider-cancel token per calendar month
+ * Tokens auto-expire 10 days from issuance.
+ *
  * Late cancels do not auto-grant. Admin reads the note in the thread
  * and decides whether to grant manually.
  */
@@ -41,7 +45,7 @@ export async function cancelMyLesson(
         id, scheduled_at, status, deleted_at, lesson_type
       ),
       subscription:lesson_subscription!subscription_id (
-        subscription_type, quarter_id
+        subscription_type
       )
     `)
     .eq('id', lessonRiderId)
@@ -80,33 +84,22 @@ export async function cancelMyLesson(
     outcome    = 'cancelled_with_token'
     grantToken = true
   } else {
-    // Standard riders: 2 cancellations per quarter that count against allowance
-    let cancelCount = 0
-    const quarterId = sub?.quarter_id
+    // Standard riders: 1 rider-cancel token per calendar month (ADR-0020).
+    // Count against `makeup_token` directly — that's the canonical record
+    // of issued allowance under the monthly model. Tokens auto-expire at
+    // 10 days, so the same rider could legitimately use multiple tokens
+    // in one month if the barn manually granted extras (admin-grant
+    // tokens are reason='admin_grant' and don't count here).
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const { count } = await db
+      .from('makeup_token')
+      .select('id', { count: 'exact', head: true })
+      .eq('rider_id', user.personId)
+      .eq('reason', 'rider_cancel')
+      .gte('created_at', monthStart)
+      .is('deleted_at', null)
 
-    if (quarterId && lr.subscription_id) {
-      // Find all subscription IDs for this rider in this quarter
-      const { data: quarterSubs } = await db
-        .from('lesson_subscription')
-        .select('id')
-        .eq('rider_id', user.personId)
-        .eq('quarter_id', quarterId)
-        .is('deleted_at', null)
-
-      const subIds = (quarterSubs ?? []).map(s => s.id)
-
-      if (subIds.length > 0) {
-        const { count } = await db
-          .from('lesson_rider')
-          .select('id', { count: 'exact', head: true })
-          .in('subscription_id', subIds)
-          .not('cancelled_at', 'is', null)
-          .eq('counts_against_allowance', true)
-        cancelCount = count ?? 0
-      }
-    }
-
-    if (cancelCount < 2) {
+    if ((count ?? 0) < 1) {
       outcome    = 'cancelled_with_token'
       grantToken = true
     } else {
@@ -157,43 +150,20 @@ export async function cancelMyLesson(
       .eq('id', lesson.id)
   }
 
-  // Grant makeup token if applicable. Riders without a subscription (legacy /
-  // migration-era lessons) still get tokens — quarter_id is derived from the
-  // lesson's scheduled_at and subscription_id is left null.
+  // Grant makeup token if applicable. ADR-0020: tokens expire 10 days
+  // from issuance regardless of subscription quarter. quarter_id is no
+  // longer set (column is nullable; gets dropped entirely in 3b-rest/D).
   if (grantToken) {
-    let quarterId = sub?.quarter_id ?? null
-    if (!quarterId) {
-      const date = lesson.scheduled_at.slice(0, 10)
-      const { data: qRow } = await db
-        .from('quarter')
-        .select('id')
-        .lte('start_date', date)
-        .gte('end_date', date)
-        .is('deleted_at', null)
-        .maybeSingle()
-      quarterId = qRow?.id ?? null
-    }
-
-    if (quarterId) {
-      const { data: q } = await db
-        .from('quarter')
-        .select('end_date')
-        .eq('id', quarterId)
-        .maybeSingle()
-
-      if (q?.end_date) {
-        await db.from('makeup_token').insert({
-          rider_id:            user.personId,
-          subscription_id:     lr.subscription_id,
-          original_lesson_id:  lesson.id,
-          reason:              'rider_cancel',
-          quarter_id:          quarterId,
-          official_expires_at: q.end_date,
-          status:              'available',
-          created_by:          user.personId,
-        })
-      }
-    }
+    const expiresAt = new Date(now.getTime() + 10 * 86400_000).toISOString()
+    await db.from('makeup_token').insert({
+      rider_id:            user.personId,
+      subscription_id:     lr.subscription_id,
+      original_lesson_id:  lesson.id,
+      reason:              'rider_cancel',
+      official_expires_at: expiresAt,
+      status:              'available',
+      created_by:          user.personId,
+    })
   }
 
   // If the rider typed a note, post it as a thread message tagged to

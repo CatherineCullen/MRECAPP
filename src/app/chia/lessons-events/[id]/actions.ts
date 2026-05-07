@@ -118,7 +118,7 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
       id, scheduled_at, status, is_makeup,
       lesson_rider (
         id, rider_id, subscription_id, cancelled_at,
-        subscription:lesson_subscription ( id, quarter_id, subscription_type )
+        subscription:lesson_subscription ( id, subscription_type )
       )
     `)
     .eq('id', args.lessonId)
@@ -152,46 +152,25 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
 
   if (lesson.is_makeup) await releaseMakeupToken(supabase, args.lessonId, now)
 
-  // Token generation. Riders without a subscription (legacy / migration-era
-  // lessons) still get tokens — quarter_id is derived from the lesson's
-  // scheduled_at and subscription_id is left null.
+  // Token generation under the monthly model (ADR-0020): tokens expire
+  // 10 days from issuance. quarter_id no longer set (column gets dropped
+  // in 3b-rest/D). Same expiry for every rider on this lesson — they
+  // were all cancelled at the same instant.
   if (args.grantTokens && activeRiders.length > 0) {
-    const fallbackQuarterId = await quarterIdForScheduledAt(supabase, lesson.scheduled_at)
-
-    const quarterIds = Array.from(new Set([
-      ...activeRiders.map(r => r.subscription?.quarter_id).filter(Boolean) as string[],
-      ...(fallbackQuarterId ? [fallbackQuarterId] : []),
-    ]))
-    const { data: quarters } = quarterIds.length > 0
-      ? await supabase.from('quarter').select('id, end_date').in('id', quarterIds)
-      : { data: [] }
-    const qEnd = new Map((quarters ?? []).map(q => [q.id, q.end_date]))
+    const expiresAt = new Date(Date.now() + 10 * 86400_000).toISOString()
 
     const reason: 'barn_cancel' | 'rider_cancel' =
       args.cancelledBy === 'barn' ? 'barn_cancel' : 'rider_cancel'
 
-    const tokenRows = activeRiders
-      .map(r => {
-        const quarter_id = r.subscription?.quarter_id ?? fallbackQuarterId
-        if (!quarter_id) return null
-        const expires = qEnd.get(quarter_id)
-        if (!expires) return null
-        return {
-          rider_id:            r.rider_id,
-          subscription_id:     r.subscription_id,
-          original_lesson_id:  args.lessonId,
-          reason,
-          quarter_id,
-          official_expires_at: expires,
-          status:              'available' as const,
-          created_by:          user?.personId ?? null,
-        }
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-
-    if (tokenRows.length === 0) {
-      return { error: `Lesson cancelled but no token could be created — couldn't determine the quarter for ${lesson.scheduled_at.slice(0, 10)}.` }
-    }
+    const tokenRows = activeRiders.map((r) => ({
+      rider_id:            r.rider_id,
+      subscription_id:     r.subscription_id,
+      original_lesson_id:  args.lessonId,
+      reason,
+      official_expires_at: expiresAt,
+      status:              'available' as const,
+      created_by:          user?.personId ?? null,
+    }))
 
     const { error: tokenErr } = await supabase.from('makeup_token').insert(tokenRows)
     if (tokenErr) return { error: `Lesson cancelled but token creation failed: ${tokenErr.message}` }
@@ -419,20 +398,12 @@ export async function mergeLessons(args: {
   let mergedCount = 1
 
   // Step B: if scope is 'quarter', find and collapse all future scheduled
-  // lessons at same day-of-week + time + instructor within the quarter
+  // lessons at same day-of-week + time + instructor across the rolling
+  // window. Under the monthly model the window is "rest of current
+  // month + next 2 months" — same shape as Monthly Billing's rolling
+  // 3-month view. The scope name is kept for backward compat with the
+  // calling UI; future rename to 'window' once stale callers are gone.
   if (args.scope === 'quarter') {
-    const quarterId = await quarterIdForScheduledAt(supabase, target.scheduled_at)
-    if (!quarterId) {
-      // Can't determine quarter — the just-this merge still succeeded, but no bulk
-      return { mergedCount }
-    }
-    const { data: quarter } = await supabase
-      .from('quarter')
-      .select('id, start_date, end_date')
-      .eq('id', quarterId)
-      .maybeSingle()
-    if (!quarter) return { mergedCount }
-
     // Time-of-day + day-of-week from target.scheduled_at
     const targetDate = new Date(target.scheduled_at)
     const targetDow  = targetDate.getDay()            // 0..6
@@ -440,12 +411,13 @@ export async function mergeLessons(args: {
     const mm         = String(targetDate.getMinutes()).padStart(2, '0')
     const timeSuffix = `T${hh}:${mm}:00`
 
-    // Walk forward week-by-week from the target's date + 7 until quarter end
-    const quarterEnd = new Date(`${quarter.end_date}T23:59:59`)
+    // Window end: end of (target month + 2). Mirrors monthly model's
+    // rolling 3-month surface.
+    const windowEnd = new Date(targetDate.getFullYear(), targetDate.getMonth() + 3, 0, 23, 59, 59)
     const cursor = new Date(targetDate)
     cursor.setDate(cursor.getDate() + 7)              // skip the week we just merged
 
-    while (cursor <= quarterEnd) {
+    while (cursor <= windowEnd) {
       // Find all scheduled lessons at this exact slot + instructor
       const isoAt = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}${timeSuffix}`
 
@@ -539,20 +511,9 @@ async function releaseMakeupToken(
     .eq('status', 'scheduled')
 }
 
-async function quarterIdForScheduledAt(
-  supabase: ReturnType<typeof createAdminClient>,
-  scheduledAt: string,
-): Promise<string | null> {
-  const date = scheduledAt.slice(0, 10)   // YYYY-MM-DD
-  const { data } = await supabase
-    .from('quarter')
-    .select('id')
-    .lte('start_date', date)
-    .gte('end_date', date)
-    .is('deleted_at', null)
-    .maybeSingle()
-  return data?.id ?? null
-}
+// quarterIdForScheduledAt removed in PR 3b-rest/B — quarter_id is gone
+// from makeup_token (10-day expiry from issuance per ADR-0020) and the
+// merge-bulk window now uses a 3-month forward span instead of a quarter.
 
 /**
  * Cancel ONE rider from a multi-rider lesson. If the rider was the last
@@ -579,7 +540,7 @@ export async function cancelRider(args: {
       id, scheduled_at, status, deleted_at, is_makeup,
       lesson_rider (
         id, rider_id, subscription_id, cancelled_at,
-        subscription:lesson_subscription ( id, quarter_id )
+        subscription:lesson_subscription ( id )
       )
     `)
     .eq('id', args.lessonId)
@@ -628,28 +589,10 @@ export async function cancelRider(args: {
 
   if (lesson.is_makeup && remaining.length === 0) await releaseMakeupToken(supabase, args.lessonId, now)
 
-  // Grant token if requested. Riders without a subscription (legacy / migration-
-  // era lessons) still get tokens — quarter_id is derived from the lesson's
-  // scheduled_at and subscription_id is left null.
+  // Grant token if requested. ADR-0020: tokens expire 10 days from
+  // issuance. quarter_id no longer set (column gets dropped in 3b-rest/D).
   if (args.grantToken) {
-    const quarter_id =
-      target.subscription?.quarter_id
-      ?? await quarterIdForScheduledAt(supabase, lesson.scheduled_at)
-
-    if (!quarter_id) {
-      return { error: `Rider cancelled but no token could be created — couldn't determine the quarter for ${lesson.scheduled_at.slice(0, 10)}.` }
-    }
-
-    const { data: q } = await supabase
-      .from('quarter')
-      .select('end_date')
-      .eq('id', quarter_id)
-      .maybeSingle()
-
-    if (!q?.end_date) {
-      return { error: `Rider cancelled but no token could be created — quarter end date missing.` }
-    }
-
+    const expiresAt = new Date(Date.now() + 10 * 86400_000).toISOString()
     const reason: 'barn_cancel' | 'rider_cancel' =
       args.cancelledBy === 'barn' ? 'barn_cancel' : 'rider_cancel'
 
@@ -658,8 +601,7 @@ export async function cancelRider(args: {
       subscription_id:     target.subscription_id,
       original_lesson_id:  args.lessonId,
       reason,
-      quarter_id,
-      official_expires_at: q.end_date,
+      official_expires_at: expiresAt,
       status:              'available',
       created_by:          user?.personId ?? null,
     })
