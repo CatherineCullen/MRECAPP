@@ -12,18 +12,17 @@ type UpdateArgs = {
   subscriptionId:        string
   billedToId:            string
   subscriptionType:      'standard' | 'boarder'
-  subscriptionPrice:     number
   defaultHorseId:        string | null
-  isProrated:            boolean
-  proratedPrice:         number | null
-  proratedLessonCount:   number | null
   status:                'pending' | 'active' | 'cancelled' | 'completed'
   makeupNotes:           string | null
-  renewalIntent:         'renewing' | 'not_renewing'
   /** When true, also push the new default_horse_id onto future lesson_rider
    *  rows that currently point at the OLD default. Per-lesson overrides are
    *  preserved. */
   cascadeDefaultHorse:   boolean
+  // Removed in PR 3b-rest (monthly model): subscriptionPrice (catalog-driven
+  // per_lesson_price snapshotted on lesson_month), isProrated/proratedPrice/
+  // proratedLessonCount (proration is per-lesson_month), renewalIntent
+  // (continuation control moved to Monthly Billing tab's Mark Not Continuing).
 }
 
 export async function updateSubscription(args: UpdateArgs): Promise<{ error?: string }> {
@@ -42,17 +41,12 @@ export async function updateSubscription(args: UpdateArgs): Promise<{ error?: st
   const { error } = await supabase
     .from('lesson_subscription')
     .update({
-      billed_to_id:          args.billedToId,
-      subscription_type:     args.subscriptionType,
-      subscription_price:    args.subscriptionPrice,
-      default_horse_id:      args.defaultHorseId,
-      is_prorated:           args.isProrated,
-      prorated_price:        args.isProrated ? args.proratedPrice : null,
-      prorated_lesson_count: args.isProrated ? args.proratedLessonCount : null,
-      status:                args.status,
-      makeup_notes:          args.makeupNotes,
-      renewal_intent:        args.renewalIntent,
-      updated_at:            now,
+      billed_to_id:      args.billedToId,
+      subscription_type: args.subscriptionType,
+      default_horse_id:  args.defaultHorseId,
+      status:            args.status,
+      makeup_notes:      args.makeupNotes,
+      updated_at:        now,
     })
     .eq('id', args.subscriptionId)
 

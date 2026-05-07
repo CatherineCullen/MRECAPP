@@ -13,14 +13,12 @@ export default async function EditSubscriptionPage({ params }: { params: Promise
     supabase
       .from('lesson_subscription')
       .select(`
-        id, billed_to_id, subscription_type, subscription_price, status,
-        default_horse_id, is_prorated, prorated_price, prorated_lesson_count,
-        lesson_day, lesson_time,
-        makeup_notes, renewal_intent, enrolled_at, cancelled_at, invoice_id,
+        id, billed_to_id, subscription_type, status,
+        default_horse_id, lesson_day, lesson_time,
+        makeup_notes, enrolled_at, cancelled_at,
         rider:person!lesson_subscription_rider_id_fkey ( id, first_name, last_name, preferred_name ),
         instructor:person!lesson_subscription_instructor_id_fkey ( id, first_name, last_name, preferred_name ),
-        horse:horse ( id, barn_name ),
-        quarter ( id, label )
+        horse:horse ( id, barn_name )
       `)
       .eq('id', id)
       .is('deleted_at', null)
@@ -70,26 +68,19 @@ export default async function EditSubscriptionPage({ params }: { params: Promise
 
       <EditSubscriptionForm
         subscription={{
-          id:                    sub.id,
-          rider_name:            displayName(sub.rider),
-          instructor_name:       displayName(sub.instructor),
-          quarter_label:         (sub.quarter as any)?.label ?? '—',
-          lesson_day:            sub.lesson_day,
-          lesson_time:           sub.lesson_time,
-          billed_to_id:          sub.billed_to_id,
-          subscription_type:     sub.subscription_type as 'standard' | 'boarder',
-          subscription_price:    Number(sub.subscription_price),
-          default_horse_id:      sub.default_horse_id,
-          default_horse_name:    (sub.horse as any)?.barn_name ?? null,
-          is_prorated:           !!sub.is_prorated,
-          prorated_price:        sub.prorated_price != null ? Number(sub.prorated_price) : null,
-          prorated_lesson_count: sub.prorated_lesson_count ?? null,
-          status:                sub.status as 'pending' | 'active' | 'cancelled' | 'completed',
-          makeup_notes:          sub.makeup_notes ?? null,
-          renewal_intent:        sub.renewal_intent as 'renewing' | 'not_renewing',
-          enrolled_at:           sub.enrolled_at,
-          cancelled_at:          sub.cancelled_at,
-          invoice_id:            sub.invoice_id,
+          id:                 sub.id,
+          rider_name:         displayName(sub.rider),
+          instructor_name:    displayName(sub.instructor),
+          lesson_day:         sub.lesson_day,
+          lesson_time:        sub.lesson_time,
+          billed_to_id:       sub.billed_to_id,
+          subscription_type:  sub.subscription_type as 'standard' | 'boarder',
+          default_horse_id:   sub.default_horse_id,
+          default_horse_name: sub.horse?.barn_name ?? null,
+          status:             sub.status as 'pending' | 'active' | 'cancelled' | 'completed',
+          makeup_notes:       sub.makeup_notes ?? null,
+          enrolled_at:        sub.enrolled_at,
+          cancelled_at:       sub.cancelled_at,
         }}
         futureLessonCount={futureLessonCount}
         billers={billers}

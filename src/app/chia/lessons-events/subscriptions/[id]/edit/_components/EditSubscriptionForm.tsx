@@ -24,26 +24,19 @@ function formatTime(t: string) {
 
 type Props = {
   subscription: {
-    id:                    string
-    rider_name:            string
-    instructor_name:       string
-    quarter_label:         string
-    lesson_day:            string
-    lesson_time:           string
-    billed_to_id:          string
-    subscription_type:     'standard' | 'boarder'
-    subscription_price:    number
-    default_horse_id:      string | null
-    default_horse_name:    string | null
-    is_prorated:           boolean
-    prorated_price:        number | null
-    prorated_lesson_count: number | null
-    status:                'pending' | 'active' | 'cancelled' | 'completed'
-    makeup_notes:          string | null
-    renewal_intent:        'renewing' | 'not_renewing'
-    enrolled_at:           string          // ISO timestamp
-    cancelled_at:          string | null   // ISO timestamp
-    invoice_id:            string | null
+    id:                 string
+    rider_name:         string
+    instructor_name:    string
+    lesson_day:         string
+    lesson_time:        string
+    billed_to_id:       string
+    subscription_type:  'standard' | 'boarder'
+    default_horse_id:   string | null
+    default_horse_name: string | null
+    status:             'pending' | 'active' | 'cancelled' | 'completed'
+    makeup_notes:       string | null
+    enrolled_at:        string          // ISO timestamp
+    cancelled_at:       string | null   // ISO timestamp
   }
   futureLessonCount: number
   billers: Option[]
@@ -65,17 +58,12 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
   const [error, setError]       = useState<string | null>(null)
   const [notice, setNotice]     = useState<string | null>(null)
 
-  const [billedToId, setBilledToId]       = useState(s.billed_to_id)
-  const [subType, setSubType]             = useState(s.subscription_type)
-  const [price, setPrice]                 = useState(Number(s.subscription_price))
-  const [horseId, setHorseId]             = useState(s.default_horse_id ?? '')
-  const [cascadeHorse, setCascadeHorse]   = useState(true)
-  const [isProrated, setIsProrated]       = useState(s.is_prorated)
-  const [proratedPrice, setProratedPrice] = useState<number | ''>(s.prorated_price ?? '')
-  const [proratedCount, setProratedCount] = useState<number | ''>(s.prorated_lesson_count ?? '')
-  const [status, setStatus]               = useState(s.status)
-  const [makeupNotes, setMakeupNotes]     = useState<string>(s.makeup_notes ?? '')
-  const [renewalIntent, setRenewalIntent] = useState<'renewing' | 'not_renewing'>(s.renewal_intent)
+  const [billedToId, setBilledToId]     = useState(s.billed_to_id)
+  const [subType, setSubType]           = useState(s.subscription_type)
+  const [horseId, setHorseId]           = useState(s.default_horse_id ?? '')
+  const [cascadeHorse, setCascadeHorse] = useState(true)
+  const [status, setStatus]             = useState(s.status)
+  const [makeupNotes, setMakeupNotes]   = useState<string>(s.makeup_notes ?? '')
 
   // Cancel-remaining dialog state
   const [confirming, setConfirming]   = useState(false)
@@ -92,14 +80,9 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
         subscriptionId:      s.id,
         billedToId,
         subscriptionType:    subType,
-        subscriptionPrice:   price,
         defaultHorseId:      horseId || null,
-        isProrated,
-        proratedPrice:       isProrated && typeof proratedPrice === 'number' ? proratedPrice : null,
-        proratedLessonCount: isProrated && typeof proratedCount === 'number' ? proratedCount : null,
         status,
         makeupNotes:         makeupNotes.trim() || null,
-        renewalIntent,
         cascadeDefaultHorse: cascadeHorse,
       })
       if (r?.error) { setError(r.error); return }
@@ -142,8 +125,6 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
           <dd className="text-[#191c1e]">{s.rider_name}</dd>
           <dt className="text-[#444650] font-semibold">Instructor</dt>
           <dd className="text-[#191c1e]">{s.instructor_name}</dd>
-          <dt className="text-[#444650] font-semibold">Quarter</dt>
-          <dd className="text-[#191c1e]">{s.quarter_label}</dd>
           <dt className="text-[#444650] font-semibold">Slot</dt>
           <dd className="text-[#191c1e]">{DAY_LABEL[s.lesson_day]} {formatTime(s.lesson_time)}</dd>
           <dt className="text-[#444650] font-semibold">Enrolled</dt>
@@ -152,22 +133,6 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
             <>
               <dt className="text-[#444650] font-semibold">Cancelled</dt>
               <dd className="text-[#191c1e]">{fmtDateTime(s.cancelled_at)}</dd>
-            </>
-          )}
-          {s.invoice_id && (
-            <>
-              <dt className="text-[#444650] font-semibold">Invoice</dt>
-              <dd className="text-[#191c1e]">
-                <Link
-                  href={`/chia/invoices/${s.invoice_id}`}
-                  target="_blank"
-                  rel="noopener"
-                  className="text-[#002058] hover:underline"
-                  title="Open invoice detail"
-                >
-                  View invoice ↗
-                </Link>
-              </dd>
             </>
           )}
         </dl>
@@ -249,68 +214,9 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
             </select>
           </div>
 
-          <div>
-            <label className={labelCls}>Full quarter price ($)</label>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              className={inputCls}
-              value={price}
-              onChange={e => setPrice(Number(e.target.value))}
-            />
-          </div>
-
-          <div>
-            <label className={labelCls}>
-              <span className="inline-flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={isProrated}
-                  onChange={e => setIsProrated(e.target.checked)}
-                  className="accent-[#002058]"
-                />
-                Prorated
-              </span>
-            </label>
-            {isProrated && (
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  className={inputCls}
-                  placeholder="Price"
-                  value={proratedPrice}
-                  onChange={e => setProratedPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  className={inputCls}
-                  placeholder="# lessons"
-                  value={proratedCount}
-                  onChange={e => setProratedCount(e.target.value === '' ? '' : Number(e.target.value))}
-                />
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className={labelCls}>Renewal intent</label>
-            <select
-              className={inputCls}
-              value={renewalIntent}
-              onChange={e => setRenewalIntent(e.target.value as 'renewing' | 'not_renewing')}
-            >
-              <option value="renewing">Renewing</option>
-              <option value="not_renewing">Not renewing</option>
-            </select>
-            <p className="text-[10px] text-[#444650] mt-1">
-              Drives next-quarter renewal prompts.
-            </p>
-          </div>
+          {/* Per-lesson price + proration moved to lesson_month rows
+              (PR 3b-rest, monthly model). Renewal-intent picker moved to
+              the Monthly Billing tab's Mark Not Continuing button. */}
 
           <div className="col-span-2">
             <label className={labelCls}>Makeup notes</label>
