@@ -11,7 +11,6 @@ export type TokenOption = {
   id:           string
   expiresAt:    string       // ISO date
   originDate:   string | null
-  quarterLabel: string
 }
 
 export type RiderWithTokens = {
@@ -162,7 +161,6 @@ export default function NewMakeupForm({ riders, instructors, horses, prefillDate
                     />
                     <span className="flex-1 text-[#191c1e]">
                       From lesson on <span className="font-semibold">{fmtDate(t.originDate)}</span>
-                      <span className="text-[#444650] ml-1">· {t.quarterLabel}</span>
                     </span>
                     <span className="text-[10px] text-[#444650]">
                       expires {fmtDate(t.expiresAt)}

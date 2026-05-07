@@ -17,14 +17,13 @@ export default async function NewMakeupPage({
   const [{ data: tokens, error: tokErr }, { data: people }, { data: horses }] = await Promise.all([
     // Only tokens that are tied to a subscription — admin-grant tokens without a
     // subscription can't flow through createLessonProduct's makeup branch.
-    // Pull rider + originating lesson + quarter for context.
+    // Pull rider + originating lesson for context.
     supabase
       .from('makeup_token')
       .select(`
         id, rider_id, subscription_id, official_expires_at, created_at,
         rider:person!makeup_token_rider_id_fkey ( id, first_name, last_name, preferred_name ),
-        original_lesson:lesson!makeup_token_original_lesson_id_fkey ( id, scheduled_at ),
-        quarter:quarter ( id, label )
+        original_lesson:lesson!makeup_token_original_lesson_id_fkey ( id, scheduled_at )
       `)
       .eq('status', 'available')
       .not('subscription_id', 'is', null)
@@ -64,7 +63,6 @@ export default async function NewMakeupPage({
       id:         t.id,
       expiresAt:  t.official_expires_at,
       originDate: (t.original_lesson as any)?.scheduled_at ?? null,
-      quarterLabel: (t.quarter as any)?.label ?? '—',
     } satisfies TokenOption)
   }
   const ridersWithTokens = Array.from(byRider.values())

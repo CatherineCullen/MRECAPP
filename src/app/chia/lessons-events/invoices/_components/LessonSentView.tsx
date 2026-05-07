@@ -5,9 +5,9 @@ import type { LessonSentSnapshot, LessonSentInvoice } from '../_lib/loadLessonIn
 import { voidAndCancelLessonInvoice } from '../actions'
 import { BARN_TZ } from '@/lib/datetime'
 
-// Sent lesson invoices, grouped by quarter. Each row is one household's
-// quarterly bundle. Expand to see line items. Void & Cancel button on
-// sent/overdue rows (paid invoices show a refund hint instead).
+// Sent lesson invoices, grouped by sent month. Expand to see line items.
+// Void & Cancel button on sent/overdue rows (paid invoices show a refund
+// hint instead).
 
 function fmt(n: number): string {
   const abs = Math.abs(n).toFixed(2)
@@ -136,7 +136,7 @@ export default function LessonSentView({ snapshot }: { snapshot: LessonSentSnaps
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
     // Default: newest group expanded
     const s = new Set<string>()
-    if (groups.length > 0) s.add(groups[0].quarterLabel)
+    if (groups.length > 0) s.add(groups[0].groupLabel)
     return s
   })
 
@@ -183,15 +183,15 @@ export default function LessonSentView({ snapshot }: { snapshot: LessonSentSnaps
       </div>
 
       {groups.map(g => {
-        const open = openGroups.has(g.quarterLabel)
+        const open = openGroups.has(g.groupLabel)
         return (
-          <div key={g.quarterLabel} className="bg-white rounded border border-[#c4c6d1]/40">
+          <div key={g.groupLabel} className="bg-white rounded border border-[#c4c6d1]/40">
             <button
-              onClick={() => toggle(g.quarterLabel)}
+              onClick={() => toggle(g.groupLabel)}
               className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#f7f9fc] rounded-t border-b border-[#c4c6d1]/40 hover:bg-[#f0f2f6]"
             >
               <span className="text-[#8c8e98] w-4 text-left">{open ? '▾' : '▸'}</span>
-              <h3 className="text-[#191c1e] font-semibold text-sm flex-1 text-left">{g.quarterLabel}</h3>
+              <h3 className="text-[#191c1e] font-semibold text-sm flex-1 text-left">{g.groupLabel}</h3>
               <span className="text-xs text-[#8c8e98]">{g.invoices.length} invoice{g.invoices.length === 1 ? '' : 's'}</span>
               <span className="font-mono text-sm text-[#191c1e] font-semibold w-24 text-right">{fmt(g.total)}</span>
             </button>

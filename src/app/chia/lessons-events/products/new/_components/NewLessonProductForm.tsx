@@ -17,7 +17,6 @@ type MakeupContext = {
   riderName:          string
   reason:             'rider_cancel' | 'barn_cancel' | 'admin_grant'
   originalLessonDate: string | null      // ISO date
-  quarterLabel:       string
   officialExpiresAt:  string              // ISO date
 }
 
@@ -213,7 +212,6 @@ export default function NewLessonProductForm({
           </div>
           <div className="text-sm text-[#191c1e]">
             <span className="font-semibold">{makeup.riderName}</span>
-            <span className="text-[#444650]"> · {makeup.quarterLabel}</span>
           </div>
           <div className="text-[11px] text-[#444650] mt-0.5">
             Source: {REASON_LABEL[makeup.reason]}

@@ -44,7 +44,6 @@ export default async function NewLessonProductPage({
           .select(`
             id, status, reason, official_expires_at, rider_id,
             rider:person!makeup_token_rider_id_fkey ( first_name, last_name, preferred_name ),
-            quarter:quarter ( label, start_date, end_date ),
             origin:lesson!makeup_token_original_lesson_id_fkey ( scheduled_at )
           `)
           .eq('id', tokenId)
@@ -110,25 +109,23 @@ export default async function NewLessonProductPage({
       riderName:          displayName(t.rider ?? {}),
       reason:             t.reason as 'rider_cancel' | 'barn_cancel' | 'admin_grant',
       originalLessonDate: t.origin?.scheduled_at?.slice(0, 10) ?? null,
-      quarterLabel:       t.quarter?.label ?? '—',
       officialExpiresAt:  t.official_expires_at,
     }
 
-    // Suggest the first upcoming makeup day within the token's quarter as the
-    // default date — but admin can freely change it to any day.
-    if (t.quarter?.start_date && t.quarter?.end_date) {
-      const { data: days } = await supabase
-        .from('barn_calendar_day')
-        .select('date, is_makeup_day')
-        .gte('date', t.quarter.start_date)
-        .lte('date', t.quarter.end_date)
-        .eq('is_makeup_day', true)
-        .order('date')
+    // Suggest the first upcoming makeup day between today and the token's
+    // 10-day expiry (ADR-0020). Admin can freely change to any day; this is
+    // just a default. Falls back to no suggestion if nothing in window.
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: days } = await supabase
+      .from('barn_calendar_day')
+      .select('date, is_makeup_day')
+      .gte('date', today)
+      .lte('date', t.official_expires_at)
+      .eq('is_makeup_day', true)
+      .order('date')
 
-      makeupDays = (days ?? []).map(d => d.date)
-      const today = new Date().toISOString().slice(0, 10)
-      suggestedDate = (days ?? []).find(d => d.date >= today)?.date
-    }
+    makeupDays = (days ?? []).map(d => d.date)
+    suggestedDate = (days ?? [])[0]?.date
   }
 
   return (
