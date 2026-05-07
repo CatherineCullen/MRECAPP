@@ -4,10 +4,11 @@ import { useState, useTransition } from 'react'
 import { markInvoicePaid, type ManualPaidMethod } from '../actions'
 
 const METHODS: Array<{ value: ManualPaidMethod; label: string; hint: string }> = [
-  { value: 'cash',     label: 'Cash',          hint: 'Cash received in person' },
-  { value: 'check',    label: 'Check',         hint: 'Paper check received' },
-  { value: 'external', label: 'External NMI',  hint: 'Card charged manually in the NMI portal' },
-  { value: 'other',    label: 'Other',         hint: 'ACH, money order, anything else' },
+  { value: 'cash',           label: 'Cash',           hint: 'Cash received in person' },
+  { value: 'check',          label: 'Check',          hint: 'Paper check received' },
+  { value: 'poynt_terminal', label: 'Poynt Terminal', hint: 'Card swiped on the in-barn Poynt terminal' },
+  { value: 'external',       label: 'External NMI',   hint: 'Card charged manually in the NMI portal' },
+  { value: 'other',          label: 'Other',          hint: 'ACH, money order, anything else' },
 ]
 
 /**

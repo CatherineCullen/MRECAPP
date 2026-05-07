@@ -24,7 +24,7 @@ import { applyInvoicePaid } from '@/lib/payments/applyInvoicePaid'
  * recording that fact in the system.
  */
 
-export type ManualPaidMethod = 'cash' | 'check' | 'external' | 'other'
+export type ManualPaidMethod = 'cash' | 'check' | 'poynt_terminal' | 'external' | 'other'
 
 export type MarkPaidArgs = {
   invoiceId: string
@@ -39,7 +39,7 @@ export async function markInvoicePaid(args: MarkPaidArgs): Promise<MarkPaidResul
   const user = await getCurrentUser()
   if (!user?.isAdmin) return { ok: false, error: 'Not authorized' }
 
-  const allowed: ManualPaidMethod[] = ['cash', 'check', 'external', 'other']
+  const allowed: ManualPaidMethod[] = ['cash', 'check', 'poynt_terminal', 'external', 'other']
   if (!allowed.includes(args.method)) {
     return { ok: false, error: `Invalid payment method: ${args.method}` }
   }

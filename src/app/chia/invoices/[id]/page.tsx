@@ -24,6 +24,11 @@ const METHOD_LABEL: Record<string, string> = {
   link:             'Link',
   cashapp:          'Cash App',
   out_of_band:      'Out of band',
+  cash:             'Cash',
+  check:            'Check',
+  poynt_terminal:   'Poynt Terminal',
+  external:         'External NMI',
+  other:            'Other',
 }
 
 // Short label for the line item source. When we have a detail page for that

@@ -23,11 +23,16 @@ function fmtDate(iso: string | null): string {
 
 function fmtMethod(m: string | null): string {
   if (!m) return '—'
-  if (m === 'card') return 'Card'
-  if (m === 'us_bank_account') return 'ACH'
-  if (m === 'link') return 'Link'
-  if (m === 'cashapp') return 'Cash App'
-  if (m === 'out_of_band') return 'Out of band'
+  if (m === 'card')             return 'Card'
+  if (m === 'us_bank_account')  return 'ACH'
+  if (m === 'link')             return 'Link'
+  if (m === 'cashapp')          return 'Cash App'
+  if (m === 'out_of_band')      return 'Out of band'
+  if (m === 'cash')             return 'Cash'
+  if (m === 'check')            return 'Check'
+  if (m === 'poynt_terminal')   return 'Poynt'
+  if (m === 'external')         return 'External NMI'
+  if (m === 'other')            return 'Other'
   return m
 }
 

@@ -40,6 +40,11 @@ const METHOD_LABELS: Record<string, string> = {
   link:             'Link',
   cashapp:          'Cash App',
   out_of_band:      'Out of band',
+  cash:             'Cash',
+  check:            'Check',
+  poynt_terminal:   'Poynt Terminal',
+  external:         'External NMI',
+  other:            'Other',
 }
 function fmtMethod(m: string | null): string {
   if (!m) return ''
