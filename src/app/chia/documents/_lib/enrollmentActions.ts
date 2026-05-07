@@ -3,7 +3,8 @@
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
-import { ensureStripeCustomer } from '@/lib/payments/stripe/customer'
+// Stripe customer pre-creation removed (ADR-0021 refinement) — under
+// the NMI direct integration we don't pre-create vault customers.
 import { sendEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 
@@ -125,10 +126,6 @@ export async function createInvite(
     })
     if (tokErr) return { error: tokErr.message }
 
-    ensureStripeCustomer(person.id).catch(e =>
-      console.error('[createInvite] Stripe customer creation failed', person.id, e)
-    )
-
     if (input.email) {
       const enrollLink = `${appBaseUrl()}/enroll/${token}`
       sendEmail({
@@ -198,11 +195,6 @@ export async function createInvite(
     created_by:         user.personId ?? null,
   })
   if (tokErr) return { error: tokErr.message }
-
-  // Parent is the billed party for minors — create their Stripe customer
-  ensureStripeCustomer(parent.id).catch(e =>
-    console.error('[createInvite/minor] Stripe customer creation failed', parent.id, e)
-  )
 
   if (input.parentEmail) {
     const enrollLink = `${appBaseUrl()}/enroll/${token}`

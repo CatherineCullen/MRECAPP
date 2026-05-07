@@ -1,7 +1,10 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ensureStripeCustomer } from '@/lib/payments/stripe/customer'
+// Stripe customer pre-creation is removed (ADR-0021 refinement). Under
+// the NMI direct integration we don't pre-create vault customers at
+// person-create time — admin-created persons just exist; NMI vault
+// records get lazy-created later if/when we implement that path.
 import { redirect } from 'next/navigation'
 
 export async function createPerson(formData: FormData) {
@@ -42,13 +45,6 @@ export async function createPerson(formData: FormData) {
   if (roles.length > 0) {
     await supabase.from('person_role').insert(
       roles.map(role => ({ person_id: person.id, role: role as any }))
-    )
-  }
-
-  // Create Stripe customer eagerly (best-effort — don't block redirect on failure)
-  if (!isMinor) {
-    ensureStripeCustomer(person.id).catch(e =>
-      console.error('[createPerson] Stripe customer creation failed', person.id, e)
     )
   }
 

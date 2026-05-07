@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
-import { createInvoiceForUnbilled } from '@/lib/payments/stripe/unbilledInvoice'
+import { createInvoiceForUnbilled } from '@/lib/payments/nmi/unbilledInvoice'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
@@ -30,11 +30,15 @@ export async function sendPackageInvoice(params: {
   if (!user?.isAdmin) return { error: 'Not authorized' }
 
   try {
+    // subscriptionIds dropped — quarterly subscription invoicing went
+    // away with the monthly model rewrite (ADR-0019). Monthly subs go
+    // through the Monthly Billing tab batch send (PR 7) instead. The
+    // function arg is still accepted for transitional compat with old
+    // callers but is silently ignored.
     const result = await createInvoiceForUnbilled({
-      billedToId:      params.billedToId,
-      packageIds:      params.packageIds,
-      eventIds:        params.eventIds ?? [],
-      subscriptionIds: params.subscriptionIds ?? [],
+      billedToId: params.billedToId,
+      packageIds: params.packageIds,
+      eventIds:   params.eventIds ?? [],
     })
     revalidatePath('/chia/lessons-events/unbilled')
     revalidatePath('/chia/lessons-events/renewal')
