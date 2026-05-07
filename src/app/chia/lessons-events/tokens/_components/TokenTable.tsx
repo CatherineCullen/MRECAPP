@@ -169,7 +169,7 @@ export default function TokenTable({ rows }: Props) {
       {sorted.length === 0 ? (
         <div className="bg-white rounded-lg border border-[#c4c6d1]/40 px-4 py-8 text-center">
           <p className="text-sm font-semibold text-[#191c1e] mb-1">No tokens match the filters</p>
-          <p className="text-xs text-[#444650]">Change the status or quarter filter to see more.</p>
+          <p className="text-xs text-[#444650]">Change the status filter to see more.</p>
         </div>
       ) : (
         <div className="bg-white rounded border border-[#c4c6d1]/40 overflow-x-auto">
