@@ -176,23 +176,20 @@ export const SCHEMA: TableDef[] = [
   },
   {
     name: 'lesson_subscription',
-    description: 'Quarterly recurring weekly slot. One row per rider per quarter per slot.',
+    description: 'Recurring weekly lesson slot. One row per rider per slot. Pricing is catalog-driven and snapshotted onto each lesson_month at billing time.',
     columns: [
       ID, CREATED,
       { name: 'rider_id',        type: 'uuid', nullable: false },
-      { name: 'quarter_id',      type: 'uuid', nullable: false },
       { name: 'day_of_week',     type: 'enum', nullable: false, enumValues: ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] },
       { name: 'time_of_day',     type: 'string', nullable: false, note: 'e.g. "16:00"' },
       { name: 'instructor_id',   type: 'uuid', nullable: true },
-      { name: 'price',           type: 'number', nullable: true },
       { name: 'subscription_type', type: 'enum', nullable: false, enumValues: ['standard', 'boarder'] },
-      { name: 'status',          type: 'enum', nullable: false, enumValues: ['pending', 'confirmed', 'cancelled'] },
+      { name: 'status',          type: 'enum', nullable: false, enumValues: ['pending', 'active', 'cancelled', 'completed'] },
       { name: 'billed_to_id',    type: 'uuid', nullable: true },
     ],
     relations: [
-      { alias: 'rider',      table: 'person',  fkConstraint: 'lesson_subscription_rider_id_fkey', kind: 'one' },
-      { alias: 'quarter',    table: 'quarter', fkConstraint: 'lesson_subscription_quarter_id_fkey', kind: 'one' },
-      { alias: 'instructor', table: 'person',  fkConstraint: 'lesson_subscription_instructor_id_fkey', kind: 'one' },
+      { alias: 'rider',      table: 'person', fkConstraint: 'lesson_subscription_rider_id_fkey', kind: 'one' },
+      { alias: 'instructor', table: 'person', fkConstraint: 'lesson_subscription_instructor_id_fkey', kind: 'one' },
     ],
   },
   {
@@ -213,11 +210,10 @@ export const SCHEMA: TableDef[] = [
   },
   {
     name: 'makeup_token',
-    description: 'Tokens for makeup lessons. Available → Scheduled → Used or Expired.',
+    description: 'Tokens for makeup lessons. Available → Scheduled → Used or Expired. Tokens auto-expire 10 days from issuance (ADR-0020).',
     columns: [
       ID, CREATED,
       { name: 'rider_id',             type: 'uuid', nullable: false },
-      { name: 'quarter_id',           type: 'uuid', nullable: false },
       { name: 'status',               type: 'enum', nullable: false, enumValues: ['available', 'scheduled', 'used', 'expired'] },
       { name: 'reason',               type: 'enum', nullable: false, enumValues: ['rider_cancel', 'barn_cancel', 'admin_grant'] },
       { name: 'grant_reason',         type: 'text', nullable: true },
@@ -227,8 +223,7 @@ export const SCHEMA: TableDef[] = [
       { name: 'scheduled_lesson_id',  type: 'uuid', nullable: true },
     ],
     relations: [
-      { alias: 'rider',   table: 'person',  fkConstraint: 'makeup_token_rider_id_fkey', kind: 'one' },
-      { alias: 'quarter', table: 'quarter', fkConstraint: 'makeup_token_quarter_id_fkey', kind: 'one' },
+      { alias: 'rider', table: 'person', fkConstraint: 'makeup_token_rider_id_fkey', kind: 'one' },
     ],
   },
   {
@@ -415,17 +410,6 @@ export const SCHEMA: TableDef[] = [
     relations: [
       { alias: 'horse', table: 'horse', fkConstraint: 'diet_record_horse_id_fkey', kind: 'one' },
     ],
-  },
-  {
-    name: 'quarter',
-    description: 'Lesson quarters. Ties subscriptions and makeup tokens to a billing period.',
-    columns: [
-      ID, CREATED,
-      { name: 'label',      type: 'string', nullable: false, note: 'e.g. "Spring 2026"' },
-      { name: 'start_date', type: 'date', nullable: false },
-      { name: 'end_date',   type: 'date', nullable: false },
-    ],
-    relations: [],
   },
 ]
 

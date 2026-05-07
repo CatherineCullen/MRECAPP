@@ -22,7 +22,6 @@ export type Database = {
           id: string
           is_makeup_day: boolean
           notes: string | null
-          quarter_id: string | null
           updated_at: string
         }
         Insert: {
@@ -32,7 +31,6 @@ export type Database = {
           id?: string
           is_makeup_day?: boolean
           notes?: string | null
-          quarter_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -42,18 +40,9 @@ export type Database = {
           id?: string
           is_makeup_day?: boolean
           notes?: string | null
-          quarter_id?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "barn_calendar_day_quarter_id_fkey"
-            columns: ["quarter_id"]
-            isOneToOne: false
-            referencedRelation: "quarter"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       billing_line_item: {
         Row: {
@@ -2607,8 +2596,6 @@ export type Database = {
       lesson_subscription: {
         Row: {
           billed_to_id: string
-          billing_date: string | null
-          cancellation_deadline: string | null
           cancelled_at: string | null
           created_at: string
           created_by: string | null
@@ -2619,24 +2606,16 @@ export type Database = {
           id: string
           instructor_id: string
           invoice_id: string | null
-          is_prorated: boolean
           lesson_day: Database["public"]["Enums"]["day_of_week"]
           lesson_time: string
           makeup_notes: string | null
-          prorated_lesson_count: number | null
-          prorated_price: number | null
-          quarter_id: string | null
-          renewal_intent: Database["public"]["Enums"]["renewal_intent"]
           rider_id: string
           status: Database["public"]["Enums"]["lesson_subscription_status"]
-          subscription_price: number | null
           subscription_type: Database["public"]["Enums"]["lesson_subscription_type"]
           updated_at: string
         }
         Insert: {
           billed_to_id: string
-          billing_date?: string | null
-          cancellation_deadline?: string | null
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2647,24 +2626,16 @@ export type Database = {
           id?: string
           instructor_id: string
           invoice_id?: string | null
-          is_prorated?: boolean
           lesson_day: Database["public"]["Enums"]["day_of_week"]
           lesson_time: string
           makeup_notes?: string | null
-          prorated_lesson_count?: number | null
-          prorated_price?: number | null
-          quarter_id?: string | null
-          renewal_intent?: Database["public"]["Enums"]["renewal_intent"]
           rider_id: string
           status?: Database["public"]["Enums"]["lesson_subscription_status"]
-          subscription_price?: number | null
           subscription_type?: Database["public"]["Enums"]["lesson_subscription_type"]
           updated_at?: string
         }
         Update: {
           billed_to_id?: string
-          billing_date?: string | null
-          cancellation_deadline?: string | null
           cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -2675,17 +2646,11 @@ export type Database = {
           id?: string
           instructor_id?: string
           invoice_id?: string | null
-          is_prorated?: boolean
           lesson_day?: Database["public"]["Enums"]["day_of_week"]
           lesson_time?: string
           makeup_notes?: string | null
-          prorated_lesson_count?: number | null
-          prorated_price?: number | null
-          quarter_id?: string | null
-          renewal_intent?: Database["public"]["Enums"]["renewal_intent"]
           rider_id?: string
           status?: Database["public"]["Enums"]["lesson_subscription_status"]
-          subscription_price?: number | null
           subscription_type?: Database["public"]["Enums"]["lesson_subscription_type"]
           updated_at?: string
         }
@@ -2726,13 +2691,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "lesson_subscription_quarter_id_fkey"
-            columns: ["quarter_id"]
-            isOneToOne: false
-            referencedRelation: "quarter"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "lesson_subscription_rider_id_fkey"
             columns: ["rider_id"]
             isOneToOne: false
@@ -2750,7 +2708,6 @@ export type Database = {
           notes: string | null
           official_expires_at: string
           original_lesson_id: string | null
-          quarter_id: string | null
           reason: Database["public"]["Enums"]["makeup_token_reason"]
           rider_id: string
           scheduled_lesson_id: string | null
@@ -2767,7 +2724,6 @@ export type Database = {
           notes?: string | null
           official_expires_at: string
           original_lesson_id?: string | null
-          quarter_id?: string | null
           reason: Database["public"]["Enums"]["makeup_token_reason"]
           rider_id: string
           scheduled_lesson_id?: string | null
@@ -2784,7 +2740,6 @@ export type Database = {
           notes?: string | null
           official_expires_at?: string
           original_lesson_id?: string | null
-          quarter_id?: string | null
           reason?: Database["public"]["Enums"]["makeup_token_reason"]
           rider_id?: string
           scheduled_lesson_id?: string | null
@@ -2806,13 +2761,6 @@ export type Database = {
             columns: ["original_lesson_id"]
             isOneToOne: false
             referencedRelation: "lesson"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "makeup_token_quarter_id_fkey"
-            columns: ["quarter_id"]
-            isOneToOne: false
-            referencedRelation: "quarter"
             referencedColumns: ["id"]
           },
           {
@@ -3342,53 +3290,6 @@ export type Database = {
           {
             foreignKeyName: "push_subscription_person_id_fkey"
             columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "person"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      quarter: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          deleted_at: string | null
-          end_date: string
-          id: string
-          is_active: boolean
-          label: string
-          mr_year: number
-          start_date: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
-          end_date: string
-          id?: string
-          is_active?: boolean
-          label: string
-          mr_year: number
-          start_date: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          deleted_at?: string | null
-          end_date?: string
-          id?: string
-          is_active?: boolean
-          label?: string
-          mr_year?: number
-          start_date?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "quarter_created_by_fkey"
-            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "person"
             referencedColumns: ["id"]
@@ -3951,7 +3852,6 @@ export type Database = {
         | "barn_worker"
         | "service_provider"
       person_weight_category: "light" | "medium" | "heavy"
-      renewal_intent: "renewing" | "not_renewing"
       training_ride_status: "scheduled" | "logged"
     }
     CompositeTypes: {
@@ -4174,7 +4074,6 @@ export const Constants = {
         "service_provider",
       ],
       person_weight_category: ["light", "medium", "heavy"],
-      renewal_intent: ["renewing", "not_renewing"],
       training_ride_status: ["scheduled", "logged"],
     },
   },
