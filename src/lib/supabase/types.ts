@@ -1946,6 +1946,7 @@ export type Database = {
           due_date: string | null
           hosted_invoice_url: string | null
           id: string
+          nmi_invoice_id: string | null
           notes: string | null
           paid_at: string | null
           paid_method: string | null
@@ -1964,6 +1965,7 @@ export type Database = {
           due_date?: string | null
           hosted_invoice_url?: string | null
           id?: string
+          nmi_invoice_id?: string | null
           notes?: string | null
           paid_at?: string | null
           paid_method?: string | null
@@ -1982,6 +1984,7 @@ export type Database = {
           due_date?: string | null
           hosted_invoice_url?: string | null
           id?: string
+          nmi_invoice_id?: string | null
           notes?: string | null
           paid_at?: string | null
           paid_method?: string | null
@@ -2251,6 +2254,7 @@ export type Database = {
           is_makeup: boolean
           lesson_type: Database["public"]["Enums"]["lesson_type"]
           makeup_for_lesson_id: string | null
+          month_id: string | null
           notes: string | null
           scheduled_at: string
           status: Database["public"]["Enums"]["lesson_status"]
@@ -2270,6 +2274,7 @@ export type Database = {
           is_makeup?: boolean
           lesson_type: Database["public"]["Enums"]["lesson_type"]
           makeup_for_lesson_id?: string | null
+          month_id?: string | null
           notes?: string | null
           scheduled_at: string
           status?: Database["public"]["Enums"]["lesson_status"]
@@ -2289,6 +2294,7 @@ export type Database = {
           is_makeup?: boolean
           lesson_type?: Database["public"]["Enums"]["lesson_type"]
           makeup_for_lesson_id?: string | null
+          month_id?: string | null
           notes?: string | null
           scheduled_at?: string
           status?: Database["public"]["Enums"]["lesson_status"]
@@ -2321,6 +2327,79 @@ export type Database = {
             columns: ["makeup_for_lesson_id"]
             isOneToOne: false
             referencedRelation: "lesson"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_month_id_fkey"
+            columns: ["month_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_month"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lesson_month: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          generated_at: string
+          id: string
+          invoice_id: string | null
+          is_prorated: boolean
+          lesson_count: number
+          month: number
+          per_lesson_price: number
+          status: string
+          subscription_id: string
+          total: number | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          generated_at?: string
+          id?: string
+          invoice_id?: string | null
+          is_prorated?: boolean
+          lesson_count: number
+          month: number
+          per_lesson_price: number
+          status: string
+          subscription_id: string
+          total?: number | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          generated_at?: string
+          id?: string
+          invoice_id?: string | null
+          is_prorated?: boolean
+          lesson_count?: number
+          month?: number
+          per_lesson_price?: number
+          status?: string
+          subscription_id?: string
+          total?: number | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lesson_month_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoice"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lesson_month_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "lesson_subscription"
             referencedColumns: ["id"]
           },
         ]
@@ -2529,6 +2608,7 @@ export type Database = {
           created_by: string | null
           default_horse_id: string | null
           deleted_at: string | null
+          ended_at: string | null
           enrolled_at: string
           id: string
           instructor_id: string
@@ -2556,6 +2636,7 @@ export type Database = {
           created_by?: string | null
           default_horse_id?: string | null
           deleted_at?: string | null
+          ended_at?: string | null
           enrolled_at?: string
           id?: string
           instructor_id: string
@@ -2583,6 +2664,7 @@ export type Database = {
           created_by?: string | null
           default_horse_id?: string | null
           deleted_at?: string | null
+          ended_at?: string | null
           enrolled_at?: string
           id?: string
           instructor_id?: string

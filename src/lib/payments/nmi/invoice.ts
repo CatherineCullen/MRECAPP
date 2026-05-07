@@ -194,21 +194,16 @@ export async function createAndSendInvoice(params: {
     throw new Error('NMI returned approved response but no invoice_id')
   }
 
-  // Flip the chia invoice to 'sent'. Line items are inserted separately
-  // by callers once they have the source FK context (ADR-0010).
-  //
-  // TODO (PR 3 schema migration): also stamp nmi_invoice_id on the
-  // invoice row. Currently deferred because the column doesn't exist
-  // yet — added in the schema migration alongside the rest of the
-  // monthly-model schema work (lesson_month, drop quarter, etc.).
-  // Functional impact today: zero (webhook correlation uses orderid /
-  // chia_invoice.id; nmi_invoice_id is for audit + cross-reference UI).
+  // Flip the chia invoice to 'sent' and stamp nmi_invoice_id for audit
+  // and cross-reference UI. Line items are inserted separately by
+  // callers once they have the source FK context (ADR-0010).
   const sentAt = new Date().toISOString()
   const { error: updateErr } = await db
     .from('invoice')
     .update({
       status: 'sent',
       sent_at: sentAt,
+      nmi_invoice_id: nmiResponse.invoice_id,
     })
     .eq('id', chiaInvoice.id)
 
