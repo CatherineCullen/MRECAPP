@@ -71,7 +71,48 @@ export async function voidAndCancelLessonInvoice(params: {
     return { ok: false, error: `Failed to void invoice: ${updateErr.message}` }
   }
 
+  // Unstamp source rows so they return to the Unbilled queue. Voiding
+  // means "this invoice was a mistake / we won't collect on this" —
+  // admin needs the items back to either rebuild a corrected invoice
+  // or skip them. The voided invoice's line items remain pinned to
+  // the dead invoice for audit; the source rows are independent
+  // entities that need to flow somewhere.
+  //
+  // For monthly subscription invoices, lesson_month rows also revert
+  // to status='Pending' so they reappear on the Monthly Billing tab
+  // for the original (year, month).
+  const sourceErrors: string[] = []
+
+  const { error: pkgErr } = await db
+    .from('lesson_package')
+    .update({ invoice_id: null })
+    .eq('invoice_id', inv.id)
+  if (pkgErr) sourceErrors.push(`lesson_package: ${pkgErr.message}`)
+
+  const { error: evtErr } = await db
+    .from('event')
+    .update({ invoice_id: null })
+    .eq('invoice_id', inv.id)
+  if (evtErr) sourceErrors.push(`event: ${evtErr.message}`)
+
+  const { error: monthErr } = await db
+    .from('lesson_month')
+    .update({ invoice_id: null, status: 'Pending' })
+    .eq('invoice_id', inv.id)
+  if (monthErr) sourceErrors.push(`lesson_month: ${monthErr.message}`)
+
+  if (sourceErrors.length > 0) {
+    // The invoice is voided either way — partial unstamp is still better
+    // than a fully orphaned invoice. Surface the errors so admin can
+    // reconcile manually if needed.
+    return {
+      ok: false,
+      error: `Invoice voided, but source-row unstamping had problems: ${sourceErrors.join('; ')}`,
+    }
+  }
+
   revalidatePath('/chia/lessons-events/unbilled')
+  revalidatePath('/chia/lessons-events/monthly-billing')
   revalidatePath('/chia/lessons-events')
 
   return { ok: true }
