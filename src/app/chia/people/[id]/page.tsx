@@ -4,7 +4,9 @@ import Link from 'next/link'
 import PersonRolesSection from './_components/PersonRolesSection'
 import PersonHorsesSection from './_components/PersonHorsesSection'
 import PersonGuardianSection from './_components/PersonGuardianSection'
-import PersonStripeSection from './_components/PersonStripeSection'
+// PersonStripeSection removed in PR 10 alongside the rest of the Stripe
+// deletion. Admin smoke-testing now goes through the real Monthly
+// Billing / Mark Paid flows.
 import EntityDocumentsSection from '@/app/chia/documents/_components/EntityDocumentsSection'
 import PersonScheduleSection from './_components/PersonScheduleSection'
 import { getCurrentUser } from '@/lib/auth'
@@ -262,17 +264,6 @@ export default async function PersonPage({
         {/* Upcoming schedule — lessons, training rides, sign-up slots */}
         {!person.is_organization && <PersonScheduleSection personId={id} />}
 
-        {/* Stripe sync — admin-only. Stripe customer IDs are billing
-            plumbing, not something end users should see or trigger.
-            Hidden for minors: CHIA never bills minors directly — billing
-            routes through the guardian by policy. */}
-        {currentUser?.isAdmin && !person.is_minor && (
-          <PersonStripeSection
-            personId={id}
-            initialStripeCustomerId={person.stripe_customer_id ?? null}
-            invoices={invoices}
-          />
-        )}
       </div>
     </div>
   )

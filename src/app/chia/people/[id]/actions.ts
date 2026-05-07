@@ -3,8 +3,11 @@
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { ensureStripeCustomer } from '@/lib/payments/stripe/customer'
-import { createAndSendInvoice } from '@/lib/payments/stripe/invoice'
+// Stripe smoke-test functions (syncStripeCustomer, createTestInvoice)
+// removed in PR 10 alongside the rest of the Stripe deletion.
+// Admin smoke-testing now goes through the real billing flows: create
+// a monthly subscription + Send Invoices via NMI on the Monthly
+// Billing tab, or use the inline Mark Paid action on any invoice.
 import { getCurrentUser } from '@/lib/auth'
 import { sendEmail } from '@/lib/email'
 import { getAppOrigin } from '@/lib/appUrl'
@@ -296,110 +299,7 @@ export async function toggleRole(personId: string, role: string, add: boolean): 
   return {}
 }
 
-/**
- * Sync a Person to Stripe as a Customer. Idempotent — returns the existing
- * stripe_customer_id if already synced, otherwise creates the Customer and
- * persists the id.
- *
- * Phase 1 smoke test: gives us a button on the person page to confirm the
- * Stripe connection works before Phase B tries to create Invoices.
- */
-export async function syncStripeCustomer(
-  personId: string
-): Promise<{ stripeCustomerId?: string; error?: string }> {
-  // Admin-only: Stripe identifiers and billing controls are plumbing for
-  // barn staff, not something end users should see or trigger.
-  const user = await getCurrentUser()
-  if (!user?.isAdmin) {
-    return { error: 'Not authorized' }
-  }
-
-  // Block minors: CHIA never bills minors directly — billing routes
-  // through the guardian. Guard here in case the UI is ever bypassed.
-  const db = createAdminClient()
-  const { data: person } = await db
-    .from('person')
-    .select('is_minor')
-    .eq('id', personId)
-    .maybeSingle()
-  if (person?.is_minor) {
-    return { error: 'Cannot create a Stripe customer for a minor. Bill the guardian instead.' }
-  }
-
-  try {
-    const stripeCustomerId = await ensureStripeCustomer(personId)
-    revalidatePath(`/chia/people/${personId}`)
-    return { stripeCustomerId }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { error: message }
-  }
-}
-
-/**
- * Admin-only Phase B smoke test: create + send a one-off ad-hoc invoice
- * to the given Person. Proves the full Stripe Invoicing pipeline end-to-end:
- *   create customer → create invoice items → finalize → send → webhook →
- *   DB status flips.
- *
- * Not a production feature — the real invoice flows (lesson packages,
- * board, camp) will each have their own builders that populate the
- * per-source FKs on invoice_line_item. This is the test harness.
- */
-export async function createTestInvoice(params: {
-  personId: string
-  description: string
-  amount: number
-  notes?: string
-}): Promise<{
-  stripeInvoiceId?: string
-  hostedInvoiceUrl?: string | null
-  chiaInvoiceId?: string
-  error?: string
-}> {
-  const user = await getCurrentUser()
-  if (!user?.isAdmin) {
-    return { error: 'Not authorized' }
-  }
-
-  if (!Number.isFinite(params.amount) || params.amount <= 0) {
-    return { error: 'Amount must be greater than $0' }
-  }
-  if (!params.description.trim()) {
-    return { error: 'Description is required' }
-  }
-
-  // Block minors: see syncStripeCustomer guard.
-  const db = createAdminClient()
-  const { data: person } = await db
-    .from('person')
-    .select('is_minor')
-    .eq('id', params.personId)
-    .maybeSingle()
-  if (person?.is_minor) {
-    return { error: 'Cannot invoice a minor directly. Bill the guardian instead.' }
-  }
-
-  try {
-    const result = await createAndSendInvoice({
-      personId: params.personId,
-      lineItems: [
-        {
-          description: params.description.trim(),
-          unitPrice: params.amount,
-          quantity: 1,
-        },
-      ],
-      notes: params.notes?.trim() || undefined,
-    })
-    revalidatePath(`/chia/people/${params.personId}`)
-    return {
-      stripeInvoiceId: result.stripeInvoiceId,
-      hostedInvoiceUrl: result.hostedInvoiceUrl,
-      chiaInvoiceId: result.chiaInvoiceId,
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { error: message }
-  }
-}
+// syncStripeCustomer + createTestInvoice removed in PR 10 — Stripe is
+// gone. Admin smoke-testing now goes through the real flows: create a
+// monthly subscription + Send Invoices via NMI on the Monthly Billing
+// tab, or use the Mark Paid button on any invoice detail page.
