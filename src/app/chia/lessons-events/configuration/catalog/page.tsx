@@ -19,7 +19,6 @@ export default async function CatalogPage() {
   ])
 
   const subscriptionsMonthly = (configs ?? []).filter(c => c.section === 'subscription_monthly')
-  const subscriptions        = (configs ?? []).filter(c => c.section === 'subscription')
   const packages             = (configs ?? []).filter(c => c.section === 'lesson_package')
 
   return (
@@ -41,37 +40,6 @@ export default async function CatalogPage() {
             </thead>
             <tbody className="divide-y divide-[#c4c6d1]/30">
               {subscriptionsMonthly.map(row => (
-                <tr key={row.key} className="bg-white hover:bg-[#f7f9fc]">
-                  <td className="px-4 py-2.5 text-[#191c1e]">{row.label}</td>
-                  <td className="px-4 py-2.5">
-                    <PriceCell
-                      value={row.default_price != null ? Number(row.default_price) : null}
-                      onSave={updatePricingConfig.bind(null, row.key)}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Legacy Per-Quarter Subscription Pricing — to be removed in PR 3b-rest */}
-      <section>
-        <h2 className="text-sm font-bold text-[#191c1e] uppercase tracking-wide mb-0.5">Subscription Defaults <span className="text-xs font-normal text-[#8c8e98] normal-case ml-1">(legacy quarterly — being phased out)</span></h2>
-        <p className="text-xs text-[#444650] mb-3">
-          Quarterly price pre-filled when creating a new subscription. Private, semi-private, and group are the same price — only duration differs. Replaced by Per-Lesson rates above; will be removed once the monthly model is fully rolled out.
-        </p>
-        <div className="border border-[#c4c6d1]/40 rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-[#f0f2f7] border-b border-[#c4c6d1]/40">
-                <th className="px-4 py-2 text-left text-xs font-semibold text-[#444650] uppercase tracking-wide">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-[#444650] uppercase tracking-wide">Default Price / Quarter</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#c4c6d1]/30">
-              {subscriptions.map(row => (
                 <tr key={row.key} className="bg-white hover:bg-[#f7f9fc]">
                   <td className="px-4 py-2.5 text-[#191c1e]">{row.label}</td>
                   <td className="px-4 py-2.5">
