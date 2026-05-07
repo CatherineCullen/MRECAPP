@@ -37,6 +37,7 @@ import 'server-only'
 export type OutboundChannel =
   | 'stripe_invoice_finalize'
   | 'stripe_invoice_send'
+  | 'nmi_invoice_send'
   | 'email'
   | 'sms'
   | 'push'
@@ -87,6 +88,19 @@ export function assertStripeOutboundAllowed(
  * wired up.
  */
 export function assertDirectOutboundAllowed(channel: 'email' | 'sms' | 'push'): void {
+  if (!isOutboundEnabled()) {
+    throw new OutboundDisabledError(channel, 'OUTBOUND_ENABLED is not set')
+  }
+}
+
+/**
+ * Guard for NMI invoice-send operations that cause NMI to email the
+ * customer the hosted pay-link. Always gated — NMI has no "safe test
+ * inbox" equivalent of Stripe's dashboard-simulated emails (sandbox
+ * delivers real emails to the merchant account address). Call this
+ * before every `invoicing=add_invoice` request.
+ */
+export function assertNmiOutboundAllowed(channel: 'nmi_invoice_send'): void {
   if (!isOutboundEnabled()) {
     throw new OutboundDisabledError(channel, 'OUTBOUND_ENABLED is not set')
   }
