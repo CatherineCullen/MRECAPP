@@ -177,8 +177,10 @@ export async function exportPackageInvoice(params: {
     }
 
     // Create the chia invoice (status='sent', exported_at stamped — no NMI).
+    // One-off products are always due upon receipt — there's no recurring
+    // anchor to defer payment to.
     const sentAtIso = new Date().toISOString()
-    const dueIso = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
+    const dueIso = sentAtIso.slice(0, 10)
     const { data: invoice, error: invErr } = await db
       .from('invoice')
       .insert({

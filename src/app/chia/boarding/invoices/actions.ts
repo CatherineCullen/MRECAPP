@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
+import { dueDateForPolicy } from '@/lib/billing/dueDate'
 // Stripe createDraftInvoice removed in PR 8c-2 — under NMI there's no
 // provider draft; we just create the CHIA `invoice` row at generate
 // time and let `boarding/drafts/actions.ts → sendDraftInvoice` ship it
@@ -552,6 +553,16 @@ export async function generateBoardInvoices(params: {
       // CHIA invoice row (draft — no NMI call yet). Send-to-NMI happens
       // when admin clicks Send from the Drafts view, via the
       // sendDraftInvoice action that calls sendChiaInvoice.
+      //
+      // Due date: 1st of the month after the billed period. period_end is
+      // the last day of the billed month, so we land on (period_end's
+      // year/month) + 1 month, day 1.
+      const [pyStr, pmStr] = params.periodEnd.split('-')
+      let dueYear  = Number(pyStr)
+      let dueMonth = Number(pmStr) + 1
+      if (dueMonth > 12) { dueMonth = 1; dueYear += 1 }
+      const due = dueDateForPolicy({ kind: 'firstOfMonth', year: dueYear, month: dueMonth })
+
       const { data: invRow, error: invErr } = await db
         .from('invoice')
         .insert({
@@ -559,6 +570,7 @@ export async function generateBoardInvoices(params: {
           period_start:  params.periodStart,
           period_end:    params.periodEnd,
           status:        'draft' as const,
+          due_date:      due.chiaDueDate,
           notes:         `Boarding — ${params.periodStart} to ${params.periodEnd}`,
           created_by:    user.personId ?? null,
         })

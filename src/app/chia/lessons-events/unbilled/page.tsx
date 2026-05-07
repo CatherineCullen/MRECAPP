@@ -247,7 +247,8 @@ export default async function BillingProductsPage() {
           <div className="px-6 py-3 border-b border-[#ecedf2]">
             <h3 className="text-sm font-semibold text-[#191c1e]">Sent</h3>
             <p className="text-xs text-[#444650] mt-0.5">
-              One-off lesson invoices already sent, grouped by month.
+              Lesson invoices already sent — both monthly subscription batches and one-off
+              products — grouped by sent month.
             </p>
           </div>
           <LessonSentView snapshot={sent} />

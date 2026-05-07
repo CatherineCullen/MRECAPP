@@ -3,6 +3,11 @@ import { nmiCall } from './client'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
 import { assertNmiOutboundAllowed } from '@/lib/outbound'
+import {
+  type DuePolicy,
+  dueDateForPolicy,
+  nmiFieldsForExistingDueDate,
+} from '@/lib/billing/dueDate'
 
 /**
  * Wrappers around NMI's Electronic Invoicing API for CHIA's billing pipeline.
@@ -71,9 +76,11 @@ export async function createAndSendInvoice(params: {
   personId: string
   lineItems: LineItemInput[]
   notes?: string
-  daysUntilDue?: number
+  /** Due-date policy. Default is upon-receipt — safe for one-off paths. */
+  duePolicy?: DuePolicy
 }): Promise<{ nmiInvoiceId: string; chiaInvoiceId: string }> {
-  const { personId, lineItems, notes, daysUntilDue = 30 } = params
+  const { personId, lineItems, notes } = params
+  const duePolicy: DuePolicy = params.duePolicy ?? { kind: 'upon_receipt' }
 
   if (lineItems.length === 0) {
     throw new Error('Cannot create an invoice with no line items')
@@ -102,7 +109,7 @@ export async function createAndSendInvoice(params: {
   // (NMI does not include invoice_id in webhook payloads — verified
   // 2026-05-07).
   const today = new Date().toISOString().slice(0, 10)
-  const dueDate = new Date(Date.now() + daysUntilDue * 86400_000).toISOString().slice(0, 10)
+  const due = dueDateForPolicy(duePolicy)
 
   const { data: chiaInvoice, error: insertErr } = await db
     .from('invoice')
@@ -113,7 +120,7 @@ export async function createAndSendInvoice(params: {
       // status starts at 'draft' — flipped to 'sent' below once NMI confirms
       // the email went out. Webhook later flips to 'paid' on payment.
       status: 'draft',
-      due_date: dueDate,
+      due_date: due.chiaDueDate,
       notes: notes ?? null,
     })
     .select('id')
@@ -146,8 +153,9 @@ export async function createAndSendInvoice(params: {
     'first_name': firstName,
     'last_name': lastName,
     'orderid': chiaInvoice.id,
-    'payment_terms': `net_${daysUntilDue}`,
   }
+  if (due.nmiPaymentTerms) body.payment_terms = due.nmiPaymentTerms
+  if (due.nmiDueDate)      body.due_date      = due.nmiDueDate
 
   if (person.is_organization && person.organization_name) {
     body.company = person.organization_name
@@ -249,16 +257,15 @@ export async function createAndSendInvoice(params: {
  */
 export async function sendChiaInvoice(params: {
   chiaInvoiceId: string
-  daysUntilDue?: number
 }): Promise<{ nmiInvoiceId: string }> {
-  const { chiaInvoiceId, daysUntilDue = 30 } = params
+  const { chiaInvoiceId } = params
   const db = createAdminClient()
 
   // 1. Load the chia invoice + line items + billed-to person.
   const { data: invoice, error: invErr } = await db
     .from('invoice')
     .select(`
-      id, billed_to_id, status, deleted_at, period_start, period_end, notes,
+      id, billed_to_id, status, deleted_at, period_start, period_end, notes, due_date,
       invoice_line_item ( id, description, quantity, unit_price, is_credit )
     `)
     .eq('id', chiaInvoiceId)
@@ -304,6 +311,13 @@ export async function sendChiaInvoice(params: {
     return sum + (li.is_credit ? -amt : amt)
   }, 0)
 
+  // Translate the chia invoice's stored due_date back to NMI fields.
+  // If the date is today or earlier, NMI gets payment_terms=upon_receipt;
+  // otherwise we send the explicit due_date.
+  const due = invoice.due_date
+    ? nmiFieldsForExistingDueDate(invoice.due_date)
+    : { nmiPaymentTerms: 'upon_receipt' as const }
+
   const body: Record<string, string | number> = {
     'invoicing':    'add_invoice',
     'amount':       formatNmiAmount(totalCents),
@@ -311,8 +325,9 @@ export async function sendChiaInvoice(params: {
     'first_name':   firstName,
     'last_name':    lastName,
     'orderid':      chiaInvoiceId,
-    'payment_terms': `net_${daysUntilDue}`,
   }
+  if (due.nmiPaymentTerms) body.payment_terms = due.nmiPaymentTerms
+  if (due.nmiDueDate)      body.due_date      = due.nmiDueDate
 
   if (person.is_organization && person.organization_name) {
     body.company = person.organization_name

@@ -7,6 +7,32 @@ import { createAndSendInvoice, type LineItemInput } from '@/lib/payments/nmi/inv
 import { lineItemDescription } from '@/lib/lessons/monthly/lineItem'
 import { displayName } from '@/lib/displayName'
 import { monthEndIso, monthStartIso } from '@/lib/lessons/monthly/dates'
+import { type DuePolicy, dueDateForPolicy } from '@/lib/billing/dueDate'
+
+/**
+ * Per-bundle due-date policy for monthly billing batches:
+ *   - If any subscription in this bundle has NO prior invoiced
+ *     lesson_month, treat the whole bundle as first-month → due upon
+ *     receipt (rider hasn't established a recurring relationship).
+ *   - Otherwise the bundle is renewing → due 1st of the billed month.
+ *
+ * One due_date per chia invoice, so a bundle that mixes new + renewing
+ * slots picks the more conservative (sooner) date.
+ */
+async function loadSubscriptionsWithPriorInvoices(
+  supabase: ReturnType<typeof createAdminClient>,
+  subscriptionIds: string[],
+): Promise<Set<string>> {
+  if (subscriptionIds.length === 0) return new Set()
+  const { data, error } = await supabase
+    .from('lesson_month')
+    .select('subscription_id')
+    .in('subscription_id', subscriptionIds)
+    .not('invoice_id', 'is', null)
+    .is('deleted_at', null)
+  if (error) throw new Error(`Failed to compute first-month set: ${error.message}`)
+  return new Set((data ?? []).map((r) => r.subscription_id))
+}
 
 /**
  * Server actions for the Monthly Billing tab (ADR-0019).
@@ -179,6 +205,14 @@ export async function sendMonthInvoices(
     }
   }
 
+  // Determine which subscriptions have already been invoiced before so
+  // we can pick "upon receipt" for first-month bundles vs "1st of the
+  // billed month" for renewing ones.
+  const subsWithPrior = await loadSubscriptionsWithPriorInvoices(
+    supabase,
+    rows.map((r) => r.lesson_subscription.id),
+  )
+
   const period = {
     start: monthStartIso(args.year, args.month),
     end:   monthEndIso(args.year, args.month),
@@ -212,10 +246,18 @@ export async function sendMonthInvoices(
 
     const total = lineItems.reduce((s, it) => s + it.unitPrice * it.quantity, 0)
 
+    const isFirstMonthBundle = bundle.rows.some(
+      (r) => !subsWithPrior.has(r.lesson_subscription.id),
+    )
+    const duePolicy: DuePolicy = isFirstMonthBundle
+      ? { kind: 'upon_receipt' }
+      : { kind: 'firstOfMonth', year: args.year, month: args.month }
+
     try {
       const sent = await createAndSendInvoice({
         personId:  bundle.billedToId,
         lineItems,
+        duePolicy,
       })
 
       // Stamp the chia_invoice_id on every LessonMonth in this bundle
@@ -408,15 +450,28 @@ export async function exportMonthInvoices(
     end:   monthEndIso(args.year, args.month),
   }
 
+  // Determine first-month-ness once for the whole batch.
+  const subsWithPriorExport = await loadSubscriptionsWithPriorInvoices(
+    supabase,
+    rows.map((r) => r.lesson_subscription.id),
+  )
+
   const csvLines: string[] = [csvHeader()]
   let totalAmount = 0
 
   // For each bundle: create the chia invoice + line items, stamp
   // exported_at, flip lesson_months. Then emit CSV rows.
   for (const bundle of bundles.values()) {
-    const today = new Date().toISOString().slice(0, 10)
-    const dueIso = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
     const sentAtIso = new Date().toISOString()
+
+    const isFirstMonthBundle = bundle.rows.some(
+      (r) => !subsWithPriorExport.has(r.lesson_subscription.id),
+    )
+    const due = dueDateForPolicy(
+      isFirstMonthBundle
+        ? { kind: 'upon_receipt' }
+        : { kind: 'firstOfMonth', year: args.year, month: args.month },
+    )
 
     // Create the chia invoice row directly — no createAndSendInvoice
     // helper since no NMI call is being made. exported_at stamps the
@@ -429,7 +484,7 @@ export async function exportMonthInvoices(
         period_end:   period.end,
         status:       'sent',
         sent_at:      sentAtIso,
-        due_date:     dueIso,
+        due_date:     due.chiaDueDate,
         exported_at:  sentAtIso,
         notes:        `Lessons — ${period.start} to ${period.end} (exported)`,
       })
