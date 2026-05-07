@@ -70,7 +70,6 @@ export default async function TokenDetailPage({ params }: { params: Promise<{ id
         ( id, first_name, last_name, preferred_name ),
       creator:person!makeup_token_created_by_fkey
         ( id, first_name, last_name, preferred_name ),
-      quarter:quarter ( id, label, end_date ),
       subscription:lesson_subscription
         (
           id, lesson_day, lesson_time, subscription_type,
@@ -140,9 +139,6 @@ export default async function TokenDetailPage({ params }: { params: Promise<{ id
               </Link>
             ) : displayName(token.rider)}
           </dd>
-
-          <dt className="text-[#444650] font-semibold">Quarter</dt>
-          <dd className="text-[#191c1e]">{token.quarter?.label ?? '—'}</dd>
 
           <dt className="text-[#444650] font-semibold">Issued</dt>
           <dd className="text-[#191c1e]">

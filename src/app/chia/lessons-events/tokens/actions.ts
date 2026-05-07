@@ -89,15 +89,15 @@ export async function updateTokenNote(tokenId: string, note: string | null): Pro
 }
 
 /**
- * Batch-expire every Available token whose official_expires_at is in the past,
- * optionally scoped to a single quarter. Admin can skip this and expire
- * individually — this is just a time-saver at quarter end.
+ * Batch-expire every Available token whose official_expires_at is in the
+ * past. Admin can skip this and expire individually — this is just a
+ * time-saver for clearing out post-expiry stragglers.
  */
-export async function batchExpirePastDue(quarterId?: string): Promise<{ count: number; error?: string }> {
+export async function batchExpirePastDue(): Promise<{ count: number; error?: string }> {
   const supabase = createAdminClient()
   const today    = new Date().toISOString().slice(0, 10)
 
-  let query = supabase
+  const { data, error } = await supabase
     .from('makeup_token')
     .update({
       status:            'expired',
@@ -106,10 +106,8 @@ export async function batchExpirePastDue(quarterId?: string): Promise<{ count: n
     })
     .eq('status', 'available')
     .lt('official_expires_at', today)
+    .select('id')
 
-  if (quarterId) query = query.eq('quarter_id', quarterId)
-
-  const { data, error } = await query.select('id')
   if (error) return { count: 0, error: error.message }
 
   revalidatePath('/chia/lessons-events/tokens')
@@ -119,26 +117,19 @@ export async function batchExpirePastDue(quarterId?: string): Promise<{ count: n
 type GrantArgs = {
   riderId:        string
   subscriptionId: string | null
-  quarterId:      string
   note:           string
 }
 
 /**
  * Admin-grant a token. No source lesson required — this is for goodwill,
- * instructor illness not formally logged, edge cases, etc.
+ * instructor illness not formally logged, edge cases, etc. Expiry follows
+ * ADR-0020: 10 days from issuance.
  */
 export async function grantToken(args: GrantArgs): Promise<{ error?: string; tokenId?: string }> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
 
-  // Get the quarter's end_date for official_expires_at
-  const { data: q, error: qErr } = await supabase
-    .from('quarter')
-    .select('end_date')
-    .eq('id', args.quarterId)
-    .single()
-
-  if (qErr || !q) return { error: qErr?.message ?? 'Quarter not found.' }
+  const expiresAt = new Date(Date.now() + 10 * 86400_000).toISOString()
 
   const { data, error } = await supabase
     .from('makeup_token')
@@ -148,8 +139,7 @@ export async function grantToken(args: GrantArgs): Promise<{ error?: string; tok
       original_lesson_id:  null,
       reason:              'admin_grant',
       grant_reason:        args.note.trim() || null,
-      quarter_id:          args.quarterId,
-      official_expires_at: q.end_date,
+      official_expires_at: expiresAt,
       status:              'available',
       created_by:          user?.personId ?? null,
     })

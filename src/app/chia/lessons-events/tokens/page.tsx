@@ -7,12 +7,12 @@ export default async function TokensPage() {
   const supabase = createAdminClient()
 
   // Pull all tokens. We filter client-side so the admin can toggle filters
-  // without a server round-trip. Volume is manageable (tens-to-hundreds per quarter).
+  // without a server round-trip. Volume is manageable under the monthly
+  // model (tokens auto-expire 10 days from issuance per ADR-0020).
   const { data: tokens, error } = await supabase
     .from('makeup_token')
     .select(`
       id, status, reason, grant_reason, notes, created_at, official_expires_at,
-      quarter:quarter ( id, label, end_date ),
       rider:person!makeup_token_rider_id_fkey ( id, first_name, last_name, preferred_name ),
       origin:lesson!makeup_token_original_lesson_id_fkey ( id, scheduled_at, cancellation_reason ),
       scheduled_lesson:lesson!makeup_token_scheduled_lesson_id_fkey ( id, scheduled_at )
@@ -25,8 +25,6 @@ export default async function TokensPage() {
     id:                   t.id,
     rider_id:             t.rider?.id ?? null,
     rider_name:           displayName(t.rider) || '—',
-    quarter_id:           t.quarter?.id ?? '',
-    quarter_label:        t.quarter?.label ?? '—',
     original_lesson_date: t.origin?.scheduled_at?.slice(0, 10) ?? null,
     cancellation_reason:  t.origin?.cancellation_reason ?? null,
     scheduled_lesson_id:   t.scheduled_lesson?.id ?? null,
@@ -38,11 +36,6 @@ export default async function TokensPage() {
     notes:                t.notes,
     created_at:           t.created_at,
   }))
-
-  // Distinct quarters for the filter dropdown
-  const quarterMap = new Map<string, string>()
-  for (const r of rows) if (r.quarter_id) quarterMap.set(r.quarter_id, r.quarter_label)
-  const quarterOpts = Array.from(quarterMap.entries()).map(([id, label]) => ({ id, label }))
 
   // Counts for header
   const counts = rows.reduce((acc, r) => {
@@ -70,7 +63,7 @@ export default async function TokensPage() {
         </Link>
       </div>
 
-      <TokenTable rows={rows} quarters={quarterOpts} />
+      <TokenTable rows={rows} />
     </div>
   )
 }

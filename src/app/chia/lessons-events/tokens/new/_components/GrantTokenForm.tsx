@@ -6,49 +6,33 @@ import { grantToken } from '../../actions'
 
 type Props = {
   riders:      { id: string; name: string }[]
-  subsByRider: Record<string, { id: string; label: string; quarter_id: string }[]>
-  quarters:    { id: string; label: string; is_active: boolean }[]
+  subsByRider: Record<string, { id: string; label: string }[]>
 }
 
-export default function GrantTokenForm({ riders, subsByRider, quarters }: Props) {
+export default function GrantTokenForm({ riders, subsByRider }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const defaultQuarter = quarters.find(q => q.is_active) ?? quarters[0]
-
   const [riderId, setRiderId]               = useState('')
   const [subscriptionId, setSubscriptionId] = useState<string>('')   // empty = no subscription link
-  const [quarterId, setQuarterId]           = useState<string>(defaultQuarter?.id ?? '')
   const [note, setNote]                     = useState('')
 
   const riderSubs = useMemo(() => subsByRider[riderId] ?? [], [riderId, subsByRider])
 
-  // When rider changes, clear subscription (may have been set to one that doesn't belong)
   function handleRiderChange(v: string) {
     setRiderId(v)
     setSubscriptionId('')
   }
 
-  // When subscription is picked, default the quarter to its quarter (admin can override)
-  function handleSubChange(v: string) {
-    setSubscriptionId(v)
-    if (v) {
-      const sub = riderSubs.find(s => s.id === v)
-      if (sub?.quarter_id) setQuarterId(sub.quarter_id)
-    }
-  }
-
   function handleSubmit() {
     setError(null)
-    if (!riderId)   { setError('Select a rider.');   return }
-    if (!quarterId) { setError('Select a quarter.'); return }
+    if (!riderId) { setError('Select a rider.'); return }
 
     startTransition(async () => {
       const r = await grantToken({
         riderId,
         subscriptionId: subscriptionId || null,
-        quarterId,
         note,
       })
       if (r?.error) setError(r.error)
@@ -81,26 +65,15 @@ export default function GrantTokenForm({ riders, subsByRider, quarters }: Props)
           <select
             className={inputCls}
             value={subscriptionId}
-            onChange={e => handleSubChange(e.target.value)}
+            onChange={e => setSubscriptionId(e.target.value)}
             disabled={!riderId}
           >
             <option value="">— No subscription link —</option>
             {riderSubs.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
           {riderId && riderSubs.length === 0 && (
-            <p className="text-[10px] text-[#444650] mt-1">This rider has no subscriptions. Token will not be linked.</p>
+            <p className="text-[10px] text-[#444650] mt-1">This rider has no active subscription. Token will not be linked.</p>
           )}
-        </div>
-
-        <div>
-          <label className={labelCls}>Quarter</label>
-          <select className={inputCls} value={quarterId} onChange={e => setQuarterId(e.target.value)}>
-            <option value="">— Select quarter —</option>
-            {quarters.map(q => (
-              <option key={q.id} value={q.id}>{q.label}{q.is_active ? ' (active)' : ''}</option>
-            ))}
-          </select>
-          <p className="text-[10px] text-[#444650] mt-1">Token expires at end of this quarter.</p>
         </div>
 
         <div>
@@ -116,6 +89,10 @@ export default function GrantTokenForm({ riders, subsByRider, quarters }: Props)
             className={inputCls}
           />
         </div>
+
+        <p className="text-[10px] text-[#444650] -mt-1">
+          Token will expire 10 days from now (ADR-0020).
+        </p>
       </div>
 
       {error && <div className="mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">{error}</div>}

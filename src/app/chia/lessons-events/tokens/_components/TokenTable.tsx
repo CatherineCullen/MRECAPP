@@ -11,8 +11,6 @@ export type TokenRow = {
   id:                  string
   rider_id:            string | null
   rider_name:          string
-  quarter_id:          string
-  quarter_label:       string
   original_lesson_date: string | null    // ISO date (from originating lesson) or null if admin-grant
   cancellation_reason:  string | null    // rider's note when they cancelled the origin lesson
   scheduled_lesson_id:  string | null    // present when status='scheduled' (or later 'used')
@@ -56,34 +54,27 @@ function isPastDue(row: TokenRow) {
 }
 
 type Props = {
-  rows:     TokenRow[]
-  quarters: { id: string; label: string }[]
+  rows: TokenRow[]
 }
 
-export default function TokenTable({ rows, quarters }: Props) {
+export default function TokenTable({ rows }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError]          = useState<string | null>(null)
 
   // Filters
-  const [status, setStatus]       = useState<'all' | TokenRow['status']>('available')
-  const [quarterId, setQuarterId] = useState<string>('all')
+  const [status, setStatus] = useState<'all' | TokenRow['status']>('available')
 
   const STATUS_ORDER = { available: 0, scheduled: 1, used: 2, expired: 3 } as const
   const REASON_ORDER = { barn_cancel: 0, rider_cancel: 1, admin_grant: 2 } as const
 
   const filtered = useMemo(() => {
     return rows
-      .filter(r => {
-        if (status    !== 'all' && r.status !== status)        return false
-        if (quarterId !== 'all' && r.quarter_id !== quarterId) return false
-        return true
-      })
+      .filter(r => status === 'all' || r.status === status)
       .map(r => ({
         ...r,
         _sort: {
           rider:   r.rider_name,
-          quarter: r.quarter_label,
           origin:  r.original_lesson_date,
           reason:  REASON_ORDER[r.reason],
           issued:  r.created_at,
@@ -92,7 +83,7 @@ export default function TokenTable({ rows, quarters }: Props) {
           notes:   (r.notes || r.grant_reason || '').toLowerCase() || null,
         } satisfies Record<string, string | number | null>,
       })) satisfies (TokenRow & Sortable)[]
-  }, [rows, status, quarterId])
+  }, [rows, status])
 
   const { sorted, sort, onSort } = useSort(filtered, { key: 'expires', dir: 'asc' })
 
@@ -122,10 +113,9 @@ export default function TokenTable({ rows, quarters }: Props) {
 
   function handleBatchExpire() {
     setError(null)
-    const scope = quarterId === 'all' ? 'all past-due tokens' : `past-due tokens in ${quarters.find(q => q.id === quarterId)?.label}`
-    if (!confirm(`Expire ${scope}? ${pastDueCount} token${pastDueCount === 1 ? '' : 's'} affected.`)) return
+    if (!confirm(`Expire all past-due tokens? ${pastDueCount} token${pastDueCount === 1 ? '' : 's'} affected.`)) return
     startTransition(async () => {
-      const r = await batchExpirePastDue(quarterId === 'all' ? undefined : quarterId)
+      const r = await batchExpirePastDue()
       if (r?.error) setError(r.error)
       else router.refresh()
     })
@@ -159,13 +149,6 @@ export default function TokenTable({ rows, quarters }: Props) {
             <option value="expired">Expired</option>
           </select>
         </div>
-        <div className="flex items-center gap-1.5">
-          <label className="text-[10px] text-[#444650] font-semibold uppercase tracking-wide">Quarter</label>
-          <select className={selCls} value={quarterId} onChange={e => setQuarterId(e.target.value)}>
-            <option value="all">All</option>
-            {quarters.map(q => <option key={q.id} value={q.id}>{q.label}</option>)}
-          </select>
-        </div>
 
         <div className="flex-1" />
 
@@ -174,7 +157,7 @@ export default function TokenTable({ rows, quarters }: Props) {
             onClick={handleBatchExpire}
             disabled={pending}
             className="text-xs font-semibold text-[#8a1a1a] border border-[#ffd6d6] bg-white px-2.5 py-1 rounded hover:bg-[#ffd6d6]/30 disabled:opacity-50 transition-colors"
-            title="Expire all tokens past their official quarter end date"
+            title="Expire all tokens past their 10-day expiry date"
           >
             Batch-Expire Past Due ({pastDueCount})
           </button>
@@ -194,7 +177,6 @@ export default function TokenTable({ rows, quarters }: Props) {
             <thead>
               <tr className="bg-[#f7f9fc] border-b border-[#c4c6d1]/30 text-left">
                 <SortableHeader sortKey="rider"   current={sort} onSort={onSort}>Rider</SortableHeader>
-                <SortableHeader sortKey="quarter" current={sort} onSort={onSort}>Quarter</SortableHeader>
                 <SortableHeader sortKey="origin"  current={sort} onSort={onSort}>Origin</SortableHeader>
                 <SortableHeader sortKey="reason"  current={sort} onSort={onSort}>Reason</SortableHeader>
                 <SortableHeader sortKey="issued"  current={sort} onSort={onSort}>Issued</SortableHeader>
@@ -224,7 +206,6 @@ export default function TokenTable({ rows, quarters }: Props) {
                         </Link>
                       ) : t.rider_name}
                     </td>
-                    <td className="py-1.5 px-3 text-[#444650]">{t.quarter_label}</td>
                     <td className="py-1.5 px-3 text-[#444650]">
                       <Link
                         href={`/chia/lessons-events/tokens/${t.id}`}
