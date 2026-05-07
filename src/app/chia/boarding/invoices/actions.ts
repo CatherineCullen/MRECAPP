@@ -3,7 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
-import { createDraftInvoice } from '@/lib/payments/stripe/invoice'
+// Stripe createDraftInvoice removed in PR 8c-2 — under NMI there's no
+// provider draft; we just create the CHIA `invoice` row at generate
+// time and let `boarding/drafts/actions.ts → sendDraftInvoice` ship it
+// to NMI on click.
 
 /**
  * Allocate and mark a billing_line_item Reviewed.
@@ -420,19 +423,20 @@ export async function unApproveLineItem(params: {
  *
  * Flow per person:
  *   1. Collect their allocations across all Reviewed items in the period.
- *   2. Create a Stripe draft invoice + invoice items via createDraftInvoice.
- *   3. Insert a CHIA `invoice` row (status='draft') + one invoice_line_item
+ *   2. Insert a CHIA `invoice` row (status='draft') + one invoice_line_item
  *      per allocation, each linked back to its billing_line_item_allocation
- *      (ADR-0010 source FK).
- *   4. Stamp period_start/end on the source billing_line_items — that's the
+ *      (ADR-0010 source FK). NO NMI call here — NMI doesn't have a draft
+ *      concept; we use the CHIA row's status as the draft state.
+ *   3. Stamp period_start/end on the source billing_line_items — that's the
  *      mechanism that pulls them out of the open queue.
  *
- * Per-person error isolation: if Stripe or DB fails for one person, other
- * persons still complete. The caller gets a per-person result array so the
- * UI can show partial success.
+ * Per-person error isolation: if DB fails for one person, other persons still
+ * complete. The caller gets a per-person result array so the UI can show
+ * partial success.
  *
- * Not-yet-sent: these are DRAFTS on both sides. Admin reviews them in the
- * Drafts view (next step) and batch-sends from there.
+ * Not-yet-sent: these are CHIA-side drafts. Admin reviews them in the
+ * Drafts view and clicks Send to ship each one to NMI via
+ * `boarding/drafts/actions.ts → sendDraftInvoice`.
  */
 export async function generateBoardInvoices(params: {
   periodStart: string  // ISO date yyyy-mm-dd
@@ -544,35 +548,18 @@ export async function generateBoardInvoices(params: {
       continue
     }
     try {
-      const lineItems = personAllocs.map(a => {
-        const parent = itemsById.get(a.billing_line_item_id)
-        const allocAmt = Number(a.amount)
-        return {
-          description: describe(parent, allocAmt),
-          // Credits stored as is_credit=true on the parent; Stripe just
-          // wants a negative amount. Flip the sign here so the invoice
-          // math nets correctly.
-          amount: parent?.is_credit ? -allocAmt : allocAmt,
-        }
-      })
-
-      const { stripeInvoiceId } = await createDraftInvoice({
-        personId,
-        lineItems,
-        notes: `Boarding — ${params.periodStart} to ${params.periodEnd}`,
-        daysUntilDue: 30,
-      })
-
-      // CHIA invoice row (draft — not sent yet).
+      // CHIA invoice row (draft — no NMI call yet). Send-to-NMI happens
+      // when admin clicks Send from the Drafts view, via the
+      // sendDraftInvoice action that calls sendChiaInvoice.
       const { data: invRow, error: invErr } = await db
         .from('invoice')
         .insert({
-          billed_to_id:      personId,
-          period_start:      params.periodStart,
-          period_end:        params.periodEnd,
-          status:            'draft' as const,
-          stripe_invoice_id: stripeInvoiceId,
-          created_by:        user.personId ?? null,
+          billed_to_id:  personId,
+          period_start:  params.periodStart,
+          period_end:    params.periodEnd,
+          status:        'draft' as const,
+          notes:         `Boarding — ${params.periodStart} to ${params.periodEnd}`,
+          created_by:    user.personId ?? null,
         })
         .select('id')
         .single()
@@ -609,7 +596,10 @@ export async function generateBoardInvoices(params: {
       // orphan an item into a weird state.
       for (const a of personAllocs) successfullyInvoicedItemIds.add(a.billing_line_item_id)
 
-      results.push({ personId, personLabel: personLabel(personId), ok: true, stripeInvoiceId })
+      // Field name retained for transitional UI compat; carries the
+      // chia invoice id (no NMI id yet — NMI sees this row only at
+      // send time).
+      results.push({ personId, personLabel: personLabel(personId), ok: true, stripeInvoiceId: invRow.id })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       console.error('[generateBoardInvoices] failed for person', personId, msg)

@@ -226,3 +226,141 @@ export async function createAndSendInvoice(params: {
     chiaInvoiceId: chiaInvoice.id,
   }
 }
+
+/**
+ * Send an existing CHIA invoice via NMI. Used by the boarding draft flow
+ * where the chia `invoice` + `invoice_line_item` rows are created at
+ * generate time (status='draft', no NMI call yet) and only land at NMI
+ * when admin clicks Send. Distinct from `createAndSendInvoice` above
+ * (which creates the CHIA rows itself).
+ *
+ * Reads the existing chia invoice and its line items, builds the NMI
+ * request body, calls `add_invoice`, updates the chia row with
+ * `nmi_invoice_id` and status='sent'. Returns the NMI invoice id for
+ * the caller to surface in the UI.
+ *
+ * Throws on:
+ *   - Invoice not found / soft-deleted
+ *   - Invoice not in 'draft' status
+ *   - Person lookup failure
+ *   - Person has no email
+ *   - NMI rejection (NmiError, surfaced from nmiCall)
+ *   - Post-send DB update failure (NMI side already sent — manual reconcile)
+ */
+export async function sendChiaInvoice(params: {
+  chiaInvoiceId: string
+  daysUntilDue?: number
+}): Promise<{ nmiInvoiceId: string }> {
+  const { chiaInvoiceId, daysUntilDue = 30 } = params
+  const db = createAdminClient()
+
+  // 1. Load the chia invoice + line items + billed-to person.
+  const { data: invoice, error: invErr } = await db
+    .from('invoice')
+    .select(`
+      id, billed_to_id, status, deleted_at, period_start, period_end, notes,
+      invoice_line_item ( id, description, quantity, unit_price, is_credit )
+    `)
+    .eq('id', chiaInvoiceId)
+    .single()
+
+  if (invErr || !invoice) {
+    throw new Error(`Invoice ${chiaInvoiceId} not found: ${invErr?.message ?? 'no row'}`)
+  }
+  if (invoice.deleted_at) throw new Error(`Invoice ${chiaInvoiceId} is soft-deleted`)
+  if (invoice.status !== 'draft') {
+    throw new Error(`Invoice ${chiaInvoiceId} is ${invoice.status}, not draft — refusing to re-send`)
+  }
+
+  const lineItems = (invoice.invoice_line_item ?? []).filter((li) => li.id)
+  if (lineItems.length === 0) {
+    throw new Error(`Invoice ${chiaInvoiceId} has no line items — refusing to send empty invoice`)
+  }
+
+  const { data: person, error: personErr } = await db
+    .from('person')
+    .select('id, first_name, last_name, preferred_name, is_organization, organization_name, email, phone, address')
+    .eq('id', invoice.billed_to_id)
+    .single()
+
+  if (personErr || !person) {
+    throw new Error(`Person ${invoice.billed_to_id} not found: ${personErr?.message ?? 'no row'}`)
+  }
+  if (!person.email) {
+    throw new Error(`Cannot send invoice ${chiaInvoiceId}: billed-to person has no email`)
+  }
+
+  // 2. Build NMI request body. Same shape as createAndSendInvoice but
+  //    the line items come from the existing chia rows. Sign credits
+  //    negative so the totals net correctly.
+  const fullName  = displayName(person)
+  const firstName = person.is_organization ? '' : person.first_name
+  const lastName  = person.is_organization
+    ? person.organization_name?.trim() || fullName || 'Organization'
+    : person.last_name
+
+  const totalCents = lineItems.reduce((sum, li) => {
+    const amt = Number(li.unit_price) * Number(li.quantity ?? 1)
+    return sum + (li.is_credit ? -amt : amt)
+  }, 0)
+
+  const body: Record<string, string | number> = {
+    'invoicing':    'add_invoice',
+    'amount':       formatNmiAmount(totalCents),
+    'email':        person.email,
+    'first_name':   firstName,
+    'last_name':    lastName,
+    'orderid':      chiaInvoiceId,
+    'payment_terms': `net_${daysUntilDue}`,
+  }
+
+  if (person.is_organization && person.organization_name) {
+    body.company = person.organization_name
+  }
+  if (person.phone)   body.phone = person.phone
+  if (person.address) body.address1 = person.address
+  if (invoice.notes)  body.order_description = invoice.notes
+
+  lineItems.forEach((li, i) => {
+    const n = i + 1
+    const amt = Number(li.unit_price)
+    body[`item_description_${n}`] = li.description ?? ''
+    body[`item_unit_cost_${n}`]   = formatNmiAmount(li.is_credit ? -amt : amt)
+    body[`item_quantity_${n}`]    = String(li.quantity ?? 1)
+  })
+
+  body.merchant_defined_field_1 = chiaInvoiceId
+
+  // 3. Kill switch + send.
+  assertNmiOutboundAllowed('nmi_invoice_send')
+  const nmiResponse = await nmiCall(body)
+
+  if (!nmiResponse.invoice_id) {
+    throw new Error('NMI returned approved response but no invoice_id')
+  }
+
+  // 4. Flip the chia invoice to 'sent' and stamp nmi_invoice_id. If this
+  //    fails NMI has already emailed — log loudly so admin reconciles.
+  const sentAt = new Date().toISOString()
+  const { error: updateErr } = await db
+    .from('invoice')
+    .update({
+      status:         'sent',
+      sent_at:        sentAt,
+      nmi_invoice_id: nmiResponse.invoice_id,
+    })
+    .eq('id', chiaInvoiceId)
+
+  if (updateErr) {
+    console.error(
+      '[nmi sendChiaInvoice] DB update failed for nmi invoice',
+      nmiResponse.invoice_id,
+      updateErr.message,
+    )
+    throw new Error(
+      `NMI invoice ${nmiResponse.invoice_id} was sent but DB update failed: ${updateErr.message}. Manual reconciliation required.`,
+    )
+  }
+
+  return { nmiInvoiceId: nmiResponse.invoice_id }
+}
