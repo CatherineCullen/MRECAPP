@@ -3829,7 +3829,6 @@ export type Database = {
         | "health_alert"
         | "invoice"
         | "makeup_token"
-        | "renewal_notice"
         | "enrollment_invite"
         | "message_received"
       person_preferred_language: "english" | "spanish"
@@ -4049,7 +4048,6 @@ export const Constants = {
         "health_alert",
         "invoice",
         "makeup_token",
-        "renewal_notice",
         "enrollment_invite",
         "message_received",
       ],

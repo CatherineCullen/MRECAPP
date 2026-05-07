@@ -9,9 +9,10 @@ type Props = {
   lessonRiderId: string
   scheduledAt:   string
   hasBoarder:    boolean        // is this rider on a boarder subscription?
-  /** Rider-cancel tokens already issued to this rider this quarter. Used
-   *  to surface a soft warning at count >= 2 (standard-sub allowance is 2).
-   *  Upstream passes 0 for boarders so they never see the warning. */
+  /** Rider-cancel tokens already issued to this rider this calendar
+   *  month. Used to surface a soft warning at count >= 1 (standard-sub
+   *  allowance is 1/month per ADR-0020). Upstream passes 0 for boarders
+   *  so they never see the warning. */
   riderCancelAllowanceUsed?: number
 }
 

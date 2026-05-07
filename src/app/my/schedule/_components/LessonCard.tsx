@@ -72,7 +72,7 @@ export default function LessonCard({
           <p className="text-xs text-success mt-1">A makeup credit has been added to your account.</p>
         )}
         {outcome === 'cancelled_no_allowance' && (
-          <p className="text-xs text-on-surface-muted mt-1">You've used your 2 free cancellations this quarter — no makeup credit for this one.</p>
+          <p className="text-xs text-on-surface-muted mt-1">You&apos;ve used your free cancellation this month — no makeup credit for this one.</p>
         )}
         {outcome === 'cancelled_late' && (
           <p className="text-xs text-on-surface-muted mt-1">Less than 24 hours — no makeup credit. {note.trim() ? "Your note was sent to the barn — they'll review for an exception." : 'Contact the barn if you need an exception.'}</p>

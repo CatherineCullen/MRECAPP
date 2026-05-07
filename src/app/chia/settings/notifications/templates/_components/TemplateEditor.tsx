@@ -23,7 +23,6 @@ const VARS: Record<NotificationType, string[]> = {
   health_alert:        ['first_name', 'horse_name', 'health_item', 'due_date'],
   invoice:             ['first_name'],
   makeup_token:        ['first_name'],
-  renewal_notice:      ['first_name'],
   enrollment_invite:   ['first_name', 'enroll_link', 'expires_days'],
   message_received:    ['sender_name', 'preview', 'app_url'],
 }
@@ -36,7 +35,6 @@ const LABELS: Record<NotificationType, string> = {
   health_alert:        'Health Alert',
   invoice:             'Invoice Sent',
   makeup_token:        'Makeup Token Issued',
-  renewal_notice:      'Renewal Notice',
   enrollment_invite:   'Enrollment Invitation',
   message_received:    'In-App Message Received',
 }
@@ -187,7 +185,7 @@ export default function TemplateEditor({ initialTemplates }: { initialTemplates:
     'enrollment_invite',
     'lesson_reminder', 'lesson_cancellation', 'invoice',
     'makeup_token', 'lesson_confirmation', 'lesson_type_change',
-    'health_alert', 'renewal_notice',
+    'health_alert',
   ]
 
   return (

@@ -23,9 +23,9 @@ const NOTIFICATION_META: Record<string, {
   },
   invoice: {
     label:       'Invoice Sent',
-    description: 'When an invoice is finalized and sent via Stripe. Stripe already emails the payment link, so SMS only is the default.',
+    description: 'When an invoice is finalized and sent via NMI. NMI already emails the payment link, so SMS only is the default.',
     wired:       true,
-    note:        'Stripe sends the invoice email — enabling email here sends a second message.',
+    note:        'NMI sends the invoice email — enabling email here sends a second message.',
   },
   makeup_token: {
     label:       'Makeup Token Issued',
@@ -45,11 +45,6 @@ const NOTIFICATION_META: Record<string, {
   health_alert: {
     label:       'Health Alert',
     description: 'When a Coggins or recurring health item is due or overdue.',
-    wired:       false,
-  },
-  renewal_notice: {
-    label:       'Renewal Notice',
-    description: 'Quarterly renewal reminder sent to riders before the new quarter.',
     wired:       false,
   },
   message_received: {

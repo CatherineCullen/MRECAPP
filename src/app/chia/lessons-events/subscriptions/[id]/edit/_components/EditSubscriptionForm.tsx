@@ -225,7 +225,7 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
               className={inputCls}
               value={makeupNotes}
               onChange={e => setMakeupNotes(e.target.value)}
-              placeholder="e.g. one makeup pre-approved for holiday week; boarder cap waived this quarter"
+              placeholder="e.g. one makeup pre-approved for holiday week; allowance overage waived this month"
             />
             <p className="text-[10px] text-[#444650] mt-1">
               Free-text — shows on the subscription record only, not on individual lessons.

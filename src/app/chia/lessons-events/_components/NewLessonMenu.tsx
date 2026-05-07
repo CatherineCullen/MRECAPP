@@ -64,7 +64,7 @@ export default function NewLessonMenu() {
               className="w-full text-left px-2 py-1.5 rounded border border-[#c4c6d1] bg-white hover:border-[#002058] hover:bg-[#f7f9fc] transition-colors block"
             >
               <div className="font-semibold text-[#002058]">New subscription</div>
-              <div className="text-[10px] text-[#444650]">Recurring weekly slot this quarter</div>
+              <div className="text-[10px] text-[#444650]">Recurring weekly slot, billed monthly</div>
             </Link>
             <Link
               href="/chia/lessons-events/makeups/new"

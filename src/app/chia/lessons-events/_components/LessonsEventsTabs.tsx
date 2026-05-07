@@ -26,8 +26,9 @@ const tabs = [
   { label: 'Calendar',         href: '/chia/lessons-events',                  exact: true,  distinct: false },
   { label: 'Invoices',         href: '/chia/lessons-events/unbilled',         exact: false, distinct: false },
   { label: 'Monthly Billing',  href: '/chia/lessons-events/monthly-billing',  exact: false, distinct: false },
-  // Configuration groups Catalog and Quarters — both are rare admin tasks,
-  // not part of the daily Calendar/Invoices/Monthly Billing flow.
+  // Configuration groups Catalog, Calendar (closed/makeup days), and
+  // Instructor Availability — all rare admin tasks, not part of the
+  // daily Calendar/Invoices/Monthly Billing flow.
   { label: 'Configuration',    href: '/chia/lessons-events/configuration',    exact: false, distinct: true  },
 ]
 

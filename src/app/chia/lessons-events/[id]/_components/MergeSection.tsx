@@ -26,7 +26,7 @@ export default function MergeSection({ targetLessonId, candidates }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError]          = useState<string | null>(null)
-  const [scope, setScope]          = useState<'just-this' | 'quarter'>('just-this')
+  const [scope, setScope]          = useState<'just-this' | 'rolling-3mo'>('just-this')
 
   if (candidates.length === 0) return null
 
@@ -68,12 +68,12 @@ export default function MergeSection({ targetLessonId, candidates }: Props) {
           <input
             type="radio"
             name="merge-scope"
-            checked={scope === 'quarter'}
-            onChange={() => setScope('quarter')}
+            checked={scope === 'rolling-3mo'}
+            onChange={() => setScope('rolling-3mo')}
             className="accent-[#002058]"
           />
           <span>
-            All remaining lessons this quarter at this slot
+            All matching lessons over the next 3 months
             <span className="text-[10px] text-[#444650] ml-1">(same weekday, time, instructor)</span>
           </span>
         </label>

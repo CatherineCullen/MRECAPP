@@ -342,12 +342,12 @@ function typeForRiderCount(n: number): 'private' | 'semi_private' | 'group' {
  * lesson_type + duration_minutes from the new rider count.
  *
  * Scope:
- *   - 'just-this' — merges only the two lesson IDs passed in
- *   - 'quarter'   — additionally collapses every future scheduled lesson in
- *                   the same quarter at the same day-of-week + time +
- *                   instructor. If multiple candidate lessons exist on a
- *                   given future date, all of them merge into the
- *                   earliest-created one for that date.
+ *   - 'just-this'   — merges only the two lesson IDs passed in
+ *   - 'rolling-3mo' — additionally collapses every future scheduled lesson
+ *                     across the rolling 3-month window at the same
+ *                     day-of-week + time + instructor. If multiple
+ *                     candidate lessons exist on a given future date, all
+ *                     of them merge into the earliest-created one.
  *
  * Validation: source and target must share exact scheduled_at + instructor_id,
  * both must be status='scheduled', and not already deleted. Anything else is
@@ -357,7 +357,7 @@ function typeForRiderCount(n: number): 'private' | 'semi_private' | 'group' {
 export async function mergeLessons(args: {
   sourceLessonId: string
   targetLessonId: string
-  scope:          'just-this' | 'quarter'
+  scope:          'just-this' | 'rolling-3mo'
 }): Promise<{ error?: string; mergedCount?: number }> {
   const user     = await getCurrentUser()
   const supabase = createAdminClient()
@@ -396,13 +396,12 @@ export async function mergeLessons(args: {
   if (source.is_makeup) await releaseMakeupToken(supabase, args.sourceLessonId, now)
   let mergedCount = 1
 
-  // Step B: if scope is 'quarter', find and collapse all future scheduled
-  // lessons at same day-of-week + time + instructor across the rolling
-  // window. Under the monthly model the window is "rest of current
-  // month + next 2 months" — same shape as Monthly Billing's rolling
-  // 3-month view. The scope name is kept for backward compat with the
-  // calling UI; future rename to 'window' once stale callers are gone.
-  if (args.scope === 'quarter') {
+  // Step B: if scope is 'rolling-3mo', find and collapse all future
+  // scheduled lessons at same day-of-week + time + instructor across the
+  // rolling window. Under the monthly model the window is "rest of
+  // current month + next 2 months" — same shape as Monthly Billing's
+  // rolling 3-month view.
+  if (args.scope === 'rolling-3mo') {
     // Time-of-day + day-of-week from target.scheduled_at
     const targetDate = new Date(target.scheduled_at)
     const targetDow  = targetDate.getDay()            // 0..6

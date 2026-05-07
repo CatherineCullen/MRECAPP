@@ -122,7 +122,7 @@ export default async function TokenDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Summary card: rider, quarter, expiration, issued */}
+      {/* Summary card: rider, expiration, issued */}
       <div className="bg-white rounded-lg border border-[#c4c6d1]/40 p-4 mb-4">
         <dl className="grid grid-cols-[120px_1fr] gap-y-1.5 text-xs">
           <dt className="text-[#444650] font-semibold">Rider</dt>
