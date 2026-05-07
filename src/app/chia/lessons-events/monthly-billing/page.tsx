@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { displayName } from '@/lib/displayName'
 import { addMonths, monthOfIso, todayIso } from '@/lib/lessons/monthly/dates'
 import MonthlyBillingTable from './_components/MonthlyBillingTable'
+import SendInvoicesButton from './_components/SendInvoicesButton'
 
 const MONTH_LABEL = ['', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
@@ -42,7 +43,7 @@ export default async function MonthlyBillingPage() {
     .select(`
       id, year, month, lesson_count, per_lesson_price, total, status, is_prorated,
       lesson_subscription!inner (
-        id, lesson_day, lesson_time, subscription_type, ended_at,
+        id, lesson_day, lesson_time, subscription_type, ended_at, billed_to_id,
         rider:person!lesson_subscription_rider_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name ),
         billed_to:person!lesson_subscription_billed_to_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name ),
         instructor:person!lesson_subscription_instructor_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name )
@@ -142,16 +143,35 @@ export default async function MonthlyBillingPage() {
       </div>
 
       {visibleMonths.map((vm) => {
-        const key = `${vm.year}-${String(vm.month).padStart(2, '0')}`
+        const key  = `${vm.year}-${String(vm.month).padStart(2, '0')}`
         const list = buckets.get(key) ?? []
+
+        // Compute Pending-only metrics for the Send Invoices button.
+        // Recipient count is distinct billed-to people, since multiple
+        // slots collapse into one invoice (ADR-0019).
+        const pendingRows   = list.filter((r) => r.status === 'Pending')
+        const pendingCount  = pendingRows.length
+        const pendingTotal  = pendingRows.reduce((s, r) => s + Number(r.total ?? 0), 0)
+        const recipientIds  = new Set(pendingRows.map((r) => r.lesson_subscription.billed_to_id))
+        const recipientCount = recipientIds.size
+
         return (
           <section key={key} className="mb-6">
-            <h3 className="text-sm font-bold text-[#191c1e] mb-2">
-              {MONTH_LABEL[vm.month]} {vm.year}
-              <span className="text-[11px] font-normal text-[#444650] ml-2">
-                {list.length} {list.length === 1 ? 'subscription' : 'subscriptions'}
-              </span>
-            </h3>
+            <div className="flex items-baseline justify-between mb-2">
+              <h3 className="text-sm font-bold text-[#191c1e]">
+                {MONTH_LABEL[vm.month]} {vm.year}
+                <span className="text-[11px] font-normal text-[#444650] ml-2">
+                  {list.length} {list.length === 1 ? 'subscription' : 'subscriptions'}
+                </span>
+              </h3>
+              <SendInvoicesButton
+                year={vm.year}
+                month={vm.month}
+                pendingCount={pendingCount}
+                pendingTotal={pendingTotal}
+                recipientCount={recipientCount}
+              />
+            </div>
             <MonthlyBillingTable rows={list.map(shapeRow)} />
           </section>
         )
