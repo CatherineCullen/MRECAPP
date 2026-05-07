@@ -268,3 +268,294 @@ export async function sendMonthInvoices(
 
   return { results, totalSent, totalErrored }
 }
+
+// ============================================================================
+// exportMonthInvoices — CSV export at "Send All" time (the second leg of the fork)
+// ============================================================================
+
+export type ExportMonthInvoicesArgs = {
+  year:  number
+  month: number
+}
+
+export type ExportMonthInvoicesResult = {
+  /** CSV body, ready for the client to download. UTF-8, RFC 4180-style escaping. */
+  csv:           string
+  /** Suggested filename (admin sees this in the browser save dialog). */
+  filename:      string
+  /** Per-invoice outcomes — rows in the export. */
+  invoiceCount:  number
+  lessonMonthCount: number
+  totalAmount:   number
+}
+
+/**
+ * CSV Export at Send All time. The second leg of the fork from
+ * ADR-0021: admin chooses Export instead of NMI when they'd rather
+ * bill externally and settle via manual mark-paid (PR 9a).
+ *
+ * Generates a CSV with one row per LessonMonth (so a two-slot rider
+ * shows as two rows, both grouped under the same chia_invoice_id).
+ * Columns: chia_invoice_id, billed_to_name, billed_to_email, rider,
+ * slot, instructor, lesson_count, dates, per_lesson_price, total,
+ * description_for_paste (the canonical NMI line format from
+ * `lineItem.ts`, ready to drop into whatever external tool admin uses).
+ *
+ * Server-side effects per recipient:
+ *   - Creates a chia `invoice` row (status='sent', `exported_at` stamped).
+ *   - Inserts one `invoice_line_item` per LessonMonth.
+ *   - Flips lesson_months → status='Invoiced' + stamps invoice_id.
+ *
+ * Manual mark-paid (PR 9a) handles settlement when admin processes
+ * payment externally.
+ *
+ * No outbound side effects — admin is taking the data outside CHIA.
+ * Kill switch doesn't apply.
+ */
+export async function exportMonthInvoices(
+  args: ExportMonthInvoicesArgs,
+): Promise<ExportMonthInvoicesResult> {
+  const supabase = createAdminClient()
+
+  // Same loading shape as sendMonthInvoices.
+  const { data: months, error: loadErr } = await supabase
+    .from('lesson_month')
+    .select(`
+      id, year, month, lesson_count, per_lesson_price, total, status,
+      lesson_subscription!inner (
+        id, lesson_day, lesson_time, billed_to_id, ended_at,
+        rider:person!lesson_subscription_rider_id_fkey (
+          id, first_name, last_name, preferred_name, is_organization, organization_name
+        ),
+        instructor:person!lesson_subscription_instructor_id_fkey (
+          id, first_name, last_name, preferred_name, is_organization, organization_name
+        ),
+        billed_to:person!lesson_subscription_billed_to_id_fkey (
+          id, first_name, last_name, preferred_name, is_organization, organization_name, email
+        )
+      )
+    `)
+    .eq('year', args.year)
+    .eq('month', args.month)
+    .eq('status', 'Pending')
+    .is('deleted_at', null)
+
+  if (loadErr) throw new Error(`Failed to load pending lesson_months: ${loadErr.message}`)
+
+  type Row = NonNullable<typeof months>[number]
+  const rows: Row[] = (months ?? []).filter((m) => !m.lesson_subscription?.ended_at)
+
+  if (rows.length === 0) {
+    return {
+      csv:              csvHeader() + '\n',
+      filename:         `chia-export-${args.year}-${String(args.month).padStart(2, '0')}.csv`,
+      invoiceCount:     0,
+      lessonMonthCount: 0,
+      totalAmount:      0,
+    }
+  }
+
+  // Pull the per-month lesson dates (same as sendMonthInvoices).
+  const monthIds = rows.map((r) => r.id)
+  const { data: lessons, error: lessonsErr } = await supabase
+    .from('lesson')
+    .select('id, scheduled_at, month_id')
+    .in('month_id', monthIds)
+    .is('deleted_at', null)
+    .order('scheduled_at')
+
+  if (lessonsErr) {
+    throw new Error(`Failed to load lessons for export: ${lessonsErr.message}`)
+  }
+
+  const datesByMonthId = new Map<string, string[]>()
+  for (const l of lessons ?? []) {
+    if (!l.month_id) continue
+    const date = (l.scheduled_at ?? '').slice(0, 10)
+    if (!date) continue
+    const list = datesByMonthId.get(l.month_id) ?? []
+    list.push(date)
+    datesByMonthId.set(l.month_id, list)
+  }
+
+  // Group by billed_to person (one chia invoice per bundle, same as
+  // sendMonthInvoices).
+  type Bundle = {
+    billedToId:     string
+    billedToName:   string
+    billedToEmail:  string | null
+    rows:           Row[]
+  }
+  const bundles = new Map<string, Bundle>()
+  for (const r of rows) {
+    const sub = r.lesson_subscription
+    const billedToId = sub.billed_to_id
+    const existing = bundles.get(billedToId)
+    if (existing) {
+      existing.rows.push(r)
+    } else {
+      bundles.set(billedToId, {
+        billedToId,
+        billedToName:  displayName(sub.billed_to),
+        billedToEmail: sub.billed_to?.email ?? null,
+        rows:          [r],
+      })
+    }
+  }
+
+  const period = {
+    start: monthStartIso(args.year, args.month),
+    end:   monthEndIso(args.year, args.month),
+  }
+
+  const csvLines: string[] = [csvHeader()]
+  let totalAmount = 0
+
+  // For each bundle: create the chia invoice + line items, stamp
+  // exported_at, flip lesson_months. Then emit CSV rows.
+  for (const bundle of bundles.values()) {
+    const today = new Date().toISOString().slice(0, 10)
+    const dueIso = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10)
+    const sentAtIso = new Date().toISOString()
+
+    // Create the chia invoice row directly — no createAndSendInvoice
+    // helper since no NMI call is being made. exported_at stamps the
+    // row as having gone via the export path.
+    const { data: invoice, error: invErr } = await supabase
+      .from('invoice')
+      .insert({
+        billed_to_id: bundle.billedToId,
+        period_start: period.start,
+        period_end:   period.end,
+        status:       'sent',
+        sent_at:      sentAtIso,
+        due_date:     dueIso,
+        exported_at:  sentAtIso,
+        notes:        `Lessons — ${period.start} to ${period.end} (exported)`,
+      })
+      .select('id')
+      .single()
+
+    if (invErr || !invoice) {
+      throw new Error(`Failed to create export invoice for ${bundle.billedToName}: ${invErr?.message ?? 'unknown'}`)
+    }
+
+    // Build line items per LessonMonth.
+    const lineItems = bundle.rows.map((r) => {
+      const sub   = r.lesson_subscription
+      const dates = (datesByMonthId.get(r.id) ?? []).sort()
+      const description = lineItemDescription({
+        dayOfWeek:      sub.lesson_day,
+        lessonTime:     sub.lesson_time,
+        instructorName: displayName(sub.instructor),
+        dates,
+        perLessonPrice: Number(r.per_lesson_price),
+      })
+      const total = Number(r.total ?? r.per_lesson_price * r.lesson_count)
+      // No `lesson_month_id` on invoice_line_item yet — the schema's
+      // existing source-FK columns predate the monthly-model rewrite.
+      // We track the linkage via lesson_month.invoice_id (the inverse
+      // direction) which the upcoming UPDATE stamps. The
+      // lesson_subscription_id source FK gives us enough provenance
+      // for invoice detail rendering and reports.
+      return {
+        invoice_id:        invoice.id,
+        description,
+        quantity:          1,
+        unit_price:        total,
+        is_credit:         false,
+        line_item_type:    'standard' as const,
+        lesson_subscription_id: sub.id,
+      }
+    })
+
+    const { error: linesErr } = await supabase
+      .from('invoice_line_item')
+      .insert(lineItems)
+    if (linesErr) {
+      throw new Error(`Failed to insert line items for ${bundle.billedToName}: ${linesErr.message}`)
+    }
+
+    // Flip lesson_months → Invoiced + stamp invoice_id.
+    const { error: monthUpdateErr } = await supabase
+      .from('lesson_month')
+      .update({ status: 'Invoiced', invoice_id: invoice.id })
+      .in('id', bundle.rows.map((r) => r.id))
+    if (monthUpdateErr) {
+      throw new Error(`Failed to update lesson_months for ${bundle.billedToName}: ${monthUpdateErr.message}`)
+    }
+
+    // Emit CSV rows — one per LessonMonth in this bundle.
+    for (const r of bundle.rows) {
+      const sub   = r.lesson_subscription
+      const dates = (datesByMonthId.get(r.id) ?? []).sort()
+      const total = Number(r.total ?? r.per_lesson_price * r.lesson_count)
+      totalAmount += total
+      const description = lineItemDescription({
+        dayOfWeek:      sub.lesson_day,
+        lessonTime:     sub.lesson_time,
+        instructorName: displayName(sub.instructor),
+        dates,
+        perLessonPrice: Number(r.per_lesson_price),
+      })
+      csvLines.push(toCsvRow([
+        invoice.id,
+        bundle.billedToName,
+        bundle.billedToEmail ?? '',
+        displayName(sub.rider),
+        `${capitalize(sub.lesson_day)} ${sub.lesson_time.slice(0, 5)}`,
+        displayName(sub.instructor),
+        String(r.lesson_count),
+        dates.join(' '),
+        Number(r.per_lesson_price).toFixed(2),
+        total.toFixed(2),
+        description,
+      ]))
+    }
+  }
+
+  revalidatePath('/chia/lessons-events/monthly-billing')
+  revalidatePath('/chia/lessons-events')
+
+  const filename = `chia-export-${args.year}-${String(args.month).padStart(2, '0')}.csv`
+  return {
+    csv:              csvLines.join('\n') + '\n',
+    filename,
+    invoiceCount:     bundles.size,
+    lessonMonthCount: rows.length,
+    totalAmount,
+  }
+}
+
+/** Single source of truth for the export CSV column order. */
+function csvHeader(): string {
+  return toCsvRow([
+    'chia_invoice_id',
+    'billed_to_name',
+    'billed_to_email',
+    'rider',
+    'slot',
+    'instructor',
+    'lesson_count',
+    'dates',
+    'per_lesson_price',
+    'total',
+    'description_for_paste',
+  ])
+}
+
+/** RFC 4180-style CSV row — escape any cell containing comma, quote, or newline. */
+function toCsvRow(cells: string[]): string {
+  return cells.map(escapeCsv).join(',')
+}
+
+function escapeCsv(s: string): string {
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`
+  }
+  return s
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}

@@ -1944,6 +1944,7 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           due_date: string | null
+          exported_at: string | null
           hosted_invoice_url: string | null
           id: string
           nmi_invoice_id: string | null
@@ -1964,6 +1965,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           due_date?: string | null
+          exported_at?: string | null
           hosted_invoice_url?: string | null
           id?: string
           nmi_invoice_id?: string | null
@@ -1984,6 +1986,7 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           due_date?: string | null
+          exported_at?: string | null
           hosted_invoice_url?: string | null
           id?: string
           nmi_invoice_id?: string | null
