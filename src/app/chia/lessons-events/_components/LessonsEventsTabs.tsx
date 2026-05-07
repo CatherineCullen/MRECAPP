@@ -8,29 +8,26 @@ import { usePathname } from 'next/navigation'
 //
 // Order reflects day-to-day frequency:
 //   Calendar  — default, the week grid admin looks at constantly.
-//   Invoices  — current-quarter ad-hoc lane: one-off extra lessons, events,
-//               and mid-quarter new-rider signups that need individual billing.
-//   Renewal   — quarterly batch flow (renewing list + batch invoice
-//               generation + sent list). Intentionally last because it only
-//               fires a few times a year, and sitting between Calendar and
-//               Invoices confused the "which invoices live where" split.
+//   Invoices  — ad-hoc invoicing lane: one-off extra lessons, events, and
+//               mid-quarter new-rider signups that need individual billing.
 //
 // Subscriptions and Tokens are management views, not daily flows, so they
 // live as lightweight links on the Calendar page header rather than as
 // top-level tabs — keeps the tab row focused on what admin touches daily.
 //
+// Quarterly Renewal tab removed in PR 3b of the monthly-model rewrite
+// (ADR-0019). Replaced by a Monthly Billing tab in a later PR (PR 5);
+// for now the Calendar + Invoices flow continues to handle subscription
+// state and ad-hoc billing.
+//
 // (The URL for the ad-hoc lane is still /unbilled for now — content moved
 // there is a superset of what the old Unbilled tab showed.)
 const tabs = [
-  { label: 'Calendar',          href: '/chia/lessons-events',               exact: true,  distinct: false },
-  { label: 'Invoices',          href: '/chia/lessons-events/unbilled',      exact: false, distinct: false },
-  // Quarterly Renewal sits apart visually — it's a periodic batch flow, not
-  // part of the daily Calendar/Invoices rhythm. A left gap + divider signals
-  // "different mode" without pushing it off into a second nav row.
-  { label: 'Quarterly Renewal', href: '/chia/lessons-events/renewal',       exact: false, distinct: true  },
+  { label: 'Calendar',      href: '/chia/lessons-events',               exact: true,  distinct: false },
+  { label: 'Invoices',      href: '/chia/lessons-events/unbilled',      exact: false, distinct: false },
   // Configuration groups Catalog and Quarters — both are rare admin tasks,
-  // not part of the daily Calendar/Invoices/Renewal flow.
-  { label: 'Configuration',     href: '/chia/lessons-events/configuration', exact: false, distinct: true  },
+  // not part of the daily Calendar/Invoices flow.
+  { label: 'Configuration', href: '/chia/lessons-events/configuration', exact: false, distinct: true  },
 ]
 
 export default function LessonsEventsTabs() {

@@ -6,8 +6,7 @@ export default function LessonsEventsLayout({ children }: { children: React.Reac
       <div className="px-6 pt-5 pb-0 border-b border-[#c4c6d1]/30 bg-[#f7f9fc]">
         <h1 className="text-[#191c1e] font-bold text-lg tracking-tight mb-1">Lessons &amp; Events</h1>
         <p className="text-xs text-[#444650] mb-3">
-          Book new lessons, events and subscriptions under Calendar and Invoices. Use Quarterly
-          Renewal for continuing subscriptions.
+          Book new lessons, events, and subscriptions under Calendar and Invoices.
         </p>
         <LessonsEventsTabs />
       </div>
