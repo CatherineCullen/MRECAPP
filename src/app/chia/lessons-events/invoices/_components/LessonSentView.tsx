@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import type { LessonSentSnapshot, LessonSentInvoice } from '../_lib/loadLessonInvoices'
 import { voidAndCancelLessonInvoice } from '../actions'
+import MarkPaidButton from '@/app/chia/invoices/[id]/_components/MarkPaidButton'
 import { BARN_TZ } from '@/lib/datetime'
 
 // Sent lesson invoices, grouped by sent month. Expand to see line items.
@@ -48,14 +49,11 @@ function InvoiceRow({ inv }: { inv: LessonSentInvoice }) {
   const [busy, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const canVoid = inv.status === 'sent' || inv.status === 'overdue'
-  // (Voided invoices keep their row for audit, but no action button.)
+  const canAct = inv.status === 'sent' || inv.status === 'overdue'
+  // (Voided and Paid invoices keep their row for audit, no action buttons.)
 
-  function handleVoidAndCancel() {
-    const subLines = inv.lines.filter(l => l.subscriptionId)
-    const msg = subLines.length === 0
-      ? `Void the invoice for ${inv.billedToLabel}? This cannot be undone.`
-      : `Void the invoice for ${inv.billedToLabel} and cancel ${subLines.length} pending subscription${subLines.length === 1 ? '' : 's'}? This cannot be undone.`
+  function handleVoid() {
+    const msg = `Void the invoice for ${inv.billedToLabel}? This cannot be undone. The line items stay on this invoice for audit; refund (if any) is handled out-of-band in the NMI portal.`
     if (!confirm(msg)) return
 
     setError(null)
@@ -90,18 +88,21 @@ function InvoiceRow({ inv }: { inv: LessonSentInvoice }) {
         <span className={`font-mono font-semibold w-24 text-right ${isVoided ? 'text-[#8c8e98] line-through decoration-[#8c8e98]/40' : 'text-[#191c1e]'}`}>
           {fmt(inv.total)}
         </span>
-        <div className="w-52 flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-2 shrink-0">
           <a href={`/chia/invoices/${inv.id}`} target="_blank" rel="noopener" className="text-[#002058] hover:underline">
             Details ↗
           </a>
-          {canVoid && (
-            <button
-              onClick={handleVoidAndCancel}
-              disabled={busy}
-              className="text-[#8f3434] hover:underline disabled:opacity-40"
-            >
-              {busy ? 'Voiding…' : 'Void & cancel'}
-            </button>
+          {canAct && (
+            <>
+              <MarkPaidButton invoiceId={inv.id} />
+              <button
+                onClick={handleVoid}
+                disabled={busy}
+                className="text-[#8f3434] hover:underline disabled:opacity-40"
+              >
+                {busy ? 'Voiding…' : 'Void'}
+              </button>
+            </>
           )}
         </div>
       </div>

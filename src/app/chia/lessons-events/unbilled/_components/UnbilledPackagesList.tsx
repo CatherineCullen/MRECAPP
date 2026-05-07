@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { sendPackageInvoice, updatePackagePrice, updateEventPrice, skipBilling, unskipBilling } from '../actions'
+import { sendPackageInvoice, exportPackageInvoice, updatePackagePrice, updateEventPrice, skipBilling, unskipBilling } from '../actions'
 import { BARN_TZ } from '@/lib/datetime'
 
 export type UnbilledItemKind = 'package' | 'event' | 'subscription'
@@ -164,22 +164,45 @@ function GroupCard({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [sentNmiId, setSentNmiId] = useState<string | null>(null)
+  const [exported, setExported]   = useState<{ filename: string; chiaInvoiceId: string } | null>(null)
 
-  function handleSend() {
+  // Fork modal state — mirrors SendInvoicesButton on Monthly Billing.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [path, setPath]             = useState<'nmi' | 'export'>('nmi')
+
+  function handleConfirm() {
     setError(null)
     setSentNmiId(null)
+    setExported(null)
+    const args = {
+      billedToId: group.billedToId,
+      packageIds: group.items.filter((i) => i.kind === 'package').map((i) => i.id),
+      eventIds:   group.items.filter((i) => i.kind === 'event').map((i) => i.id),
+    }
     startTransition(async () => {
-      const result = await sendPackageInvoice({
-        billedToId: group.billedToId,
-        packageIds: group.items.filter((i) => i.kind === 'package').map((i) => i.id),
-        eventIds:   group.items.filter((i) => i.kind === 'event').map((i) => i.id),
-      })
-      if (result.error) {
-        setError(result.error)
-        return
+      if (path === 'nmi') {
+        const result = await sendPackageInvoice(args)
+        if (result.error) { setError(result.error); return }
+        setSentNmiId(result.nmiInvoiceId ?? null)
+        setPickerOpen(false)
+        setTimeout(onSent, 1500)
+      } else {
+        const result = await exportPackageInvoice(args)
+        if (result.error || !result.data) { setError(result.error ?? 'Export failed'); return }
+        // Trigger browser download of the CSV.
+        const blob = new Blob([result.data.csv], { type: 'text/csv;charset=utf-8' })
+        const url  = URL.createObjectURL(blob)
+        const a    = document.createElement('a')
+        a.href     = url
+        a.download = result.data.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setExported({ filename: result.data.filename, chiaInvoiceId: result.data.chiaInvoiceId })
+        setPickerOpen(false)
+        setTimeout(onSent, 1500)
       }
-      setSentNmiId(result.nmiInvoiceId ?? null)
-      setTimeout(onSent, 1500)
     })
   }
 
@@ -199,12 +222,12 @@ function GroupCard({
           </div>
         </div>
         <button
-          onClick={handleSend}
+          onClick={() => { setError(null); setSentNmiId(null); setExported(null); setPath('nmi'); setPickerOpen(true) }}
           disabled={isPending}
           className="text-xs font-semibold bg-[#002058] text-white px-3 py-1.5 rounded hover:bg-[#001845] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          title="Create and send one NMI invoice for all listed products"
+          title="Send via NMI or export CSV for external billing"
         >
-          {isPending ? 'Sending…' : 'Send invoice'}
+          Send invoice
         </button>
       </header>
 
@@ -219,7 +242,7 @@ function GroupCard({
         ))}
       </div>
 
-      {(error || sentNmiId) && (
+      {(error || sentNmiId || exported) && (
         <div className="px-4 py-2 border-t border-[#e8edf4]">
           {error && <div className="text-xs text-[#b02020]">{error}</div>}
           {sentNmiId && (
@@ -227,6 +250,96 @@ function GroupCard({
               Invoice sent. NMI ID <span className="font-mono">{sentNmiId}</span>.
             </div>
           )}
+          {exported && (
+            <div className="text-xs text-[#0a6b2a]">
+              Exported as <span className="font-mono">{exported.filename}</span>. Bill externally, then{' '}
+              <Link href={`/chia/invoices/${exported.chiaInvoiceId}`} target="_blank" className="underline font-semibold">
+                Mark Paid
+              </Link>{' '}when payment lands.
+            </div>
+          )}
+        </div>
+      )}
+
+      {pickerOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4"
+          onClick={(e) => e.target === e.currentTarget && !isPending && setPickerOpen(false)}
+        >
+          <div className="bg-white rounded-lg max-w-md w-full p-5 shadow-xl">
+            <h3 className="text-base font-bold text-[#191c1e] mb-1">
+              Send invoice — {group.billedToName}
+            </h3>
+            <p className="text-xs text-[#444650] mb-4">
+              {group.items.length} {group.items.length === 1 ? 'product' : 'products'} ·{' '}
+              <span className="font-semibold text-[#191c1e]">${group.total.toFixed(2)}</span> total.
+            </p>
+
+            <fieldset className="mb-4 space-y-2">
+              <legend className="text-xs font-semibold text-[#191c1e] mb-1.5">How to send</legend>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="unbilled-send-path"
+                  value="nmi"
+                  checked={path === 'nmi'}
+                  onChange={() => setPath('nmi')}
+                  className="mt-0.5 accent-[#002058]"
+                />
+                <span>
+                  <span className="font-semibold text-[#191c1e]">NMI</span>
+                  <span className="block text-[11px] text-[#444650]">
+                    Hosted pay-link emails to the recipient. Webhook reconciles paid status.
+                    Gated by <code className="text-[#191c1e]">OUTBOUND_ENABLED</code>.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="unbilled-send-path"
+                  value="export"
+                  checked={path === 'export'}
+                  onChange={() => setPath('export')}
+                  className="mt-0.5 accent-[#002058]"
+                />
+                <span>
+                  <span className="font-semibold text-[#191c1e]">Export CSV</span>
+                  <span className="block text-[11px] text-[#444650]">
+                    Downloads a CSV with one row per line item. Bill externally, then use Mark Paid
+                    on the invoice once payment lands.
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+
+            {error && (
+              <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(false)}
+                disabled={isPending}
+                className="text-sm text-[#444650] font-semibold px-4 py-2 rounded hover:bg-[#e8eaf0] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={isPending}
+                className="bg-[#002058] text-white text-sm font-semibold px-4 py-2 rounded hover:bg-[#003099] disabled:opacity-50 transition-colors"
+              >
+                {isPending
+                  ? (path === 'nmi' ? 'Sending…' : 'Exporting…')
+                  : (path === 'nmi' ? 'Send via NMI' : 'Export CSV')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </section>
