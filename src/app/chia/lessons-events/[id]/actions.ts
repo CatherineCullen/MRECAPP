@@ -153,9 +153,8 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
   if (lesson.is_makeup) await releaseMakeupToken(supabase, args.lessonId, now)
 
   // Token generation under the monthly model (ADR-0020): tokens expire
-  // 10 days from issuance. quarter_id no longer set (column gets dropped
-  // in 3b-rest/D). Same expiry for every rider on this lesson — they
-  // were all cancelled at the same instant.
+  // 10 days from issuance. Same expiry for every rider on this lesson —
+  // they were all cancelled at the same instant.
   if (args.grantTokens && activeRiders.length > 0) {
     const expiresAt = new Date(Date.now() + 10 * 86400_000).toISOString()
 
@@ -511,10 +510,6 @@ async function releaseMakeupToken(
     .eq('status', 'scheduled')
 }
 
-// quarterIdForScheduledAt removed in PR 3b-rest/B — quarter_id is gone
-// from makeup_token (10-day expiry from issuance per ADR-0020) and the
-// merge-bulk window now uses a 3-month forward span instead of a quarter.
-
 /**
  * Cancel ONE rider from a multi-rider lesson. If the rider was the last
  * active one, the whole lesson is cancelled (same as cancelLesson). Otherwise
@@ -590,7 +585,7 @@ export async function cancelRider(args: {
   if (lesson.is_makeup && remaining.length === 0) await releaseMakeupToken(supabase, args.lessonId, now)
 
   // Grant token if requested. ADR-0020: tokens expire 10 days from
-  // issuance. quarter_id no longer set (column gets dropped in 3b-rest/D).
+  // issuance.
   if (args.grantToken) {
     const expiresAt = new Date(Date.now() + 10 * 86400_000).toISOString()
     const reason: 'barn_cancel' | 'rider_cancel' =

@@ -32,7 +32,7 @@ function fmtDate(iso: string | null): string {
 type RowStatus =
   | { state: 'idle' }
   | { state: 'sending' }
-  | { state: 'sent'; hostedInvoiceUrl: string | null }
+  | { state: 'sent'; nmiInvoiceId: string }
   | { state: 'discarding' }
   | { state: 'error'; message: string }
 
@@ -49,13 +49,6 @@ function DraftCard({
 }) {
   const busy = status.state === 'sending' || status.state === 'discarding'
   const done = status.state === 'sent'
-
-  // Stripe hosted-draft URL — only available while the invoice is still a
-  // draft / finalized; we link to the dashboard entity instead, which
-  // works across all statuses.
-  const stripeDashboardUrl = draft.stripeInvoiceId
-    ? `https://dashboard.stripe.com/invoices/${draft.stripeInvoiceId}`
-    : null
 
   return (
     <section className={`bg-white rounded border border-[#c4c6d1]/40 ${done ? 'opacity-60' : ''}`}>
@@ -92,16 +85,6 @@ function DraftCard({
         >
           Details ↗
         </a>
-        {stripeDashboardUrl && (
-          <a
-            href={stripeDashboardUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-[#002058] hover:underline"
-          >
-            Preview in Stripe ↗
-          </a>
-        )}
         <div className="flex-1" />
 
         {status.state === 'error' && (
@@ -151,7 +134,7 @@ export default function DraftsView({ snapshot }: { snapshot: DraftsSnapshot }) {
     setRowStatus(s => ({
       ...s,
       [draft.id]: res.ok
-        ? { state: 'sent', hostedInvoiceUrl: res.hostedInvoiceUrl }
+        ? { state: 'sent', nmiInvoiceId: res.nmiInvoiceId }
         : { state: 'error', message: res.error },
     }))
     return res.ok

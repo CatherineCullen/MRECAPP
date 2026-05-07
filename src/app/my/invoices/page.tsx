@@ -60,7 +60,7 @@ export default async function MyInvoicesPage() {
   const { data: invoices } = await db
     .from('invoice')
     .select(`
-      id, status, sent_at, paid_at, due_date, created_at, notes, stripe_invoice_id, hosted_invoice_url,
+      id, status, sent_at, paid_at, due_date, created_at, notes, nmi_invoice_id,
       invoice_line_item (
         id, description, unit_price, quantity, total, is_credit, deleted_at
       )
@@ -113,20 +113,9 @@ export default async function MyInvoicesPage() {
 
                 {inv.status !== 'voided' && (
                   <div className="mt-2 flex items-center gap-3">
-                    {inv.hosted_invoice_url ? (
-                      <a
-                        href={inv.hosted_invoice_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-semibold bg-primary text-on-primary px-3 py-1.5 rounded"
-                      >
-                        Pay now →
-                      </a>
-                    ) : (
-                      <p className="text-xs text-on-surface-muted">
-                        Check your email for the payment link, or contact the barn to pay in person.
-                      </p>
-                    )}
+                    <p className="text-xs text-on-surface-muted">
+                      Check your email for the payment link, or contact the barn to pay in person.
+                    </p>
                     {inv.due_date && (
                       <span className="text-xs text-warning">
                         Due {formatDateOnly(inv.due_date)}

@@ -22,8 +22,7 @@ const DAY_LABEL: Record<string, string> = {
  * forward).
  *
  * Out of scope for v1 (follow-up PRs): edit per-month per-lesson
- * price, history tab for past months. Continuation control here
- * supersedes the legacy quarterly renewal_intent flag.
+ * price, history tab for past months.
  */
 export default async function MonthlyBillingPage() {
   const supabase = createAdminClient()

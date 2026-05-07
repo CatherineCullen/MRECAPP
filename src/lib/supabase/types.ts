@@ -1934,7 +1934,6 @@ export type Database = {
           deleted_at: string | null
           due_date: string | null
           exported_at: string | null
-          hosted_invoice_url: string | null
           id: string
           nmi_invoice_id: string | null
           nmi_transaction_id: string | null
@@ -1945,7 +1944,6 @@ export type Database = {
           period_start: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["invoice_status"]
-          stripe_invoice_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1955,7 +1953,6 @@ export type Database = {
           deleted_at?: string | null
           due_date?: string | null
           exported_at?: string | null
-          hosted_invoice_url?: string | null
           id?: string
           nmi_invoice_id?: string | null
           nmi_transaction_id?: string | null
@@ -1966,7 +1963,6 @@ export type Database = {
           period_start?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["invoice_status"]
-          stripe_invoice_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1976,7 +1972,6 @@ export type Database = {
           deleted_at?: string | null
           due_date?: string | null
           exported_at?: string | null
-          hosted_invoice_url?: string | null
           id?: string
           nmi_invoice_id?: string | null
           nmi_transaction_id?: string | null
@@ -1987,7 +1982,6 @@ export type Database = {
           period_start?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["invoice_status"]
-          stripe_invoice_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3037,7 +3031,6 @@ export type Database = {
           riding_level:
             | Database["public"]["Enums"]["person_riding_level"]
             | null
-          stripe_customer_id: string | null
           updated_at: string
           usef_id: string | null
           weight_category:
@@ -3074,7 +3067,6 @@ export type Database = {
           riding_level?:
             | Database["public"]["Enums"]["person_riding_level"]
             | null
-          stripe_customer_id?: string | null
           updated_at?: string
           usef_id?: string | null
           weight_category?:
@@ -3111,7 +3103,6 @@ export type Database = {
           riding_level?:
             | Database["public"]["Enums"]["person_riding_level"]
             | null
-          stripe_customer_id?: string | null
           updated_at?: string
           usef_id?: string | null
           weight_category?:

@@ -93,7 +93,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     supabase
       .from('invoice')
       .select(`
-        id, status, period_start, period_end, due_date, stripe_invoice_id,
+        id, status, period_start, period_end, due_date, nmi_invoice_id, nmi_transaction_id,
         notes, sent_at, paid_at, paid_method, created_at, updated_at,
         billed_to:person!invoice_billed_to_id_fkey
           ( id, first_name, last_name, preferred_name ),
@@ -124,9 +124,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   const grandTotal = (lines ?? []).reduce((s, l) => s + Number(l.total), 0)
   const statusMeta = STATUS_STYLE[invoice.status] ?? STATUS_STYLE.draft
-  const stripeUrl  = invoice.stripe_invoice_id
-    ? `https://dashboard.stripe.com/invoices/${invoice.stripe_invoice_id}`
-    : null
 
   return (
     <div className="p-6 max-w-3xl">
@@ -139,16 +136,6 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${statusMeta.cls}`}>
             {statusMeta.label}
           </span>
-          {stripeUrl && (
-            <a
-              href={stripeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-[#002058] hover:underline"
-            >
-              Stripe ↗
-            </a>
-          )}
           {/* Manual mark-paid is for cash, check, external NMI charges. Only
               meaningful for invoices that have been sent but aren't yet paid;
               draft/voided/paid invoices don't get the affordance. */}
@@ -221,10 +208,16 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             </>
           )}
 
-          {invoice.stripe_invoice_id && (
+          {invoice.nmi_invoice_id && (
             <>
-              <dt className="text-[#444650] font-semibold">Stripe ID</dt>
-              <dd className="text-[#191c1e] font-mono text-[11px]">{invoice.stripe_invoice_id}</dd>
+              <dt className="text-[#444650] font-semibold">NMI invoice</dt>
+              <dd className="text-[#191c1e] font-mono text-[11px]">{invoice.nmi_invoice_id}</dd>
+            </>
+          )}
+          {invoice.nmi_transaction_id && (
+            <>
+              <dt className="text-[#444650] font-semibold">NMI transaction</dt>
+              <dd className="text-[#191c1e] font-mono text-[11px]">{invoice.nmi_transaction_id}</dd>
             </>
           )}
         </dl>

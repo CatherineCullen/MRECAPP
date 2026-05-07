@@ -6,20 +6,21 @@ import { createInvoiceForUnbilled } from '@/lib/payments/nmi/unbilledInvoice'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * Bundle a person's unbilled lesson packages AND events into ONE Stripe
+ * Bundle a person's unbilled lesson packages AND events into ONE NMI
  * invoice. Admin-only. All packageIds must belong to the same billedToId
- * (billed_to_id), and all eventIds must have the same host_id. The Unbilled
- * Products UI already groups them by person so that's invariant by the time
- * we get here.
+ * (billed_to_id), and all eventIds must have the same host_id. The
+ * Unbilled Products UI already groups them by person so that is invariant
+ * by the time we get here.
+ *
+ * Recurring monthly slot billing goes through the Monthly Billing tab,
+ * not this path.
  */
 export async function sendPackageInvoice(params: {
-  billedToId:       string
-  packageIds:       string[]
-  eventIds?:        string[]
-  subscriptionIds?: string[]
+  billedToId: string
+  packageIds: string[]
+  eventIds?:  string[]
 }): Promise<{
-  stripeInvoiceId?:   string
-  hostedInvoiceUrl?:  string | null
+  nmiInvoiceId?:      string
   chiaInvoiceId?:     string
   packageCount?:      number
   eventCount?:        number
@@ -30,18 +31,12 @@ export async function sendPackageInvoice(params: {
   if (!user?.isAdmin) return { error: 'Not authorized' }
 
   try {
-    // subscriptionIds dropped — quarterly subscription invoicing went
-    // away with the monthly model rewrite (ADR-0019). Monthly subs go
-    // through the Monthly Billing tab batch send (PR 7) instead. The
-    // function arg is still accepted for transitional compat with old
-    // callers but is silently ignored.
     const result = await createInvoiceForUnbilled({
       billedToId: params.billedToId,
       packageIds: params.packageIds,
       eventIds:   params.eventIds ?? [],
     })
     revalidatePath('/chia/lessons-events/unbilled')
-    revalidatePath('/chia/lessons-events/renewal')
     revalidatePath(`/chia/people/${params.billedToId}`)
     revalidatePath('/chia/lessons-events')
     return result

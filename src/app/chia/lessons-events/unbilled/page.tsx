@@ -102,11 +102,10 @@ export default async function BillingProductsPage() {
     let g = groupMap.get(billedTo.id)
     if (!g) {
       g = {
-        billedToId:        billedTo.id,
-        billedToName:      displayName(billedTo),
-        hasStripeCustomer: false,
-        items:             [],
-        total:             0,
+        billedToId:   billedTo.id,
+        billedToName: displayName(billedTo),
+        items:        [],
+        total:        0,
       }
       groupMap.set(billedTo.id, g)
     }

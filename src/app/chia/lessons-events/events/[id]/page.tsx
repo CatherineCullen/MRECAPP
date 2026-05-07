@@ -23,7 +23,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         type:event_type ( code, label, calendar_color, calendar_badge ),
         host:person!event_host_id_fkey ( id, first_name, last_name, preferred_name, is_organization, organization_name ),
         instructor:person!event_instructor_id_fkey ( id, first_name, last_name, preferred_name ),
-        invoice:invoice ( id, status, stripe_invoice_id )
+        invoice:invoice ( id, status, nmi_invoice_id )
       `)
       .eq('id', id)
       .is('deleted_at', null)
@@ -52,7 +52,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const evtType = event.type as { label?: string; calendar_color?: string | null; calendar_badge?: string | null } | null
   const host      = event.host as { id: string; first_name: string | null; last_name: string | null; preferred_name: string | null; is_organization: boolean | null; organization_name: string | null } | null
   const instructor = event.instructor as { id: string; first_name: string | null; last_name: string | null; preferred_name: string | null } | null
-  const invoice = event.invoice as { id: string; status: string; stripe_invoice_id: string | null } | null
+  const invoice = event.invoice as { id: string; status: string; nmi_invoice_id: string | null } | null
 
   return (
     <div className="p-6 max-w-2xl">
@@ -97,7 +97,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         isBilled={Boolean(event.invoice_id)}
         invoiceId={invoice?.id ?? null}
         invoiceStatus={invoice?.status ?? null}
-        stripeInvoiceId={invoice?.stripe_invoice_id ?? null}
+        nmiInvoiceId={invoice?.nmi_invoice_id ?? null}
         billingSkippedAt={event.billing_skipped_at}
         billingSkippedReason={event.billing_skipped_reason}
         instructorOptions={instructorOptions}

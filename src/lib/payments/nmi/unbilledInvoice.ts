@@ -16,16 +16,10 @@ import { createAndSendInvoice, type LineItemInput } from './invoice'
  *     (monthly model handles it via the Monthly Billing tab batch send,
  *     PR 7).
  *
- * Return shape preserves field names (`stripeInvoiceId`,
- * `hostedInvoiceUrl`) for transitional compat with the existing UI
- * components that read them. `stripeInvoiceId` carries the NMI invoice
- * id; `hostedInvoiceUrl` is null since NMI doesn't return a hosted
- * URL via the API (the rider gets the link in their email). UI surfaces
- * read these defensively (`?? null`) so null degrades gracefully —
- * "Pay now" buttons just don't render. Field renames happen alongside
- * Stripe deletion in PR 10.
+ * Returns the NMI invoice id (admins reference it in the NMI portal)
+ * and the CHIA invoice id.
  *
- * Guardrails (unchanged from Stripe version):
+ * Guardrails:
  *   - All packageIds must belong to `billedToId`.
  *   - All eventIds must have host_id == billedToId.
  *   - Every source must currently be unbilled (invoice_id IS NULL).
@@ -37,8 +31,7 @@ export async function createInvoiceForUnbilled(params: {
   packageIds: string[]
   eventIds:   string[]
 }): Promise<{
-  stripeInvoiceId: string
-  hostedInvoiceUrl: string | null
+  nmiInvoiceId: string
   chiaInvoiceId: string
   packageCount: number
   eventCount: number
@@ -220,9 +213,7 @@ export async function createInvoiceForUnbilled(params: {
   }
 
   return {
-    // Field names retained for transitional compat — see file header.
-    stripeInvoiceId:   sent.nmiInvoiceId,
-    hostedInvoiceUrl:  null,
+    nmiInvoiceId:      sent.nmiInvoiceId,
     chiaInvoiceId:     sent.chiaInvoiceId,
     packageCount:      packages.length,
     eventCount:        events.length,

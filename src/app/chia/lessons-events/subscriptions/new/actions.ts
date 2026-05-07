@@ -22,12 +22,10 @@ import { getPerLessonPrice, type SubscriptionType } from '@/lib/lessons/monthly/
  *   4. Generate the 3-month rolling window (prorated current + 2 full
  *      future months) via the monthly library.
  *
- * Differences from the old quarterly action:
- *   - No quarter_id, no subscription_price, no startDate, no
- *     lessonDates array. The monthly model derives all of that from
- *     the slot + barn calendar at generation time.
- *   - subscription.status starts at 'active' instead of 'pending'.
- *     The Pending gate moves to lesson_month.status.
+ * The monthly model derives lesson dates from the slot + barn calendar
+ * at generation time, so there is no startDate or lessonDates array on
+ * input. subscription.status starts 'active'; the Pending gate moves to
+ * lesson_month.status.
  */
 export type CreateMonthlySubscriptionArgs = {
   riderId:           string
@@ -95,9 +93,7 @@ export async function createMonthlySubscription(
       .eq('id', existingRole.id)
   }
 
-  // 3. Insert the slot subscription. Legacy quarterly columns (quarter_id,
-  //    subscription_price, etc.) are left null — they're being dropped in
-  //    PR 3b-rest along with the rest of the quarterly cruft.
+  // 3. Insert the slot subscription.
   const { data: sub, error: subErr } = await supabase
     .from('lesson_subscription')
     .insert({

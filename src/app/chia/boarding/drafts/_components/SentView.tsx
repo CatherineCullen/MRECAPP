@@ -65,9 +65,6 @@ function StatusChip({ status }: { status: SentInvoiceStatus }) {
 
 function InvoiceRow({ invoice }: { invoice: SentInvoice }) {
   const [expanded, setExpanded] = useState(false)
-  const stripeUrl = invoice.stripeInvoiceId
-    ? `https://dashboard.stripe.com/invoices/${invoice.stripeInvoiceId}`
-    : null
 
   return (
     <div className="border-t border-[#e8ecf5] first:border-t-0">
@@ -107,16 +104,6 @@ function InvoiceRow({ invoice }: { invoice: SentInvoice }) {
         >
           Details ↗
         </a>
-        {stripeUrl && (
-          <a
-            href={stripeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-[#002058] hover:underline flex-shrink-0"
-          >
-            Stripe ↗
-          </a>
-        )}
       </div>
 
       {expanded && invoice.lines.length > 0 && (

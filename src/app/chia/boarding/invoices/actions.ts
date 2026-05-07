@@ -442,7 +442,7 @@ export async function generateBoardInvoices(params: {
   periodStart: string  // ISO date yyyy-mm-dd
   periodEnd:   string  // ISO date yyyy-mm-dd
 }): Promise<
-  | { ok: true; results: Array<{ personId: string; personLabel: string; ok: boolean; stripeInvoiceId?: string; error?: string }> }
+  | { ok: true; results: Array<{ personId: string; personLabel: string; ok: boolean; chiaInvoiceId?: string; error?: string }> }
   | { ok: false; error: string }
 > {
   const user = await getCurrentUser()
@@ -517,8 +517,9 @@ export async function generateBoardInvoices(params: {
 
   const alreadyInvoiced = new Set((existingInvoices ?? []).map(i => i.billed_to_id))
 
-  // 3. For each person: Stripe draft → CHIA invoice → invoice_line_items.
-  const results: Array<{ personId: string; personLabel: string; ok: boolean; stripeInvoiceId?: string; error?: string }> = []
+  // 3. For each person: CHIA invoice → invoice_line_items. (NMI invoice
+  //    only gets created on Send from the Drafts view.)
+  const results: Array<{ personId: string; personLabel: string; ok: boolean; chiaInvoiceId?: string; error?: string }> = []
   const successfullyInvoicedItemIds = new Set<string>()
 
   // Build a description that flags splits so the boarder can see why
@@ -596,10 +597,8 @@ export async function generateBoardInvoices(params: {
       // orphan an item into a weird state.
       for (const a of personAllocs) successfullyInvoicedItemIds.add(a.billing_line_item_id)
 
-      // Field name retained for transitional UI compat; carries the
-      // chia invoice id (no NMI id yet — NMI sees this row only at
-      // send time).
-      results.push({ personId, personLabel: personLabel(personId), ok: true, stripeInvoiceId: invRow.id })
+      // CHIA invoice id only — NMI sees this row at send time, not generate time.
+      results.push({ personId, personLabel: personLabel(personId), ok: true, chiaInvoiceId: invRow.id })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       console.error('[generateBoardInvoices] failed for person', personId, msg)

@@ -22,17 +22,13 @@ import { sendChiaInvoice } from '@/lib/payments/nmi/invoice'
  *     billing_line_items so they return to the open queue. No provider
  *     call needed since NMI never knew about the draft.
  *
- * Field-naming compat: results retain `stripeInvoiceId` and
- * `hostedInvoiceUrl` keys for transitional UI compat (callers read them
- * defensively with `?? null`). `stripeInvoiceId` carries the NMI invoice
- * id; `hostedInvoiceUrl` is null since NMI doesn't return a hosted URL
- * via the API. Field renames happen alongside Stripe deletion in PR 10.
+ * Returns the NMI invoice id on success.
  */
 
 export async function sendDraftInvoice(params: {
   invoiceId: string
 }): Promise<
-  | { ok: true; stripeInvoiceId: string; hostedInvoiceUrl: string | null }
+  | { ok: true; nmiInvoiceId: string }
   | { ok: false; error: string }
 > {
   const user = await getCurrentUser()
@@ -56,11 +52,7 @@ export async function sendDraftInvoice(params: {
     const result = await sendChiaInvoice({ chiaInvoiceId: params.invoiceId })
     revalidatePath('/chia/boarding/drafts')
     revalidatePath('/chia/boarding/invoices')
-    return {
-      ok: true,
-      stripeInvoiceId:  result.nmiInvoiceId,
-      hostedInvoiceUrl: null,
-    }
+    return { ok: true, nmiInvoiceId: result.nmiInvoiceId }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return { ok: false, error: `Send failed: ${msg}` }

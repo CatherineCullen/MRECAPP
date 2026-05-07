@@ -27,7 +27,7 @@ type Props = {
   isBilled:          boolean             // true once event.invoice_id is set
   invoiceId:         string | null
   invoiceStatus:     string | null
-  stripeInvoiceId:   string | null
+  nmiInvoiceId:      string | null
   billingSkippedAt:  string | null
   billingSkippedReason: string | null
   instructorOptions: Option[]
@@ -344,15 +344,10 @@ function ReadView({
                 Details ↗
               </Link>
             )}
-            {p.stripeInvoiceId && (
-              <a
-                href={`https://dashboard.stripe.com/invoices/${p.stripeInvoiceId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-[#056380] font-mono hover:underline"
-              >
-                {p.stripeInvoiceId} ↗
-              </a>
+            {p.nmiInvoiceId && (
+              <span className="text-[10px] text-[#056380] font-mono">
+                NMI {p.nmiInvoiceId}
+              </span>
             )}
           </div>
         ) : isSkipped ? (

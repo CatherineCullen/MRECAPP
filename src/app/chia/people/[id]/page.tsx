@@ -54,7 +54,7 @@ export default async function PersonPage({
   let invoices: Array<{
     id: string
     status: string
-    stripe_invoice_id: string | null
+    nmi_invoice_id: string | null
     sent_at: string | null
     paid_at: string | null
     due_date: string | null
@@ -65,7 +65,7 @@ export default async function PersonPage({
     const { data: invoiceRows } = await supabase
       .from('invoice')
       .select(`
-        id, status, stripe_invoice_id, sent_at, paid_at, due_date, notes,
+        id, status, nmi_invoice_id, sent_at, paid_at, due_date, notes,
         invoice_line_item ( total )
       `)
       .eq('billed_to_id', id)
@@ -77,7 +77,7 @@ export default async function PersonPage({
     invoices = (invoiceRows ?? []).map((inv) => ({
       id: inv.id,
       status: inv.status,
-      stripe_invoice_id: inv.stripe_invoice_id,
+      nmi_invoice_id: inv.nmi_invoice_id,
       sent_at: inv.sent_at,
       paid_at: inv.paid_at,
       due_date: inv.due_date,

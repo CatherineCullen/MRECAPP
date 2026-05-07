@@ -11,10 +11,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * Grouped by billing period (period_end month) in the UI so a year of
  * monthly cycles stays readable. Within a month we sort most-recent first.
  *
- * We link back to the Stripe dashboard by stripe_invoice_id rather than
- * storing hosted_invoice_url — dashboard link works across all statuses and
- * shows the admin the full event log. Customer-facing link isn't useful
- * here (Stripe emails it to the customer).
+ * NMI invoice IDs are recorded for audit. There is no live dashboard
+ * link — admins reference invoices in the NMI merchant portal using
+ * the ID shown on the row.
  */
 
 export type SentInvoiceStatus = 'sent' | 'opened' | 'paid' | 'overdue'
@@ -30,7 +29,7 @@ export type SentInvoiceLine = {
 
 export type SentInvoice = {
   id: string
-  stripeInvoiceId: string | null
+  nmiInvoiceId: string | null
   status: SentInvoiceStatus
   periodStart: string | null
   periodEnd: string | null
@@ -84,7 +83,7 @@ export async function loadSent(): Promise<SentSnapshot> {
   const { data: invoices, error: invErr } = await db
     .from('invoice')
     .select(
-      'id, stripe_invoice_id, status, period_start, period_end, sent_at, paid_at, paid_method, due_date, billed_to_id, created_at'
+      'id, nmi_invoice_id, status, period_start, period_end, sent_at, paid_at, paid_method, due_date, billed_to_id, created_at'
     )
     .in('status', ACTIVE_STATUSES)
     .is('deleted_at', null)
@@ -146,7 +145,7 @@ export async function loadSent(): Promise<SentSnapshot> {
     const total = myLines.reduce((s, l) => s + (l.isCredit ? -l.total : l.total), 0)
     return {
       id:              inv.id,
-      stripeInvoiceId: inv.stripe_invoice_id,
+      nmiInvoiceId: inv.nmi_invoice_id,
       status:          inv.status as SentInvoiceStatus,
       periodStart:     inv.period_start,
       periodEnd:       inv.period_end,

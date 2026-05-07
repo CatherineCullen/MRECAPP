@@ -29,11 +29,10 @@ export type UnbilledItem = {
 }
 
 export type UnbilledGroup = {
-  billedToId:        string
-  billedToName:      string
-  hasStripeCustomer: boolean
-  items:             UnbilledItem[]
-  total:             number
+  billedToId:   string
+  billedToName: string
+  items:        UnbilledItem[]
+  total:        number
 }
 
 /**
@@ -164,23 +163,22 @@ function GroupCard({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [sentUrl, setSentUrl] = useState<string | null>(null)
+  const [sentNmiId, setSentNmiId] = useState<string | null>(null)
 
   function handleSend() {
     setError(null)
-    setSentUrl(null)
+    setSentNmiId(null)
     startTransition(async () => {
       const result = await sendPackageInvoice({
-        billedToId:      group.billedToId,
-        packageIds:      group.items.filter((i) => i.kind === 'package').map((i) => i.id),
-        eventIds:        group.items.filter((i) => i.kind === 'event').map((i) => i.id),
-        subscriptionIds: group.items.filter((i) => i.kind === 'subscription').map((i) => i.id),
+        billedToId: group.billedToId,
+        packageIds: group.items.filter((i) => i.kind === 'package').map((i) => i.id),
+        eventIds:   group.items.filter((i) => i.kind === 'event').map((i) => i.id),
       })
       if (result.error) {
         setError(result.error)
         return
       }
-      setSentUrl(result.hostedInvoiceUrl ?? null)
+      setSentNmiId(result.nmiInvoiceId ?? null)
       setTimeout(onSent, 1500)
     })
   }
@@ -202,30 +200,13 @@ function GroupCard({
         </div>
         <button
           onClick={handleSend}
-          disabled={isPending || !group.hasStripeCustomer}
+          disabled={isPending}
           className="text-xs font-semibold bg-[#002058] text-white px-3 py-1.5 rounded hover:bg-[#001845] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-          title={
-            group.hasStripeCustomer
-              ? 'Create and send one invoice for all listed products'
-              : 'Person needs a Stripe Customer before they can be invoiced — sync on their profile page first'
-          }
+          title="Create and send one NMI invoice for all listed products"
         >
           {isPending ? 'Sending…' : 'Send invoice'}
         </button>
       </header>
-
-      {!group.hasStripeCustomer && (
-        <div className="px-4 py-2 text-xs text-[#7c4b00] bg-[#fff3d8] border-t border-[#ffddb3]">
-          No Stripe Customer yet.{' '}
-          <Link
-            href={`/chia/people/${group.billedToId}`}
-            className="font-semibold underline hover:text-[#5c3800]"
-          >
-            Sync on profile
-          </Link>{' '}
-          before invoicing.
-        </div>
-      )}
 
       <div className="divide-y divide-[#e8edf4]">
         {group.items.map((item) => (
@@ -238,20 +219,12 @@ function GroupCard({
         ))}
       </div>
 
-      {(error || sentUrl) && (
+      {(error || sentNmiId) && (
         <div className="px-4 py-2 border-t border-[#e8edf4]">
           {error && <div className="text-xs text-[#b02020]">{error}</div>}
-          {sentUrl && (
+          {sentNmiId && (
             <div className="text-xs text-[#0a6b2a]">
-              Invoice sent.{' '}
-              <a
-                href={sentUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold underline"
-              >
-                Open hosted invoice ↗
-              </a>
+              Invoice sent. NMI ID <span className="font-mono">{sentNmiId}</span>.
             </div>
           )}
         </div>

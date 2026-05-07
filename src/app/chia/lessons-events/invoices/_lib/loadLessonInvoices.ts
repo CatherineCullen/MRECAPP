@@ -26,7 +26,7 @@ export type LessonInvoiceLine = {
 
 export type LessonDraftInvoice = {
   id:              string
-  stripeInvoiceId: string | null
+  nmiInvoiceId: string | null
   status:          'draft'
   periodStart:     string | null
   periodEnd:       string | null
@@ -39,7 +39,7 @@ export type LessonDraftInvoice = {
 
 export type LessonSentInvoice = {
   id:              string
-  stripeInvoiceId: string | null
+  nmiInvoiceId: string | null
   status:          'sent' | 'paid' | 'overdue' | 'voided'
   periodStart:     string | null
   periodEnd:       string | null
@@ -111,7 +111,7 @@ export async function loadLessonDrafts(): Promise<LessonDraftsSnapshot> {
 
   const { data: invoices } = await db
     .from('invoice')
-    .select('id, stripe_invoice_id, status, period_start, period_end, created_at, billed_to_id')
+    .select('id, nmi_invoice_id, status, period_start, period_end, created_at, billed_to_id')
     .eq('status', 'draft')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -162,7 +162,7 @@ export async function loadLessonDrafts(): Promise<LessonDraftsSnapshot> {
     const total = myLines.reduce((s, l) => s + (l.isCredit ? -l.total : l.total), 0)
     return {
       id:              inv.id,
-      stripeInvoiceId: inv.stripe_invoice_id,
+      nmiInvoiceId: inv.nmi_invoice_id,
       status:          'draft' as const,
       periodStart:     inv.period_start,
       periodEnd:       inv.period_end,
@@ -183,7 +183,7 @@ export async function loadLessonSent(): Promise<LessonSentSnapshot> {
 
   const { data: invoices } = await db
     .from('invoice')
-    .select('id, stripe_invoice_id, status, period_start, period_end, created_at, billed_to_id, sent_at, paid_at, paid_method')
+    .select('id, nmi_invoice_id, status, period_start, period_end, created_at, billed_to_id, sent_at, paid_at, paid_method')
     .in('status', ['sent', 'paid', 'overdue', 'voided'])
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -239,7 +239,7 @@ export async function loadLessonSent(): Promise<LessonSentSnapshot> {
     const { label } = monthLabelFromIso(inv.sent_at ?? inv.created_at)
     return {
       id:              inv.id,
-      stripeInvoiceId: inv.stripe_invoice_id,
+      nmiInvoiceId: inv.nmi_invoice_id,
       status:          inv.status as 'sent' | 'paid' | 'overdue' | 'voided',
       periodStart:     inv.period_start,
       periodEnd:       inv.period_end,

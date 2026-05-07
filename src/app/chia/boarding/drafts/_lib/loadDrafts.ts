@@ -4,11 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 /**
  * Drafts view data — the second half of the monthly workflow.
  *
- * After Generate Invoices runs, CHIA invoices exist in status='draft' with a
- * stripe_invoice_id pointing at the Stripe-side draft. Admin reviews each
- * one (using the Stripe hosted preview) and either Sends (finalize + email)
- * or Discards (void on Stripe + soft-delete here + unstamp the sources so
- * they flow back into the open queue).
+ * After Generate Invoices runs, CHIA invoices exist in status='draft'.
+ * Admin reviews each one and either Sends (post to NMI + email rider) or
+ * Discards (soft-delete here + unstamp the sources so they flow back
+ * into the open queue).
  *
  * We keep the UI snappy by loading everything the page needs in one round
  * trip: invoice row + billed-to display name + line-item rollup + count.
@@ -25,7 +24,7 @@ export type DraftLine = {
 
 export type DraftInvoice = {
   id: string
-  stripeInvoiceId: string | null
+  nmiInvoiceId: string | null
   status: 'draft'
   periodStart: string | null
   periodEnd: string | null
@@ -62,7 +61,7 @@ export async function loadDrafts(): Promise<DraftsSnapshot> {
   // 1. Draft invoice rows. Soft-deleted rows stay hidden.
   const { data: invoices, error: invErr } = await db
     .from('invoice')
-    .select('id, stripe_invoice_id, status, period_start, period_end, created_at, billed_to_id')
+    .select('id, nmi_invoice_id, status, period_start, period_end, created_at, billed_to_id')
     .eq('status', 'draft')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -121,7 +120,7 @@ export async function loadDrafts(): Promise<DraftsSnapshot> {
     const total = myLines.reduce((s, l) => s + (l.isCredit ? -l.total : l.total), 0)
     return {
       id:              inv.id,
-      stripeInvoiceId: inv.stripe_invoice_id,
+      nmiInvoiceId: inv.nmi_invoice_id,
       status:          'draft',
       periodStart:     inv.period_start,
       periodEnd:       inv.period_end,

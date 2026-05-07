@@ -48,10 +48,6 @@ function InvoiceRow({ inv }: { inv: LessonSentInvoice }) {
   const [busy, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const stripeUrl = inv.stripeInvoiceId
-    ? `https://dashboard.stripe.com/invoices/${inv.stripeInvoiceId}`
-    : null
-
   const canVoid = inv.status === 'sent' || inv.status === 'overdue'
   // (Voided invoices keep their row for audit, but no action button.)
 
@@ -98,11 +94,6 @@ function InvoiceRow({ inv }: { inv: LessonSentInvoice }) {
           <a href={`/chia/invoices/${inv.id}`} target="_blank" rel="noopener" className="text-[#002058] hover:underline">
             Details ↗
           </a>
-          {stripeUrl && (
-            <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="text-[#002058] hover:underline">
-              Stripe ↗
-            </a>
-          )}
           {canVoid && (
             <button
               onClick={handleVoidAndCancel}
