@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from '@/lib/auth'
-import { createInvoiceForUnbilled } from '@/lib/stripe/unbilledInvoice'
+import { createInvoiceForUnbilled } from '@/lib/payments/stripe/unbilledInvoice'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**

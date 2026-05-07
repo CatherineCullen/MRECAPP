@@ -3,8 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
-import { stripe } from '@/lib/stripe/server'
-import { ensureStripeCustomer } from '@/lib/stripe/customer'
+import { stripe } from '@/lib/payments/stripe/server'
+import { ensureStripeCustomer } from '@/lib/payments/stripe/customer'
 import { assertStripeOutboundAllowed } from '@/lib/outbound'
 
 /**

@@ -3,7 +3,7 @@
 import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
-import { ensureStripeCustomer } from '@/lib/stripe/customer'
+import { ensureStripeCustomer } from '@/lib/payments/stripe/customer'
 import { sendEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 

@@ -1,7 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ensureStripeCustomer } from '@/lib/stripe/customer'
+import { ensureStripeCustomer } from '@/lib/payments/stripe/customer'
 import { redirect } from 'next/navigation'
 
 export async function createPerson(formData: FormData) {

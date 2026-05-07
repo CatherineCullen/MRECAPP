@@ -3,7 +3,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { stripe } from '@/lib/stripe/server'
+import { stripe } from '@/lib/payments/stripe/server'
 import { generateLessonDates, type DayOfWeek } from '../_lib/generateLessonDates'
 import { barnLocalToUtcIso } from '@/lib/datetime'
 

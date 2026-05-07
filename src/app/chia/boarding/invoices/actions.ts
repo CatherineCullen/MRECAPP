@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth'
-import { createDraftInvoice } from '@/lib/stripe/invoice'
+import { createDraftInvoice } from '@/lib/payments/stripe/invoice'
 
 /**
  * Allocate and mark a billing_line_item Reviewed.

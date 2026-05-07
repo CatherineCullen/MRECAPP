@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import Stripe from 'stripe'
-import { stripe } from '@/lib/stripe/server'
+import { stripe } from '@/lib/payments/stripe/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Database } from '@/lib/supabase/types'
 
