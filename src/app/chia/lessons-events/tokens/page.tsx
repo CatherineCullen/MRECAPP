@@ -12,7 +12,7 @@ export default async function TokensPage() {
   const { data: tokens, error } = await supabase
     .from('makeup_token')
     .select(`
-      id, status, reason, grant_reason, notes, created_at, official_expires_at,
+      id, status, reason, grant_reason, notes, cancellation_note, created_at, official_expires_at,
       rider:person!makeup_token_rider_id_fkey ( id, first_name, last_name, preferred_name ),
       origin:lesson!makeup_token_original_lesson_id_fkey ( id, scheduled_at, cancellation_reason ),
       scheduled_lesson:lesson!makeup_token_scheduled_lesson_id_fkey ( id, scheduled_at )
@@ -26,7 +26,10 @@ export default async function TokensPage() {
     rider_id:             t.rider?.id ?? null,
     rider_name:           displayName(t.rider) || '—',
     original_lesson_date: t.origin?.scheduled_at?.slice(0, 10) ?? null,
-    cancellation_reason:  t.origin?.cancellation_reason ?? null,
+    // Prefer the token's own cancellation_note (captured at issuance, never
+    // changes) over the origin lesson's cancellation_reason (legacy / barn-
+    // cancel-of-whole-lesson). Either falls back to null for admin grants.
+    cancellation_reason:  t.cancellation_note ?? t.origin?.cancellation_reason ?? null,
     scheduled_lesson_id:   t.scheduled_lesson?.id ?? null,
     scheduled_lesson_date: t.scheduled_lesson?.scheduled_at ?? null,
     reason:               t.reason as TokenRow['reason'],

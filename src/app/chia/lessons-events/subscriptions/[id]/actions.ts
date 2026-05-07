@@ -221,6 +221,7 @@ export async function cancelRemainingLessons(args: {
         official_expires_at: expiresAt,
         status:              'available' as const,
         created_by:          user?.personId ?? null,
+        cancellation_note:   args.reason?.trim() || null,
       }))
     : []
 

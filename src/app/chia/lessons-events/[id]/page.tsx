@@ -74,18 +74,39 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
     id:           string
     scheduled_at: string
     instructor:   { first_name: string | null; last_name: string | null; preferred_name: string | null } | null
+    cancellation_note: string | null    // looked up via the makeup_token
+    cancellation_reason: string | null  // legacy fallback on the lesson row itself
+    cancel_reason_kind: 'rider_cancel' | 'barn_cancel' | 'admin_grant' | null
   }
   let originalLesson: OriginalLesson | null = null
   if (lesson.is_makeup && lesson.makeup_for_lesson_id) {
-    const { data: orig } = await supabase
-      .from('lesson')
-      .select(`
-        id, scheduled_at,
-        instructor:person!lesson_instructor_id_fkey ( first_name, last_name, preferred_name )
-      `)
-      .eq('id', lesson.makeup_for_lesson_id)
-      .maybeSingle()
-    originalLesson = orig as unknown as OriginalLesson | null
+    const [origRes, tokenRes] = await Promise.all([
+      supabase
+        .from('lesson')
+        .select(`
+          id, scheduled_at, cancellation_reason,
+          instructor:person!lesson_instructor_id_fkey ( first_name, last_name, preferred_name )
+        `)
+        .eq('id', lesson.makeup_for_lesson_id)
+        .maybeSingle(),
+      // The token bridges this makeup lesson back to the rider's note. We
+      // look it up by scheduled_lesson_id (set when the makeup was booked).
+      supabase
+        .from('makeup_token')
+        .select('cancellation_note, reason')
+        .eq('scheduled_lesson_id', lesson.id)
+        .maybeSingle(),
+    ])
+    if (origRes.data) {
+      originalLesson = {
+        id:                  origRes.data.id,
+        scheduled_at:        origRes.data.scheduled_at,
+        instructor:          origRes.data.instructor as OriginalLesson['instructor'],
+        cancellation_note:   tokenRes.data?.cancellation_note ?? null,
+        cancellation_reason: origRes.data.cancellation_reason ?? null,
+        cancel_reason_kind:  (tokenRes.data?.reason ?? null) as OriginalLesson['cancel_reason_kind'],
+      }
+    }
   }
 
   // Messages tagged to this lesson (compose-from-lesson-card +
@@ -412,6 +433,14 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
                 </Link>
                 {originalLesson.instructor && (
                   <span className="text-[#444650]"> · {displayName(originalLesson.instructor)}</span>
+                )}
+                {(originalLesson.cancellation_note || originalLesson.cancellation_reason) && (
+                  <div className="mt-1 text-[11px] text-[#444650] italic" title={originalLesson.cancellation_note ?? originalLesson.cancellation_reason ?? ''}>
+                    <span className="font-semibold uppercase tracking-wide text-[10px] not-italic text-[#7a5a00]">
+                      {originalLesson.cancel_reason_kind === 'barn_cancel' ? 'Barn note:' : 'Rider note:'}
+                    </span>{' '}
+                    {originalLesson.cancellation_note ?? originalLesson.cancellation_reason}
+                  </div>
                 )}
               </dd>
             </>

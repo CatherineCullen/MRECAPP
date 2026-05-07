@@ -151,7 +151,9 @@ export async function cancelMyLesson(
   }
 
   // Grant makeup token if applicable. ADR-0020: tokens expire 10 days
-  // from issuance.
+  // from issuance. The rider's note (if they typed one) is also
+  // captured on the token so it surfaces wherever the token shows up
+  // — Tokens list, Token detail, the makeup lesson once scheduled.
   if (grantToken) {
     const expiresAt = new Date(now.getTime() + 10 * 86400_000).toISOString()
     await db.from('makeup_token').insert({
@@ -162,6 +164,7 @@ export async function cancelMyLesson(
       official_expires_at: expiresAt,
       status:              'available',
       created_by:          user.personId,
+      cancellation_note:   note?.trim() || null,
     })
   }
 

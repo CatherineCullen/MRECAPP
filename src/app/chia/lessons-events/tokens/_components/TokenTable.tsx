@@ -250,7 +250,9 @@ export default function TokenTable({ rows }: Props) {
                     <td className="py-1.5 px-3">
                       {t.cancellation_reason && (
                         <div className="text-[10px] text-[#444650] mb-0.5" title={t.cancellation_reason}>
-                          <span className="font-semibold uppercase tracking-wide text-[9px] text-[#7a5a00]">Rider:</span>{' '}
+                          <span className="font-semibold uppercase tracking-wide text-[9px] text-[#7a5a00]">
+                            {t.reason === 'barn_cancel' ? 'Barn:' : 'Rider:'}
+                          </span>{' '}
                           <span className="italic">{t.cancellation_reason}</span>
                         </div>
                       )}

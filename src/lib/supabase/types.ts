@@ -2695,6 +2695,7 @@ export type Database = {
       }
       makeup_token: {
         Row: {
+          cancellation_note: string | null
           created_at: string
           created_by: string | null
           grant_reason: string | null
@@ -2711,6 +2712,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancellation_note?: string | null
           created_at?: string
           created_by?: string | null
           grant_reason?: string | null
@@ -2727,6 +2729,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancellation_note?: string | null
           created_at?: string
           created_by?: string | null
           grant_reason?: string | null

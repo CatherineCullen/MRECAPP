@@ -63,7 +63,7 @@ export default async function TokenDetailPage({ params }: { params: Promise<{ id
   const { data: token, error } = await supabase
     .from('makeup_token')
     .select(`
-      id, status, reason, grant_reason, notes,
+      id, status, reason, grant_reason, notes, cancellation_note,
       created_at, updated_at, status_changed_at, official_expires_at,
       original_lesson_id, scheduled_lesson_id,
       rider:person!makeup_token_rider_id_fkey
@@ -203,9 +203,13 @@ export default async function TokenDetailPage({ params }: { params: Promise<{ id
               )}
             </dd>
 
-            <dt className="text-[#444650] font-semibold self-start">Cancel reason</dt>
+            <dt className="text-[#444650] font-semibold self-start">
+              {token.reason === 'barn_cancel' ? 'Barn note' : 'Rider note'}
+            </dt>
             <dd className="text-[#191c1e] whitespace-pre-wrap">
-              {token.origin.cancellation_reason || <span className="text-[#c4c6d1]">(no reason given)</span>}
+              {token.cancellation_note
+                || token.origin.cancellation_reason
+                || <span className="text-[#c4c6d1]">(no note given)</span>}
             </dd>
           </dl>
         ) : (

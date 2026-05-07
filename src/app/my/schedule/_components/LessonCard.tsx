@@ -136,18 +136,18 @@ export default function LessonCard({
         <div className="mt-3 pt-3 border-t border-outline-variant/20" onClick={e => e.stopPropagation()}>
           {isLate ? (
             <p className="text-sm text-on-surface mb-2">
-              This lesson is less than 24 hours away. Cancelling now won't generate a makeup credit.
-              Adding a note sends it to your instructor — the barn can grant an exception if appropriate.
+              This lesson is less than 24 hours away. Cancelling now won&apos;t generate a makeup credit.
+              Please add a note for your instructor and the office — the barn can grant an exception if appropriate.
             </p>
           ) : (
             <p className="text-sm text-on-surface mb-2">
-              Cancel this lesson? Add a note if you'd like to send your instructor context.
+              Cancel this lesson? Please add a note for your instructor and the office — even just a few words helps.
             </p>
           )}
           <textarea
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder={`Note for ${instructorName} (optional)…`}
+            placeholder={`Note for ${instructorName} and the office (optional)…`}
             rows={2}
             className="w-full bg-surface-highest rounded px-3 py-2 text-sm text-on-surface placeholder-on-surface-muted/60 focus:outline-none resize-none"
           />

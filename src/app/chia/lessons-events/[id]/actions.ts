@@ -169,6 +169,7 @@ export async function cancelLesson(args: CancelArgs): Promise<{ error?: string }
       official_expires_at: expiresAt,
       status:              'available' as const,
       created_by:          user?.personId ?? null,
+      cancellation_note:   args.reason?.trim() || null,
     }))
 
     const { error: tokenErr } = await supabase.from('makeup_token').insert(tokenRows)
@@ -598,6 +599,7 @@ export async function cancelRider(args: {
       official_expires_at: expiresAt,
       status:              'available',
       created_by:          user?.personId ?? null,
+      cancellation_note:   args.reason?.trim() || null,
     })
     if (tokenErr) return { error: `Rider cancelled but token creation failed: ${tokenErr.message}` }
   }
