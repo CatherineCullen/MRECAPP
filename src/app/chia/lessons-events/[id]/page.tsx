@@ -50,7 +50,7 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
         id, cancelled_at,
         rider:person!lesson_rider_rider_id_fkey ( id, first_name, last_name, preferred_name ),
         horse:horse                               ( id, barn_name ),
-        subscription:lesson_subscription ( id, subscription_type, quarter_id, status, invoice_id ),
+        subscription:lesson_subscription ( id, subscription_type, status, invoice_id ),
         package:lesson_package ( id, invoice_id, billing_skipped_at, invoice:invoice!lesson_package_invoice_fk ( status ) )
       )
     `)
@@ -184,31 +184,34 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
   })
   const waiverMissing = activeRiders.some(r => r.rider?.id && !waivedRiderIds.has(r.rider.id))
 
-  // Rider-cancel allowance usage: count existing makeup_token rows with
-  // reason='rider_cancel' for each (rider, quarter) pair of the active riders.
-  // Boarders are exempt from the allowance (unlimited makeups per policy), so
-  // we only bother counting for standard subs. The UI uses count >= 2 as the
-  // "would be 3rd+" soft-warning threshold (ADR-0003: visibility not compliance).
-  const allowanceKey = (riderId: string, quarterId: string) => `${riderId}:${quarterId}`
+  // Rider-cancel allowance usage (ADR-0020, monthly model): count rider_cancel
+  // tokens per active Standard rider for the calendar month containing this
+  // lesson. Boarders get unlimited makeups so we skip them. The UI uses
+  // count >= 1 as the "would be a 2nd in-month" soft-warning threshold
+  // (ADR-0003: visibility not compliance).
+  const lessonStart = new Date(lesson.scheduled_at)
+  const monthStartIso = new Date(lessonStart.getFullYear(), lessonStart.getMonth(), 1).toISOString()
+  const monthEndIso   = new Date(lessonStart.getFullYear(), lessonStart.getMonth() + 1, 1).toISOString()
+
   const riderCancelCount = new Map<string, number>()
 
   {
-    const pairs = activeRiders
-      .filter(r => r.subscription?.subscription_type === 'standard' && r.subscription?.quarter_id && r.rider?.id)
-      .map(r => ({ riderId: r.rider!.id, quarterId: r.subscription!.quarter_id as string }))
+    const standardRiderIds = activeRiders
+      .filter(r => r.subscription?.subscription_type === 'standard' && r.rider?.id)
+      .map(r => r.rider!.id)
 
-    if (pairs.length > 0) {
-      const riderIds   = Array.from(new Set(pairs.map(p => p.riderId)))
-      const quarterIds = Array.from(new Set(pairs.map(p => p.quarterId)))
+    if (standardRiderIds.length > 0) {
       const { data: priorTokens } = await supabase
         .from('makeup_token')
-        .select('rider_id, quarter_id')
+        .select('rider_id')
         .eq('reason', 'rider_cancel')
-        .in('rider_id', riderIds)
-        .in('quarter_id', quarterIds)
+        .in('rider_id', Array.from(new Set(standardRiderIds)))
+        .gte('created_at', monthStartIso)
+        .lt('created_at', monthEndIso)
+        .is('deleted_at', null)
 
       for (const t of priorTokens ?? []) {
-        const k = allowanceKey(t.rider_id as string, t.quarter_id as string)
+        const k = t.rider_id as string
         riderCancelCount.set(k, (riderCancelCount.get(k) ?? 0) + 1)
       }
     }
@@ -218,8 +221,8 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
   // active rider's count. For multi-rider, each RiderCancelButton uses its own.
   const singleRider = activeRiders.length === 1 ? activeRiders[0] : null
   const singleRiderAllowanceUsed =
-    singleRider?.subscription?.subscription_type === 'standard' && singleRider.subscription?.quarter_id && singleRider.rider?.id
-      ? (riderCancelCount.get(allowanceKey(singleRider.rider.id, singleRider.subscription.quarter_id as string)) ?? 0)
+    singleRider?.subscription?.subscription_type === 'standard' && singleRider.rider?.id
+      ? (riderCancelCount.get(singleRider.rider.id) ?? 0)
       : 0
 
   // Display the EFFECTIVE status: past + scheduled is shown as completed,
@@ -361,8 +364,8 @@ export default async function LessonDetailPage({ params }: { params: Promise<{ i
                           scheduledAt={lesson.scheduled_at}
                           hasBoarder={r.subscription?.subscription_type === 'boarder'}
                           riderCancelAllowanceUsed={
-                            r.subscription?.subscription_type === 'standard' && r.subscription?.quarter_id && r.rider?.id
-                              ? (riderCancelCount.get(allowanceKey(r.rider.id, r.subscription.quarter_id as string)) ?? 0)
+                            r.subscription?.subscription_type === 'standard' && r.rider?.id
+                              ? (riderCancelCount.get(r.rider.id) ?? 0)
                               : 0
                           }
                         />

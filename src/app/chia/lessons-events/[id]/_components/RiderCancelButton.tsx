@@ -114,15 +114,16 @@ export default function RiderCancelButton({
   }
 
   const isBarn = mode === 'barn'
-  const showAllowanceWarning = !isBarn && riderCancelAllowanceUsed >= 2
+  // ADR-0020: 1 rider-cancel token per calendar month for Standard riders.
+  const showAllowanceWarning = !isBarn && riderCancelAllowanceUsed >= 1
   return (
     <div className="inline-flex flex-wrap items-center gap-1.5 border border-[#c4c6d1] rounded px-1.5 py-1 bg-[#f7f9fc]">
       {showAllowanceWarning && (
         <span
           className="w-full text-[10px] text-[#7a5a00] bg-[#fff4d6] border border-[#ffddb3] rounded px-1.5 py-0.5 leading-snug"
-          title="Policy: 2 rider-cancel tokens per quarter for standard subscriptions"
+          title="Policy: 1 rider-cancel token per calendar month for standard subscriptions"
         >
-          ⚠ {riderCancelAllowanceUsed} rider-cancel token{riderCancelAllowanceUsed === 1 ? '' : 's'} this quarter — over the 2-per-quarter allowance.
+          ⚠ {riderCancelAllowanceUsed} rider-cancel token{riderCancelAllowanceUsed === 1 ? '' : 's'} this month — over the 1-per-month allowance.
         </span>
       )}
       <span className="text-[10px] font-semibold text-[#191c1e]">

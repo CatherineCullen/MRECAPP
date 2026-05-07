@@ -9,12 +9,10 @@ export default async function SubscriptionsPage() {
   const { data: subs, error } = await supabase
     .from('lesson_subscription')
     .select(`
-      id, lesson_day, lesson_time, subscription_price, subscription_type, status,
-      is_prorated, prorated_lesson_count, prorated_price,
+      id, lesson_day, lesson_time, subscription_type, status,
       rider:person!lesson_subscription_rider_id_fkey      ( id, first_name, last_name, preferred_name ),
       instructor:person!lesson_subscription_instructor_id_fkey ( id, first_name, last_name, preferred_name, calendar_color ),
-      horse:horse                                         ( id, barn_name ),
-      quarter                                             ( id, label, start_date, end_date, is_active )
+      horse:horse                                         ( id, barn_name )
     `)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -22,20 +20,6 @@ export default async function SubscriptionsPage() {
   if (error) throw error
 
   type Sub = NonNullable<typeof subs>[number]
-  const byQuarter = new Map<string, { label: string; is_active: boolean; start_date: string; subs: Sub[] }>()
-  for (const s of subs ?? []) {
-    const q = s.quarter
-    if (!q) continue
-    const key = q.id
-    if (!byQuarter.has(key)) {
-      byQuarter.set(key, { label: q.label, is_active: q.is_active, start_date: q.start_date, subs: [] })
-    }
-    byQuarter.get(key)!.subs.push(s)
-  }
-  const groups = Array.from(byQuarter.values()).sort((a, b) => {
-    if (a.is_active !== b.is_active) return a.is_active ? -1 : 1
-    return b.start_date.localeCompare(a.start_date)
-  })
 
   function toRow(s: Sub): SubRow {
     return {
@@ -56,13 +40,27 @@ export default async function SubscriptionsPage() {
       lesson_time:           s.lesson_time,
       horse_name:            s.horse?.barn_name ?? null,
       subscription_type:     s.subscription_type,
-      subscription_price:    Number(s.subscription_price),
-      is_prorated:           !!s.is_prorated,
-      prorated_price:        s.prorated_price != null ? Number(s.prorated_price) : null,
-      prorated_lesson_count: s.prorated_lesson_count ?? null,
       status:                s.status,
     }
   }
+
+  // Group by status: active subs at the top, then pending, then the rest.
+  // Under the monthly model there's no longer a natural time-axis grouping
+  // (no quarters) — status is what admins actually filter by.
+  const STATUS_ORDER: Record<string, number> = { active: 0, pending: 1, completed: 2, cancelled: 3 }
+  const STATUS_LABEL: Record<string, string> = {
+    active:    'Active',
+    pending:   'Pending',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+  }
+  const groupMap = new Map<string, Sub[]>()
+  for (const s of subs ?? []) {
+    if (!groupMap.has(s.status)) groupMap.set(s.status, [])
+    groupMap.get(s.status)!.push(s)
+  }
+  const groups = Array.from(groupMap.entries())
+    .sort((a, b) => (STATUS_ORDER[a[0]] ?? 99) - (STATUS_ORDER[b[0]] ?? 99))
 
   return (
     <div className="p-6">
@@ -72,7 +70,7 @@ export default async function SubscriptionsPage() {
             ← Calendar
           </Link>
           <h2 className="text-sm font-bold text-[#191c1e] mt-1">Lesson Subscriptions</h2>
-          <p className="text-xs text-[#444650] mt-0.5">Quarterly recurring weekly slots.</p>
+          <p className="text-xs text-[#444650] mt-0.5">Recurring weekly slots. Pricing is catalog-driven and snapshotted onto each month at billing time.</p>
         </div>
         <Link
           href="/chia/lessons-events/subscriptions/new"
@@ -85,19 +83,20 @@ export default async function SubscriptionsPage() {
       {groups.length === 0 ? (
         <div className="bg-white rounded-lg px-4 py-8 text-center max-w-md">
           <p className="text-sm font-semibold text-[#191c1e] mb-1">No subscriptions yet</p>
-          <p className="text-xs text-[#444650]">Click "+ New Subscription" to enroll the first rider.</p>
+          <p className="text-xs text-[#444650]">Click &ldquo;+ New Subscription&rdquo; to enroll the first rider.</p>
         </div>
       ) : (
-        groups.map(group => (
-          <div key={group.label} className="mb-6">
+        groups.map(([status, items]) => (
+          <div key={status} className="mb-6">
             <div className="flex items-baseline gap-2 mb-2">
-              <h3 className="text-xs font-bold text-[#191c1e] uppercase tracking-wide">{group.label}</h3>
-              {group.is_active && (
-                <span className="text-[10px] bg-[#002058] text-white px-1.5 py-0.5 rounded font-semibold">Active</span>
-              )}
-              <span className="text-xs text-[#444650]">{group.subs.length} {group.subs.length === 1 ? 'subscription' : 'subscriptions'}</span>
+              <h3 className="text-xs font-bold text-[#191c1e] uppercase tracking-wide">
+                {STATUS_LABEL[status] ?? status}
+              </h3>
+              <span className="text-xs text-[#444650]">
+                {items.length} {items.length === 1 ? 'subscription' : 'subscriptions'}
+              </span>
             </div>
-            <SubscriptionsTable rows={group.subs.map(toRow)} />
+            <SubscriptionsTable rows={items.map(toRow)} />
           </div>
         ))
       )}

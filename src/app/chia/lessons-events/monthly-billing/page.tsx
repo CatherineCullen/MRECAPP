@@ -21,10 +21,9 @@ const DAY_LABEL: Record<string, string> = {
  * subscription as not continuing per row (clears its pending months
  * forward).
  *
- * Out of scope for v1 (follow-up PRs): batch Send Invoices with NMI/
- * Export fork, edit per-month per-lesson price, history tab for past
- * months. The minimum scope here re-enables admin's continuation
- * control so PR 3b-rest can drop the legacy renewal_intent code paths.
+ * Out of scope for v1 (follow-up PRs): edit per-month per-lesson
+ * price, history tab for past months. Continuation control here
+ * supersedes the legacy quarterly renewal_intent flag.
  */
 export default async function MonthlyBillingPage() {
   const supabase = createAdminClient()

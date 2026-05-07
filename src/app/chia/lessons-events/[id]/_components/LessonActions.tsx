@@ -161,7 +161,9 @@ export default function LessonActions({
   }
 
   const isBarn = mode === 'cancel-barn'
-  const showAllowanceWarning = !isBarn && riderCancelAllowanceUsed >= 2
+  // ADR-0020: 1 rider-cancel token per calendar month for Standard riders.
+  // Warn at >= 1 (so a 2nd in-month would be over allowance).
+  const showAllowanceWarning = !isBarn && riderCancelAllowanceUsed >= 1
 
   return (
     <div className="border border-[#c4c6d1] rounded-lg p-3 bg-[#f7f9fc]">
@@ -171,7 +173,7 @@ export default function LessonActions({
 
       {showAllowanceWarning && (
         <div className="mb-2 px-2 py-1.5 bg-[#fff4d6] border border-[#ffddb3] rounded text-[11px] text-[#7a5a00] leading-snug">
-          <span className="font-semibold">Heads up:</span> this rider has already used {riderCancelAllowanceUsed} rider-cancel token{riderCancelAllowanceUsed === 1 ? '' : 's'} this quarter (policy allows 2). Proceeding will generate an additional token unless you uncheck below.
+          <span className="font-semibold">Heads up:</span> this rider has already used {riderCancelAllowanceUsed} rider-cancel token{riderCancelAllowanceUsed === 1 ? '' : 's'} this month (policy allows 1). Proceeding will generate an additional token unless you uncheck below.
         </div>
       )}
 
