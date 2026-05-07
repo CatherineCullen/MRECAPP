@@ -14,21 +14,29 @@ import 'server-only'
  * auth, encoding, response parsing, and error normalization.
  */
 
-const SECURITY_KEY = process.env.NMI_SECURITY_KEY
-const API_BASE     = process.env.NMI_API_BASE
-
-if (!SECURITY_KEY) {
-  throw new Error(
-    'NMI_SECURITY_KEY is not set. Add it to app/.env.local — use the Merchant ' +
-      'private API key (the one labeled "api (Payment and Query APIs)" with ' +
-      'sensitivity "private") from the NMI portal.',
-  )
+// Lazy env getters — module-level throws break `next build`'s page-data
+// collection pass. Validate at call time so the error still surfaces
+// loudly, just at the first request rather than at import.
+function securityKey(): string {
+  const v = process.env.NMI_SECURITY_KEY
+  if (!v) {
+    throw new Error(
+      'NMI_SECURITY_KEY is not set. Add it to app/.env.local — use the Merchant ' +
+        'private API key (the one labeled "api (Payment and Query APIs)" with ' +
+        'sensitivity "private") from the NMI portal.',
+    )
+  }
+  return v
 }
-if (!API_BASE) {
-  throw new Error(
-    'NMI_API_BASE is not set. Add it to app/.env.local. For sandbox use ' +
-      'https://sandbox.nmi.com/api/transact.php; live URL TBD via TouchSuite.',
-  )
+function apiBase(): string {
+  const v = process.env.NMI_API_BASE
+  if (!v) {
+    throw new Error(
+      'NMI_API_BASE is not set. Add it to app/.env.local. For sandbox use ' +
+        'https://sandbox.nmi.com/api/transact.php; live URL TBD via TouchSuite.',
+    )
+  }
+  return v
 }
 
 /**
@@ -86,14 +94,14 @@ export async function nmiCall(params: Record<string, string | number>): Promise<
   // URLSearchParams accepts string values only; coerce numbers (amounts,
   // quantities) here so callers can pass them naturally without .toString().
   const body = new URLSearchParams()
-  body.set('security_key', SECURITY_KEY!)
+  body.set('security_key', securityKey())
   for (const [k, v] of Object.entries(params)) {
     body.set(k, String(v))
   }
 
   let res: Response
   try {
-    res = await fetch(API_BASE!, {
+    res = await fetch(apiBase(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),

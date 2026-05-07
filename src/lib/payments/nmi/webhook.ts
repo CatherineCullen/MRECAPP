@@ -31,16 +31,19 @@ import crypto from 'node:crypto'
  * `<t>.<body>` (Stripe's pattern) — if NMI rejects, try the alternative.
  */
 
-const SIGNING_KEY = process.env.NMI_WEBHOOK_SIGNING_KEY
-
-if (!SIGNING_KEY) {
-  // Module-level throw so we fail loud at deploy time rather than at the
-  // first webhook we can't verify. Matches the pattern in client.ts.
-  throw new Error(
-    'NMI_WEBHOOK_SIGNING_KEY is not set. Generate it in the NMI portal at ' +
-      'Settings → Webhooks (per-endpoint signing key shown after Save) and ' +
-      'add to app/.env.local.',
-  )
+// Lazy env getter — module-level throws break `next build`'s page-data
+// collection pass. Validate at call time so the error still surfaces
+// loudly, just at the first webhook rather than at import.
+function signingKey(): string {
+  const v = process.env.NMI_WEBHOOK_SIGNING_KEY
+  if (!v) {
+    throw new Error(
+      'NMI_WEBHOOK_SIGNING_KEY is not set. Generate it in the NMI portal at ' +
+        'Settings → Webhooks (per-endpoint signing key shown after Save) and ' +
+        'add to app/.env.local.',
+    )
+  }
+  return v
 }
 
 const TIMESTAMP_TOLERANCE_SECONDS = 300 // 5 minutes; rejects replays older than this
@@ -131,7 +134,7 @@ export function verifyNmiWebhook(rawBody: string, signatureHeader: string | null
   // approach — if NMI uses a different separator (no `.`), this will
   // fail in sandbox testing and we'll adjust.
   const expected = crypto
-    .createHmac('sha256', SIGNING_KEY!)
+    .createHmac('sha256', signingKey())
     .update(`${timestamp}.${rawBody}`)
     .digest('hex')
 
