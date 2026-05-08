@@ -71,6 +71,45 @@ export async function markNotContinuing(
   }
 }
 
+/**
+ * Edit a pending lesson_month's per-lesson price. Refused for Invoiced
+ * or Paid rows — once the invoice is sent, the price lives on
+ * invoice_line_item.unit_price too, and silently diverging them is a
+ * bug surface. Admin can void the invoice (returns rows to Pending)
+ * if they need to correct after the fact.
+ */
+export async function updateLessonMonthPrice(
+  args: { lessonMonthId: string; perLessonPrice: number },
+): Promise<{ ok: true; newTotal: number } | { ok: false; error: string }> {
+  if (!Number.isFinite(args.perLessonPrice) || args.perLessonPrice < 0) {
+    return { ok: false, error: 'Price must be a non-negative number.' }
+  }
+
+  const supabase = createAdminClient()
+
+  const { data: lm, error: readErr } = await supabase
+    .from('lesson_month')
+    .select('id, status, lesson_count')
+    .eq('id', args.lessonMonthId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (readErr) return { ok: false, error: readErr.message }
+  if (!lm)     return { ok: false, error: 'Lesson month not found.' }
+  if (lm.status !== 'Pending') {
+    return { ok: false, error: `Cannot edit price on ${lm.status} months. Void the invoice first.` }
+  }
+
+  const newTotal = Number(args.perLessonPrice) * Number(lm.lesson_count)
+  const { error: updErr } = await supabase
+    .from('lesson_month')
+    .update({ per_lesson_price: args.perLessonPrice, total: newTotal })
+    .eq('id', args.lessonMonthId)
+  if (updErr) return { ok: false, error: updErr.message }
+
+  revalidatePath('/chia/lessons-events/monthly-billing')
+  return { ok: true, newTotal }
+}
+
 // ============================================================================
 // sendMonthInvoices — NMI batch send for a target month
 // ============================================================================

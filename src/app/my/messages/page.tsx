@@ -36,6 +36,10 @@ export default async function MessagesPage() {
         </Link>
       </div>
 
+      <div className="bg-surface-highest/40 border border-outline-variant/30 rounded-lg px-3 py-2 text-xs text-on-surface-muted">
+        Heads up: barn admins can see and respond to all messages.
+      </div>
+
       {rows.length === 0 ? (
         <div className="bg-surface-lowest rounded-lg px-4 py-8 text-center">
           <p className="text-sm text-on-surface-muted">No conversations yet.</p>

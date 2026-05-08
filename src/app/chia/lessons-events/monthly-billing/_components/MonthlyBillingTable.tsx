@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { markNotContinuing } from '../actions'
+import { markNotContinuing, updateLessonMonthPrice } from '../actions'
 
 type Row = {
   lessonMonthId:    string
@@ -26,6 +26,44 @@ export default function MonthlyBillingTable({ rows }: { rows: Row[] }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [pendingId, setPendingId] = useState<string | null>(null)
+
+  // Inline price editing for Pending rows. We hold the optimistic
+  // per-lesson rate and total locally so the UI updates immediately
+  // on save without waiting for the page to revalidate.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draft, setDraft]         = useState<string>('')
+  const [overrides, setOverrides] = useState<Record<string, { rate: number; total: number }>>({})
+
+  function startEdit(r: Row) {
+    if (r.status !== 'Pending') return
+    setError(null)
+    setEditingId(r.lessonMonthId)
+    setDraft((overrides[r.lessonMonthId]?.rate ?? r.perLessonPrice).toFixed(2))
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setDraft('')
+  }
+
+  function saveEdit(lessonMonthId: string) {
+    const next = Number(draft)
+    if (!Number.isFinite(next) || next < 0) {
+      setError('Enter a non-negative number.')
+      return
+    }
+    setError(null)
+    startTransition(async () => {
+      const r = await updateLessonMonthPrice({ lessonMonthId, perLessonPrice: next })
+      if (!r.ok) {
+        setError(r.error)
+        return
+      }
+      setOverrides((o) => ({ ...o, [lessonMonthId]: { rate: next, total: r.newTotal } }))
+      setEditingId(null)
+      setDraft('')
+    })
+  }
 
   if (rows.length === 0) {
     return (
@@ -94,9 +132,43 @@ export default function MonthlyBillingTable({ rows }: { rows: Row[] }) {
                     {r.lessonCount}
                     {r.isProrated && <div className="text-[10px] text-[#7a5a00]">prorated</div>}
                   </td>
-                  <td className="px-3 py-2 text-right text-[#444650] tabular-nums">{fmtMoney(r.perLessonPrice)}</td>
+                  <td className="px-3 py-2 text-right text-[#444650] tabular-nums">
+                    {editingId === r.lessonMonthId ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-[#8c8e98]">$</span>
+                        <input
+                          autoFocus
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter')  saveEdit(r.lessonMonthId)
+                            if (e.key === 'Escape') cancelEdit()
+                          }}
+                          className="w-20 border border-[#c4c6d1] rounded px-1.5 py-0.5 text-xs text-right tabular-nums focus:outline-none focus:border-[#002058]"
+                        />
+                        <button onClick={() => saveEdit(r.lessonMonthId)} disabled={pending} className="text-[10px] text-[#002058] font-semibold hover:underline disabled:opacity-50">Save</button>
+                        <button onClick={cancelEdit} className="text-[10px] text-[#444650] hover:underline">×</button>
+                      </span>
+                    ) : r.status === 'Pending' ? (
+                      <button
+                        onClick={() => startEdit(r)}
+                        className="hover:text-[#191c1e] hover:underline tabular-nums"
+                        title="Click to edit per-lesson rate (Pending months only)"
+                      >
+                        {fmtMoney(overrides[r.lessonMonthId]?.rate ?? r.perLessonPrice)}
+                      </button>
+                    ) : (
+                      <span>{fmtMoney(r.perLessonPrice)}</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right text-[#191c1e] tabular-nums font-semibold">
-                    {r.total != null ? fmtMoney(r.total) : '—'}
+                    {(() => {
+                      const total = overrides[r.lessonMonthId]?.total ?? r.total
+                      return total != null ? fmtMoney(total) : '—'
+                    })()}
                   </td>
                   <td className="px-3 py-2">
                     <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold rounded uppercase tracking-wide ${

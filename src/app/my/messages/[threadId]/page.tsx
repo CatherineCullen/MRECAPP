@@ -71,6 +71,10 @@ export default async function ThreadPage({
         <h1 className="text-base font-bold text-on-surface truncate ml-3">{detail.headerLabel}</h1>
       </div>
 
+      <div className="bg-surface-highest/40 border border-outline-variant/30 rounded-lg px-3 py-2 text-xs text-on-surface-muted">
+        Barn admins can see and respond to all messages.
+      </div>
+
       {/* Thread */}
       <div className="space-y-3">
         {grouped.length === 0 && (
