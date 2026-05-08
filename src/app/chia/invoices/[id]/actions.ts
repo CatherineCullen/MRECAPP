@@ -62,6 +62,9 @@ export async function markInvoicePaid(args: MarkPaidArgs): Promise<MarkPaidResul
   revalidatePath('/chia/lessons-events/unbilled')
   revalidatePath('/chia/boarding/drafts')
   revalidatePath('/chia/boarding/invoices')
+  // Rider-facing surfaces (Schedule, Invoices tab) read from invoice +
+  // lesson status; mark-paid flips both, so refresh the /my layout too.
+  revalidatePath('/my', 'layout')
 
   return {
     ok:          true,

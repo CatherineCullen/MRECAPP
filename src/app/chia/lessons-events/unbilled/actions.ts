@@ -40,6 +40,8 @@ export async function sendPackageInvoice(params: {
     revalidatePath('/chia/lessons-events/unbilled')
     revalidatePath(`/chia/people/${params.billedToId}`)
     revalidatePath('/chia/lessons-events')
+    // Recipient's /my surfaces (Invoices tab, Schedule) need to see the new invoice.
+    revalidatePath('/my', 'layout')
     return result
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -294,6 +296,7 @@ export async function exportPackageInvoice(params: {
     revalidatePath('/chia/lessons-events/unbilled')
     revalidatePath(`/chia/people/${billedToId}`)
     revalidatePath('/chia/lessons-events')
+    revalidatePath('/my', 'layout')
 
     const filename = `chia-export-${displayName(billedTo).replace(/\s+/g, '-')}-${sentAtIso.slice(0, 10)}.csv`
     return {

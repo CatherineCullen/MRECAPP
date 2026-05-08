@@ -343,6 +343,7 @@ export async function sendMonthInvoices(
 
   revalidatePath('/chia/lessons-events/monthly-billing')
   revalidatePath('/chia/lessons-events')
+  revalidatePath('/my', 'layout')
 
   const totalSent    = results.filter((r) => r.success).length
   const totalErrored = results.length - totalSent
@@ -610,6 +611,7 @@ export async function exportMonthInvoices(
 
   revalidatePath('/chia/lessons-events/monthly-billing')
   revalidatePath('/chia/lessons-events')
+  revalidatePath('/my', 'layout')
 
   const filename = `chia-export-${args.year}-${String(args.month).padStart(2, '0')}.csv`
   return {

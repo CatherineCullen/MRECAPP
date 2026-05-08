@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { applyInvoicePaid } from '@/lib/payments/applyInvoicePaid'
 import {
@@ -177,6 +178,14 @@ async function handleInvoicePaid(
   if (!result.ok) {
     throw new Error(`applyInvoicePaid failed for ${invoice.id}: ${result.error}`)
   }
+
+  // Refresh rider-facing surfaces so the rider sees their lessons flip
+  // from "Awaiting payment" to fully scheduled, and admin surfaces so
+  // the invoice row updates without a manual reload.
+  revalidatePath('/chia/lessons-events/monthly-billing')
+  revalidatePath('/chia/lessons-events/unbilled')
+  revalidatePath('/chia/lessons-events')
+  revalidatePath('/my', 'layout')
 }
 
 /**

@@ -114,6 +114,9 @@ export async function voidAndCancelLessonInvoice(params: {
   revalidatePath('/chia/lessons-events/unbilled')
   revalidatePath('/chia/lessons-events/monthly-billing')
   revalidatePath('/chia/lessons-events')
+  // Voiding can flip lesson_month back to Pending and unstamp source rows;
+  // the rider's Schedule + Invoices tab need to reflect that.
+  revalidatePath('/my', 'layout')
 
   return { ok: true }
 }

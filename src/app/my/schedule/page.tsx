@@ -41,13 +41,17 @@ export default async function MySchedulePage() {
     .is('cancelled_at', null)
     .is('deleted_at', null)
 
-  // Filter to upcoming scheduled lessons in JS (PostgREST nested filters are unreliable here)
+  // Filter to upcoming lessons in JS (PostgREST nested filters are unreliable
+  // here). Include both 'scheduled' (paid + on the books) and 'pending'
+  // (slot is committed but invoice hasn't been paid yet) so riders can see
+  // their upcoming commitments before payment clears. Cancellation /
+  // completed / etc. statuses still hide.
   type LessonRiderRow = NonNullable<typeof lessonRiders>[number]
   const upcoming = (lessonRiders ?? []).filter((lr: LessonRiderRow) => {
     const lesson = Array.isArray(lr.lesson) ? lr.lesson[0] : lr.lesson as any
     if (!lesson) return false
     if (lesson.deleted_at) return false
-    if (lesson.status !== 'scheduled') return false
+    if (lesson.status !== 'scheduled' && lesson.status !== 'pending') return false
     return lesson.scheduled_at >= nowStr
   }).sort((a: LessonRiderRow, b: LessonRiderRow) => {
     const la = Array.isArray(a.lesson) ? a.lesson[0] : a.lesson as any
@@ -190,6 +194,7 @@ export default async function MySchedulePage() {
                   isMakeup={l.is_makeup}
                   hoursUntil={hoursUntil}
                   riderName={riderName}
+                  awaitingPayment={l.status === 'pending'}
                 />
               )
             } else if (item.kind === 'training') {

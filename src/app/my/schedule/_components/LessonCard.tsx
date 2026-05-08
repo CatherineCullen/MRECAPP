@@ -15,6 +15,10 @@ type Props = {
   isMakeup:      boolean
   hoursUntil:    number   // computed server-side, passed in for display logic
   riderName?:    string | null
+  /** Lesson row is status='pending' — slot is committed but the parent
+   *  lesson_month invoice hasn't been paid yet. Shown as a small chip
+   *  so the rider sees their upcoming commitment with the right context. */
+  awaitingPayment?: boolean
 }
 
 function formatDate(iso: string) {
@@ -40,7 +44,7 @@ const LESSON_LABEL = {
 }
 
 export default function LessonCard({
-  lessonRiderId, lessonId, scheduledAt, instructorId, instructorName, lessonType, isMakeup, hoursUntil, riderName,
+  lessonRiderId, lessonId, scheduledAt, instructorId, instructorName, lessonType, isMakeup, hoursUntil, riderName, awaitingPayment,
 }: Props) {
   const [expanded,    setExpanded]    = useState(false)
   const [confirming,  setConfirming]  = useState(false)
@@ -103,6 +107,14 @@ export default function LessonCard({
           {isMakeup && (
             <span className="text-[10px] font-semibold bg-warning-container text-warning px-1.5 py-0.5 rounded uppercase tracking-wide">
               Makeup
+            </span>
+          )}
+          {awaitingPayment && (
+            <span
+              className="text-[10px] font-semibold bg-warning-container text-warning px-1.5 py-0.5 rounded uppercase tracking-wide"
+              title="Slot is committed; awaiting payment"
+            >
+              Awaiting payment
             </span>
           )}
           {isLate && !confirming && (
