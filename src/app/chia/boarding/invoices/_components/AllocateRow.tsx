@@ -451,17 +451,35 @@ export default function AllocateRow({ item, billingContacts }: Props) {
 }
 
 function MetaLine({ item }: { item: QueueLineItem }) {
-  // Service logs carry both a logged date and a free-text note. Monthly
-  // Board and ad-hoc have neither — the meta line is hidden for them.
-  if (item.sourceKind !== 'service_log') return null
-  if (!item.loggedAt && !item.notes) return null
-  return (
-    <div className="text-xs text-[#8c8e98] truncate">
-      {item.loggedAt && <span>{fmtDate(item.loggedAt)}</span>}
-      {item.loggedAt && item.notes && <span> &middot; </span>}
-      {item.notes && <span title={item.notes}>{item.notes}</span>}
-    </div>
-  )
+  if (item.sourceKind === 'service_log') {
+    if (!item.loggedAt && !item.notes) return null
+    return (
+      <div className="text-xs text-[#8c8e98] truncate">
+        {item.loggedAt && <span>{fmtDate(item.loggedAt)}</span>}
+        {item.loggedAt && item.notes && <span> &middot; </span>}
+        {item.notes && <span title={item.notes}>{item.notes}</span>}
+      </div>
+    )
+  }
+  if (item.sourceKind === 'training_ride') {
+    const dates = item.rideDates ?? []
+    if (dates.length === 0) return null
+    const formatted = dates.map(fmtRideDate).join(', ')
+    return (
+      <div className="text-xs text-[#8c8e98]" title={formatted}>
+        {formatted}
+      </div>
+    )
+  }
+  // Monthly Board and ad-hoc have no meta line.
+  return null
+}
+
+/** "2026-04-03" → "4/3". Parsing the date part directly avoids TZ wobble. */
+function fmtRideDate(iso: string): string {
+  const parts = iso.slice(0, 10).split('-')
+  if (parts.length !== 3) return iso
+  return `${Number(parts[1])}/${Number(parts[2])}`
 }
 
 function SourceChip({ kind }: { kind: QueueLineItem['sourceKind'] }) {

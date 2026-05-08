@@ -41,6 +41,10 @@ export type QueueLineItem = {
   createdAt: string
   loggedAt: string | null  // for service logs — when the service actually happened
   notes: string | null     // for service logs — the barn worker's note at log time
+  /** For training-ride aggregates: the ride dates rolled into this line,
+   *  sorted ascending. Null for every other sourceKind. Surfaced in the
+   *  Review queue so admin can see which dates the rider was billed for. */
+  rideDates: string[] | null
   allocations: QueueAllocation[]
 }
 
@@ -426,6 +430,28 @@ export async function loadQueue(): Promise<QueueSnapshot> {
   // linked) still deserves to be tagged — and re-tagged as ad_hoc would
   // hide it from any training-ride-specific UI handling later.
 
+  // --- Load ride dates per training-ride aggregate -----------------------
+  // For each TR aggregate line, pull the linked training_ride.ride_date
+  // values so the Review queue can show "4/3, 4/10, 4/17, ..." inline.
+  const trainingAggIds = (rawItems ?? [])
+    .filter(r => (r.description ?? '').startsWith('Training Rides — '))
+    .map(r => r.id)
+  const datesByItem = new Map<string, string[]>()
+  if (trainingAggIds.length > 0) {
+    const { data: rides } = await db
+      .from('training_ride')
+      .select('billing_line_item_id, ride_date')
+      .in('billing_line_item_id', trainingAggIds)
+      .is('deleted_at', null)
+      .order('ride_date', { ascending: true })
+    for (const r of rides ?? []) {
+      if (!r.billing_line_item_id || !r.ride_date) continue
+      const list = datesByItem.get(r.billing_line_item_id) ?? []
+      list.push(r.ride_date)
+      datesByItem.set(r.billing_line_item_id, list)
+    }
+  }
+
   // --- Load existing allocations for these items --------------------------
   const allocsByItem = new Map<string, QueueAllocation[]>()
   if (itemIds.length > 0) {
@@ -467,6 +493,7 @@ export async function loadQueue(): Promise<QueueSnapshot> {
       createdAt:                row.created_at,
       loggedAt:                 log?.logged_at ?? null,
       notes:                    log?.notes ?? null,
+      rideDates:                sourceKind === 'training_ride' ? (datesByItem.get(row.id) ?? []) : null,
       allocations:              allocsByItem.get(row.id) ?? [],
     }
     const list = byHorse.get(row.horse_id) ?? []
