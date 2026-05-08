@@ -81,7 +81,13 @@ export async function GET(
   const liveLessons = (lessonRiders ?? []).filter((lr: Row) => {
     const l = Array.isArray(lr.lesson) ? lr.lesson[0] : (lr.lesson as any)
     if (!l || l.deleted_at) return false
-    if (l.status !== 'scheduled') return false
+    // Include both 'scheduled' (paid + on the books) and 'pending' (slot
+    // committed but not yet finalized — future months in the rolling
+    // 3-month window). Mirrors the My Schedule filter so calendar
+    // subscribers see the same upcoming commitments as the in-app view.
+    // Description gets a "Pending" tag downstream so the user can tell
+    // the two states apart.
+    if (l.status !== 'scheduled' && l.status !== 'pending') return false
     return l.scheduled_at >= cutoffIso
   })
 
@@ -163,14 +169,18 @@ export async function GET(
     // works year-round.
     const startLocal = utcIsoToBarnNaive(l.scheduled_at)
     const endLocal = addMinutesToNaive(startLocal, l.duration_minutes ?? 30)
+    const isPending = l.status === 'pending'
+    const baseSummary = riderName ? `${typeLabel} — ${riderName}` : typeLabel
     events.push({
       uid:         `mrec-lesson-${l.id}@marlbororidgeequestriancenter.com`,
       kind:        'local',
       tzid:        BARN_TZ,
       startLocal,
       endLocal,
-      summary:     riderName ? `${typeLabel} — ${riderName}` : typeLabel,
-      description: `Instructor: ${instr}\n\nTo cancel or reschedule, log in to https://www.mrecapp.com.`,
+      summary:     isPending ? `${baseSummary} (Pending)` : baseSummary,
+      description: isPending
+        ? `Instructor: ${instr}\n\nStatus: Pending — slot is reserved but not yet finalized.\n\nTo cancel or reschedule, log in to https://www.mrecapp.com.`
+        : `Instructor: ${instr}\n\nTo cancel or reschedule, log in to https://www.mrecapp.com.`,
       location:    'Marlboro Ridge Equestrian Center',
     })
   }
