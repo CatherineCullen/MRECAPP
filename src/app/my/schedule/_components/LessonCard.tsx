@@ -15,10 +15,13 @@ type Props = {
   isMakeup:      boolean
   hoursUntil:    number   // computed server-side, passed in for display logic
   riderName?:    string | null
-  /** Lesson row is status='pending' — slot is committed but the parent
-   *  lesson_month invoice hasn't been paid yet. Shown as a small chip
-   *  so the rider sees their upcoming commitment with the right context. */
-  awaitingPayment?: boolean
+  /** Lesson row is status='pending' — slot is committed but not yet
+   *  finalized. Could mean the lesson_month hasn't been invoiced, OR
+   *  the invoice is sent but unpaid; we don't disambiguate on the
+   *  rider side. Shown as a small "Pending" chip so the rider sees
+   *  their upcoming commitment without misleading them about billing
+   *  state. The chip drops once status flips to 'scheduled' (paid). */
+  isPending?: boolean
 }
 
 function formatDate(iso: string) {
@@ -44,7 +47,7 @@ const LESSON_LABEL = {
 }
 
 export default function LessonCard({
-  lessonRiderId, lessonId, scheduledAt, instructorId, instructorName, lessonType, isMakeup, hoursUntil, riderName, awaitingPayment,
+  lessonRiderId, lessonId, scheduledAt, instructorId, instructorName, lessonType, isMakeup, hoursUntil, riderName, isPending,
 }: Props) {
   const [expanded,    setExpanded]    = useState(false)
   const [confirming,  setConfirming]  = useState(false)
@@ -109,12 +112,12 @@ export default function LessonCard({
               Makeup
             </span>
           )}
-          {awaitingPayment && (
+          {isPending && (
             <span
-              className="text-[10px] font-semibold bg-warning-container text-warning px-1.5 py-0.5 rounded uppercase tracking-wide"
-              title="Slot is committed; awaiting payment"
+              className="text-[10px] font-semibold bg-surface-highest text-on-surface-muted px-1.5 py-0.5 rounded uppercase tracking-wide"
+              title="Future month — slot is reserved but not yet finalized"
             >
-              Awaiting payment
+              Pending
             </span>
           )}
           {isLate && !confirming && (
@@ -125,7 +128,11 @@ export default function LessonCard({
         </div>
       </div>
 
-      {/* Expanded: action menu */}
+      {/* Expanded: action menu. Pending lessons (future-month rolling
+          window, not yet finalized) hide the cancel button entirely —
+          rider can only act on scheduled lessons. Spec: monthly-model-
+          migration.md "Rider-side cancel button rule" — clear absence,
+          not a disabled button. */}
       {expanded && !confirming && (
         <div className="mt-3 pt-3 border-t border-outline-variant/20 flex items-center gap-4" onClick={e => e.stopPropagation()}>
           <button
@@ -135,12 +142,14 @@ export default function LessonCard({
           >
             Message {instructorName}
           </button>
-          <button
-            onClick={() => setConfirming(true)}
-            className="text-sm font-semibold text-error"
-          >
-            Cancel this lesson
-          </button>
+          {!isPending && (
+            <button
+              onClick={() => setConfirming(true)}
+              className="text-sm font-semibold text-error"
+            >
+              Cancel this lesson
+            </button>
+          )}
         </div>
       )}
 

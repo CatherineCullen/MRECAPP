@@ -194,7 +194,7 @@ export default async function MySchedulePage() {
                   isMakeup={l.is_makeup}
                   hoursUntil={hoursUntil}
                   riderName={riderName}
-                  awaitingPayment={l.status === 'pending'}
+                  isPending={l.status === 'pending'}
                 />
               )
             } else if (item.kind === 'training') {
