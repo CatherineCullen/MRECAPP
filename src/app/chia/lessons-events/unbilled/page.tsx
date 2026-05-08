@@ -13,7 +13,7 @@ import { BARN_TZ } from '@/lib/datetime'
  * on a group → every unbilled item that person owes bundles into a single
  * invoice via NMI (or CSV Export at Send All).
  *
- * Subscription billing lives on the Monthly Billing tab — under the
+ * Subscription billing lives on the Monthly Subscriptions tab — under the
  * monthly model (ADR-0019) recurring weekly slots are billed per
  * lesson_month, not as a single quarterly subscription invoice. This page
  * is now strictly one-off products and events.
@@ -220,7 +220,7 @@ export default async function BillingProductsPage() {
           <h2 className="text-base font-bold text-[#191c1e]">Invoices</h2>
           <div className="text-xs text-[#444650] mt-0.5">
             One-off lesson products and events queued for billing. Recurring monthly
-            slot billing lives on the Monthly Billing tab.
+            slot billing lives on the Monthly Subscriptions tab.
           </div>
         </div>
         {groups.length > 0 && (

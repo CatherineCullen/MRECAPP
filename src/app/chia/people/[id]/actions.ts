@@ -301,5 +301,5 @@ export async function toggleRole(personId: string, role: string, add: boolean): 
 
 // syncStripeCustomer + createTestInvoice removed in PR 10 — Stripe is
 // gone. Admin smoke-testing now goes through the real flows: create a
-// monthly subscription + Send Invoices via NMI on the Monthly Billing
+// monthly subscription + Send Invoices via NMI on the Monthly Subscriptions
 // tab, or use the Mark Paid button on any invoice detail page.

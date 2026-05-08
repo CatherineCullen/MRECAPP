@@ -216,7 +216,7 @@ export default function EditSubscriptionForm({ subscription: s, futureLessonCoun
 
           {/* Per-lesson price + proration moved to lesson_month rows
               (PR 3b-rest, monthly model). Renewal-intent picker moved to
-              the Monthly Billing tab's Mark Not Continuing button. */}
+              the Monthly Subscriptions tab's Mark Not Continuing button. */}
 
           <div className="col-span-2">
             <label className={labelCls}>Makeup notes</label>

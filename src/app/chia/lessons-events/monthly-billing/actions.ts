@@ -35,7 +35,7 @@ async function loadSubscriptionsWithPriorInvoices(
 }
 
 /**
- * Server actions for the Monthly Billing tab (ADR-0019).
+ * Server actions for the Monthly Subscriptions tab (ADR-0019).
  */
 
 export type MarkNotContinuingResult = {

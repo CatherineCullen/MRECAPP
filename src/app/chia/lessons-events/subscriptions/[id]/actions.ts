@@ -22,7 +22,7 @@ type UpdateArgs = {
   // Removed in PR 3b-rest (monthly model): subscriptionPrice (catalog-driven
   // per_lesson_price snapshotted on lesson_month), isProrated/proratedPrice/
   // proratedLessonCount (proration is per-lesson_month), renewalIntent
-  // (continuation control moved to Monthly Billing tab's Mark Not Continuing).
+  // (continuation control moved to Monthly Subscriptions tab's Mark Not Continuing).
 }
 
 export async function updateSubscription(args: UpdateArgs): Promise<{ error?: string }> {

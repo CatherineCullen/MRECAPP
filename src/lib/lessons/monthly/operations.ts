@@ -19,7 +19,7 @@ import {
  *
  * Builds on `dates.ts` (pure date math) by adding the DB writes that
  * generate `lesson_month` + `lesson` + `lesson_rider` rows for a slot
- * subscription. Library code only — UI surfaces (Monthly Billing tab,
+ * subscription. Library code only — UI surfaces (Monthly Subscriptions tab,
  * subscription create form) live in route folders and call into these
  * functions.
  *

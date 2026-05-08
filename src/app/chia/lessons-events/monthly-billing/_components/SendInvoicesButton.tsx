@@ -21,7 +21,7 @@ type Props = {
 }
 
 /**
- * Per-month "Send Invoices" button on the Monthly Billing page. Opens
+ * Per-month "Send Invoices" button on the Monthly Subscriptions page. Opens
  * a modal that lets admin pick which path to send the batch through:
  *
  *   - **NMI** — calls NMI's add_invoice for each recipient; hosted

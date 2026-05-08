@@ -10,7 +10,7 @@ import { displayName } from '@/lib/displayName'
 // on a separate queue.
 //
 // Recurring monthly slot billing under the monthly model (ADR-0019) lives
-// on the Monthly Billing tab, not here — those invoices are still lesson-
+// on the Monthly Subscriptions tab, not here — those invoices are still lesson-
 // domain and will appear in the Sent list below by virtue of having a
 // lesson_subscription_id on at least one line.
 

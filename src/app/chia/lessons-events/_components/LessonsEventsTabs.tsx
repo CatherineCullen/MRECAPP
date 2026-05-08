@@ -16,7 +16,7 @@ import { usePathname } from 'next/navigation'
 // top-level tabs — keeps the tab row focused on what admin touches daily.
 //
 // Quarterly Renewal tab removed in PR 3b of the monthly-model rewrite
-// (ADR-0019). Replaced by a Monthly Billing tab in a later PR (PR 5);
+// (ADR-0019). Replaced by a Monthly Subscriptions tab in a later PR (PR 5);
 // for now the Calendar + Invoices flow continues to handle subscription
 // state and ad-hoc billing.
 //
@@ -25,10 +25,10 @@ import { usePathname } from 'next/navigation'
 const tabs = [
   { label: 'Calendar',         href: '/chia/lessons-events',                  exact: true,  distinct: false },
   { label: 'Invoices',         href: '/chia/lessons-events/unbilled',         exact: false, distinct: false },
-  { label: 'Monthly Billing',  href: '/chia/lessons-events/monthly-billing',  exact: false, distinct: false },
+  { label: 'Monthly Subscriptions',  href: '/chia/lessons-events/monthly-billing',  exact: false, distinct: false },
   // Configuration groups Catalog, Calendar (closed/makeup days), and
   // Instructor Availability — all rare admin tasks, not part of the
-  // daily Calendar/Invoices/Monthly Billing flow.
+  // daily Calendar/Invoices/Monthly Subscriptions flow.
   { label: 'Configuration',    href: '/chia/lessons-events/configuration',    exact: false, distinct: true  },
 ]
 

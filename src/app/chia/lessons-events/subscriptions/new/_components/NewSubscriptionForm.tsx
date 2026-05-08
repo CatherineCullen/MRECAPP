@@ -179,7 +179,7 @@ export default function NewSubscriptionForm({
       <div className="bg-white rounded-lg border border-[#c4c6d1]/40 p-6 max-w-md">
         <p className="text-sm font-semibold text-[#191c1e] mb-1">Subscription created for {created.riderName}</p>
         <p className="text-xs text-[#444650] mb-5">
-          The 3-month rolling window has been generated. Send the first invoice from the Monthly Billing tab when you&apos;re ready, or hold for the next batch.
+          The 3-month rolling window has been generated. Send the first invoice from the Monthly Subscriptions tab when you&apos;re ready, or hold for the next batch.
         </p>
         <div className="flex items-center gap-3">
           <button

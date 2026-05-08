@@ -166,7 +166,7 @@ function GroupCard({
   const [sentNmiId, setSentNmiId] = useState<string | null>(null)
   const [exported, setExported]   = useState<{ filename: string; chiaInvoiceId: string } | null>(null)
 
-  // Fork modal state — mirrors SendInvoicesButton on Monthly Billing.
+  // Fork modal state — mirrors SendInvoicesButton on Monthly Subscriptions.
   const [pickerOpen, setPickerOpen] = useState(false)
   const [path, setPath]             = useState<'nmi' | 'export'>('nmi')
 

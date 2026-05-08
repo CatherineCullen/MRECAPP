@@ -12,7 +12,7 @@ import { getCurrentUser } from '@/lib/auth'
  * Plus admin actions to discard a draft or void a sent invoice.
  *
  * After PR 3b/1 deleted the Quarterly Renewal UI and PRs 5-7 stood up
- * the monthly model end-to-end (Monthly Billing tab batch send via
+ * the monthly model end-to-end (Monthly Subscriptions tab batch send via
  * NMI), the only function still reachable from a live UI is
  * `voidAndCancelLessonInvoice`, called by `LessonSentView` on the
  * Invoices tab. The other functions and their UI components
@@ -25,7 +25,7 @@ import { getCurrentUser } from '@/lib/auth'
  * cascade also simplifies: under the monthly model, lessons hang off
  * `lesson_month`, not directly off `lesson_subscription` via
  * `invoice_id`. So voiding a CHIA invoice is just a status flip;
- * downstream lesson_month rollback comes through the Monthly Billing
+ * downstream lesson_month rollback comes through the Monthly Subscriptions
  * tab's "Mark Not Continuing" flow if admin needs it.
  *
  * Sent invoices remain on the Sent view as audit history regardless of
@@ -79,7 +79,7 @@ export async function voidAndCancelLessonInvoice(params: {
   // entities that need to flow somewhere.
   //
   // For monthly subscription invoices, lesson_month rows also revert
-  // to status='Pending' so they reappear on the Monthly Billing tab
+  // to status='Pending' so they reappear on the Monthly Subscriptions tab
   // for the original (year, month).
   const sourceErrors: string[] = []
 

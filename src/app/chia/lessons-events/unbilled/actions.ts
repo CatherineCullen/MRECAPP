@@ -13,7 +13,7 @@ import { displayName } from '@/lib/displayName'
  * Unbilled Products UI already groups them by person so that is invariant
  * by the time we get here.
  *
- * Recurring monthly slot billing goes through the Monthly Billing tab,
+ * Recurring monthly slot billing goes through the Monthly Subscriptions tab,
  * not this path.
  */
 export async function sendPackageInvoice(params: {
@@ -51,7 +51,7 @@ export async function sendPackageInvoice(params: {
 
 // ============================================================================
 // exportPackageInvoice — CSV export fork for one-off lesson invoicing.
-// Mirrors exportMonthInvoices on the Monthly Billing tab. Same fork
+// Mirrors exportMonthInvoices on the Monthly Subscriptions tab. Same fork
 // shape (NMI vs Export at "Send invoice" time), same downstream model:
 // chia invoice row gets stamped exported_at, source rows get linked,
 // admin settles via Mark Paid once external billing clears.

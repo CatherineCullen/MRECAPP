@@ -14,7 +14,7 @@ const DAY_LABEL: Record<string, string> = {
 }
 
 /**
- * Monthly Billing tab (ADR-0019, replaces the deleted Quarterly Renewal UI).
+ * Monthly Subscriptions tab (ADR-0019, replaces the deleted Quarterly Renewal UI).
  *
  * Always-live curation surface. Default view: current month + next two
  * months of `lesson_month` rows, grouped by month. Admin can mark a
@@ -67,7 +67,7 @@ export default async function MonthlyBillingPage() {
   if (error) {
     return (
       <div className="p-6 max-w-5xl">
-        <h2 className="text-lg font-bold text-[#191c1e] mb-2">Monthly Billing</h2>
+        <h2 className="text-lg font-bold text-[#191c1e] mb-2">Monthly Subscriptions</h2>
         <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
           Failed to load lesson months: {error.message}
         </div>
@@ -131,7 +131,7 @@ export default async function MonthlyBillingPage() {
   return (
     <div className="p-6 max-w-5xl">
       <div className="mb-4">
-        <h2 className="text-lg font-bold text-[#191c1e]">Monthly Billing</h2>
+        <h2 className="text-lg font-bold text-[#191c1e]">Monthly Subscriptions</h2>
         <p className="text-xs text-[#444650] mt-0.5">
           Subscription lesson months for this month and the next two. Mark a slot as not continuing to clear its pending months. Send Invoices is coming in a follow-up — for now, route through the existing Invoices tab if you need to send before then.
         </p>

@@ -13,7 +13,7 @@ import { createAndSendInvoice, type LineItemInput } from './invoice'
  *     `add_invoice` request.
  *   - Drops the legacy `subscriptionIds` parameter — quarterly
  *     subscription invoicing no longer flows through this path
- *     (monthly model handles it via the Monthly Billing tab batch send,
+ *     (monthly model handles it via the Monthly Subscriptions tab batch send,
  *     PR 7).
  *
  * Returns the NMI invoice id (admins reference it in the NMI portal)

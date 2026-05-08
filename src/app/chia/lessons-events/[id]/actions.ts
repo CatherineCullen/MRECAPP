@@ -400,7 +400,7 @@ export async function mergeLessons(args: {
   // Step B: if scope is 'rolling-3mo', find and collapse all future
   // scheduled lessons at same day-of-week + time + instructor across the
   // rolling window. Under the monthly model the window is "rest of
-  // current month + next 2 months" — same shape as Monthly Billing's
+  // current month + next 2 months" — same shape as Monthly Subscriptions's
   // rolling 3-month view.
   if (args.scope === 'rolling-3mo') {
     // Time-of-day + day-of-week from target.scheduled_at
