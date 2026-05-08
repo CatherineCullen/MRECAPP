@@ -109,7 +109,7 @@ export default function MonthlyBillingTable({ rows }: { rows: Row[] }) {
               <th className="px-3 py-2 text-right text-xs font-semibold text-[#444650] uppercase tracking-wide">Rate</th>
               <th className="px-3 py-2 text-right text-xs font-semibold text-[#444650] uppercase tracking-wide">Total</th>
               <th className="px-3 py-2 text-left text-xs font-semibold text-[#444650] uppercase tracking-wide">Status</th>
-              <th className="px-3 py-2 text-right text-xs font-semibold text-[#444650] uppercase tracking-wide w-24"></th>
+              <th className="px-3 py-2 text-right text-xs font-semibold text-[#444650] uppercase tracking-wide w-44"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#c4c6d1]/30">
@@ -184,10 +184,10 @@ export default function MonthlyBillingTable({ rows }: { rows: Row[] }) {
                       type="button"
                       onClick={() => handleNotContinuing(r.subscriptionId, r.riderName)}
                       disabled={isPending}
-                      className="text-[11px] text-[#8a1a1a] font-semibold hover:underline disabled:opacity-50"
+                      className="text-[11px] font-semibold text-[#8a1a1a] border border-[#ffd6d6] bg-white px-2.5 py-1 rounded hover:bg-[#ffd6d6]/30 disabled:opacity-50 transition-colors whitespace-nowrap"
                       title="Stamp ended_at on the subscription, soft-delete pending future months, and remove their lesson rows. Already-paid months are not affected."
                     >
-                      {isPending ? 'Working…' : 'Not continuing'}
+                      {isPending ? 'Working…' : 'Mark not continuing'}
                     </button>
                   </td>
                 </tr>
