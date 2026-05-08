@@ -37,7 +37,7 @@ export default async function MessagesPage() {
       </div>
 
       <div className="bg-surface-highest/40 border border-outline-variant/30 rounded-lg px-3 py-2 text-xs text-on-surface-muted">
-        Heads up: barn admins can see and respond to all messages.
+        Administrative staff can view and respond to all messages.
       </div>
 
       {rows.length === 0 ? (
