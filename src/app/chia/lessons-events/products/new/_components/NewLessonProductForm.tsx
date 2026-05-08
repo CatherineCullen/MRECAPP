@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import SearchPicker from '@/components/SearchPicker'
 import { createLessonProduct, type ProductKind } from '../actions'
-import { sendPackageInvoice } from '../../../unbilled/actions'
+import { sendPackageInvoice, exportPackageInvoice } from '../../../unbilled/actions'
 import { barnLocalToUtcIso } from '@/lib/datetime'
 
 type Option      = { id: string; name: string }
@@ -61,6 +61,9 @@ export default function NewLessonProductForm({
   const [invoicePending, startInvoiceTransition] = useTransition()
   const [invoiceError, setInvoiceError] = useState<string | null>(null)
   const [created, setCreated] = useState<{ packageId: string; lessonId: string; billedToId: string } | null>(null)
+  // Path picker for the post-create "Send invoice now" — same NMI/Export
+  // fork as the per-group button on the Unbilled queue.
+  const [sendPath, setSendPath] = useState<'nmi' | 'export'>('nmi')
 
   const isMakeup = Boolean(makeup)
   const makeupDaySet = new Set(makeupDays ?? [])
@@ -145,16 +148,33 @@ export default function NewLessonProductForm({
   function handleSendNow() {
     if (!created) return
     setInvoiceError(null)
+    const args = {
+      billedToId: created.billedToId,
+      packageIds: [created.packageId],
+    }
     startInvoiceTransition(async () => {
-      const result = await sendPackageInvoice({
-        billedToId: created.billedToId,
-        packageIds: [created.packageId],
-      })
-      if (result.error) {
-        setInvoiceError(result.error)
-        return
+      if (sendPath === 'nmi') {
+        const result = await sendPackageInvoice(args)
+        if (result.error) { setInvoiceError(result.error); return }
+        router.push(`/chia/lessons-events/${created.lessonId}`)
+      } else {
+        const result = await exportPackageInvoice(args)
+        if (result.error || !result.data) {
+          setInvoiceError(result.error ?? 'Export failed')
+          return
+        }
+        // Trigger CSV download in the browser.
+        const blob = new Blob([result.data.csv], { type: 'text/csv;charset=utf-8' })
+        const url  = URL.createObjectURL(blob)
+        const a    = document.createElement('a')
+        a.href     = url
+        a.download = result.data.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        router.push(`/chia/lessons-events/${created.lessonId}`)
       }
-      router.push(`/chia/lessons-events/${created.lessonId}`)
     })
   }
 
@@ -168,7 +188,46 @@ export default function NewLessonProductForm({
     return (
       <div className="bg-white rounded-lg border border-[#c4c6d1]/40 p-6 max-w-md">
         <p className="text-sm font-semibold text-[#191c1e] mb-1">{kindLabel} created</p>
-        <p className="text-xs text-[#444650] mb-5">Invoice {billerName}?</p>
+        <p className="text-xs text-[#444650] mb-4">Invoice {billerName}?</p>
+
+        <fieldset className="mb-4 space-y-2">
+          <legend className="text-xs font-semibold text-[#191c1e] mb-1.5">How to send</legend>
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="product-send-path"
+              value="nmi"
+              checked={sendPath === 'nmi'}
+              onChange={() => setSendPath('nmi')}
+              disabled={invoicePending}
+              className="mt-0.5 accent-[#002058]"
+            />
+            <span>
+              <span className="font-semibold text-[#191c1e]">NMI</span>
+              <span className="block text-[11px] text-[#444650]">
+                Hosted pay-link emails to {billerName}.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
+            <input
+              type="radio"
+              name="product-send-path"
+              value="export"
+              checked={sendPath === 'export'}
+              onChange={() => setSendPath('export')}
+              disabled={invoicePending}
+              className="mt-0.5 accent-[#002058]"
+            />
+            <span>
+              <span className="font-semibold text-[#191c1e]">Export CSV</span>
+              <span className="block text-[11px] text-[#444650]">
+                Downloads a CSV. Bill externally, then Mark Paid when payment lands.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
         {invoiceError && (
           <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
             {invoiceError}
@@ -181,7 +240,9 @@ export default function NewLessonProductForm({
             disabled={invoicePending}
             className="bg-[#002058] text-white text-sm font-semibold px-4 py-2 rounded hover:bg-[#003099] disabled:opacity-50 transition-colors"
           >
-            {invoicePending ? 'Sending…' : 'Send Invoice Now'}
+            {invoicePending
+              ? (sendPath === 'nmi' ? 'Sending…' : 'Exporting…')
+              : (sendPath === 'nmi' ? 'Send via NMI' : 'Export CSV')}
           </button>
           <button
             type="button"
