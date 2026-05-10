@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local data dumps (PII — e.g. visibook import exports)
 people.json
+
+# macOS/iCloud sync conflict duplicates ("foo 2.txt")
+* 2.*
