@@ -175,7 +175,16 @@ export async function cancelMyLesson(
   // truth, two surfaces.
   if (note?.trim()) {
     try {
-      const prefix = `${formatBarnDateTime(lesson.scheduled_at)} · Cancelled by rider`
+      // Prefix format: "Referring to <Lesson Type>, <Date/Time> · Cancelled by rider"
+      // Leading "Referring to" makes it unambiguous that the date is the
+      // LESSON's date, not the message's. Without that, reading the thread
+      // out of context made the prefixed date look like a send timestamp.
+      const lessonTypeLabel =
+        lesson.lesson_type === 'private'      ? 'Private lesson'
+        : lesson.lesson_type === 'semi_private' ? 'Semi-private lesson'
+        : lesson.lesson_type === 'group'        ? 'Group lesson'
+        : 'Lesson'
+      const prefix = `Referring to ${lessonTypeLabel}, ${formatBarnDateTime(lesson.scheduled_at)} · Cancelled by rider`
       // Resolve the instructor recipient from the lesson row.
       const { data: lessonRow } = await db
         .from('lesson')
