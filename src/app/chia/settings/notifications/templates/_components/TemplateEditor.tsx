@@ -40,7 +40,7 @@ const LABELS: Record<NotificationType, string> = {
 }
 
 const WIRED: Set<NotificationType> = new Set([
-  'lesson_reminder', 'lesson_cancellation', 'invoice', 'enrollment_invite', 'message_received',
+  'lesson_reminder', 'lesson_cancellation', 'enrollment_invite', 'message_received',
 ])
 
 function ChannelEditor({
@@ -183,8 +183,8 @@ export default function TemplateEditor({ initialTemplates }: { initialTemplates:
 
   const order: NotificationType[] = [
     'enrollment_invite',
-    'lesson_reminder', 'lesson_cancellation', 'invoice',
-    'makeup_token', 'lesson_confirmation', 'lesson_type_change',
+    'lesson_reminder', 'lesson_cancellation', 'message_received',
+    'invoice', 'makeup_token', 'lesson_confirmation', 'lesson_type_change',
     'health_alert',
   ]
 

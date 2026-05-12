@@ -90,15 +90,6 @@ export default function QrCodesClient({ serviceRows, providerRows, trainingRows,
       </div>
 
       <QrTable
-        heading="Per-service codes"
-        subheading="One per active a la carte service. Barn workers scan to log; active state follows the Service Catalog."
-        rows={serviceRows}
-        selected={selected}
-        onToggle={toggle}
-        emptyState="No active a la carte services — add some in the Service Catalog."
-      />
-
-      <QrTable
         heading="Per-provider codes"
         subheading="One per external provider. Provider must be a Person with the Service Provider role."
         rows={providerRows}
@@ -115,6 +106,15 @@ export default function QrCodesClient({ serviceRows, providerRows, trainingRows,
         selected={selected}
         onToggle={toggle}
         emptyState="No training ride providers yet. Add the role on a Person record."
+      />
+
+      <QrTable
+        heading="Per-service codes"
+        subheading="One per active a la carte service. Barn workers scan to log; active state follows the Service Catalog."
+        rows={serviceRows}
+        selected={selected}
+        onToggle={toggle}
+        emptyState="No active a la carte services — add some in the Service Catalog."
       />
     </div>
   )

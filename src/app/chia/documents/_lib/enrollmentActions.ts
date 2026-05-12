@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth'
 // Stripe customer pre-creation removed (ADR-0021 refinement) — under
 // the NMI direct integration we don't pre-create vault customers.
 import { sendEmail } from '@/lib/email'
+import { renderTemplate, wrapEmailBody } from '@/lib/renderTemplate'
 import { revalidatePath } from 'next/cache'
 
 function appBaseUrl(): string {
@@ -14,38 +15,32 @@ function appBaseUrl(): string {
   return 'http://localhost:3000'
 }
 
-function enrollmentEmailHtml(params: {
-  recipientName: string
+// Honors the email_enabled toggle in notification_config and pulls
+// subject/body from the editable notification_template row, so admin can
+// disable the auto-email or edit the copy without a deploy. When disabled
+// the action still returns the enrollment link for admin to share manually.
+async function sendEnrollmentInviteEmail(params: {
+  to:         string
+  firstName:  string
   enrollLink: string
-  forName?: string // set when the invite is for a child
-}): string {
-  const { recipientName, enrollLink, forName } = params
-  const subject = forName
-    ? `Enrollment invitation for ${forName} — Marlboro Ridge Equestrian Center`
-    : 'Enrollment invitation — Marlboro Ridge Equestrian Center'
-  void subject
-  const forLine = forName
-    ? `<p>This enrollment is for <strong>${forName}</strong>.</p>`
-    : ''
-  return `
-    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">
-      <p>Hi ${recipientName},</p>
-      <p>You've been invited to enroll at <strong>Marlboro Ridge Equestrian Center</strong>.
-      Please click the button below to complete your enrollment and sign your waiver.</p>
-      ${forLine}
-      <p style="margin:32px 0">
-        <a href="${enrollLink}"
-           style="background:#0f3460;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">
-          Complete Enrollment
-        </a>
-      </p>
-      <p style="color:#666;font-size:14px">
-        This link expires in 30 days. If you have questions, reply to this email or
-        contact the barn office directly.
-      </p>
-      <p style="color:#666;font-size:14px">— Marlboro Ridge Equestrian Center</p>
-    </div>
-  `
+}): Promise<void> {
+  const db = createAdminClient()
+  const [{ data: config }, { data: tmpl }] = await Promise.all([
+    db.from('notification_config').select('email_enabled').eq('notification_type', 'enrollment_invite').maybeSingle(),
+    db.from('notification_template').select('subject, body').eq('notification_type', 'enrollment_invite').eq('channel', 'email').maybeSingle(),
+  ])
+  if (!config?.email_enabled || !tmpl) return
+
+  const vars = {
+    first_name:   params.firstName,
+    enroll_link:  params.enrollLink,
+    expires_days: String(TOKEN_TTL_DAYS),
+  }
+  await sendEmail({
+    to:      params.to,
+    subject: renderTemplate(tmpl.subject ?? 'Enrollment invitation', vars),
+    html:    wrapEmailBody(renderTemplate(tmpl.body, vars)),
+  }).catch(e => console.error('[createInvite] Email send failed', params.to, e))
 }
 
 // Admin-only. Generates the stub Person(s) + a tokenized enrollment row,
@@ -128,14 +123,11 @@ export async function createInvite(
 
     if (input.email) {
       const enrollLink = `${appBaseUrl()}/enroll/${token}`
-      sendEmail({
-        to: input.email.trim(),
-        subject: 'Enrollment invitation — Marlboro Ridge Equestrian Center',
-        html: enrollmentEmailHtml({
-          recipientName: input.firstName.trim(),
-          enrollLink,
-        }),
-      }).catch(e => console.error('[createInvite] Email send failed', person.id, e))
+      await sendEnrollmentInviteEmail({
+        to:         input.email.trim(),
+        firstName:  input.firstName.trim(),
+        enrollLink,
+      })
     }
 
     revalidatePath('/chia/people')
@@ -198,15 +190,11 @@ export async function createInvite(
 
   if (input.parentEmail) {
     const enrollLink = `${appBaseUrl()}/enroll/${token}`
-    sendEmail({
-      to: input.parentEmail.trim(),
-      subject: `Enrollment invitation for ${input.childFirstName.trim()} — Marlboro Ridge Equestrian Center`,
-      html: enrollmentEmailHtml({
-        recipientName: input.parentFirstName.trim(),
-        enrollLink,
-        forName: input.childFirstName.trim(),
-      }),
-    }).catch(e => console.error('[createInvite/minor] Email send failed', parent.id, e))
+    await sendEnrollmentInviteEmail({
+      to:         input.parentEmail.trim(),
+      firstName:  input.parentFirstName.trim(),
+      enrollLink,
+    })
   }
 
   revalidatePath('/chia/people')
